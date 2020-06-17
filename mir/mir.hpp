@@ -4,9 +4,9 @@ using namespace std;
 
 namespace mir::inst {
 
-enum class InstKind { Assign, Op, Ref, Deref, Call, Phi };
+enum class InstKind { Assign, Op, Ref, Deref, PtrOffset, Call, Phi };
 
-enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq };
+enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
 
 class Variable {};
 
@@ -73,9 +73,3 @@ class PhiInst : Inst {
 };
 
 }  // namespace mir::inst
-
-namespace mir::codegen {
-
-class CodeGen {};
-
-}  // namespace mir::codegen
