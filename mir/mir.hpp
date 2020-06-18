@@ -3,8 +3,6 @@
 #include <optional>
 #include <vector>
 
-using namespace std;
-
 namespace mir::inst {
 
 enum class InstKind { Assign, Op, Ref, Load, Store, PtrOffset, Call, Phi };
@@ -22,6 +20,7 @@ class Inst {
   Variable dest;
 
   virtual InstKind inst_kind() = 0;
+  virtual ~Inst();
 };
 
 /// Assign instruction. `$dest = $src`
@@ -46,7 +45,7 @@ class OpInst : public Inst {
 class CallInst : public Inst {
  public:
   Variable func;
-  vector<Value> params;
+  std::vector<Value> params;
 
   virtual InstKind inst_kind() { return InstKind::Call; }
 };
@@ -78,7 +77,7 @@ class StoreInst : public Inst {
 /// Phi instruction. `$dest = phi(...$vars)`
 class PhiInst : public Inst {
  public:
-  vector<Variable> vars;
+  std::vector<Variable> vars;
 
   virtual InstKind inst_kind() { return InstKind::Phi; }
 };
@@ -90,48 +89,68 @@ namespace mir::types {
 const int INT_SIZE = 4;
 const int PTR_SIZE = 4;
 
+enum class TyKind { Int, Void, Array, Ptr };
+
+/// Base class for types
 class Ty {
  public:
-  virtual bool is_value_type() = 0;
-  virtual int size() = 0;
+  virtual TyKind kind() const = 0;
+  virtual bool is_value_type() const = 0;
+  virtual int size() const = 0;
+  virtual ~Ty();
 };
 
+/// Int type. `i32` or `int32` in some languages.
 class IntTy : public Ty {
  public:
-  virtual bool is_value_type() { return true; }
+  virtual TyKind kind() const { return TyKind::Int; }
+  virtual bool is_value_type() const { return true; }
   virtual int size() { return INT_SIZE; };
 };
 
+/// Void or unit type.
 class VoidTy : public Ty {
  public:
+  virtual TyKind kind() { return TyKind::Void; }
   virtual bool is_value_type() { return true; }
   virtual int size() { return 0; };
 };
 
+/// Array type. `item[len]`
 class ArrayTy : public Ty {
  public:
-  ArrayTy(unique_ptr<Ty> item, int len) {
-    this->item = move(item);
+  ArrayTy(std::shared_ptr<Ty> item, int len) {
+    this->item = std::move(item);
     this->len = len;
   }
 
-  unique_ptr<Ty> item;
+  std::shared_ptr<Ty> item;
   int len;
 
+  virtual TyKind kind() { return TyKind::Array; }
   virtual bool is_value_type() { return true; }
   virtual int size() { return item->size() * len; };
 };
 
+/// Pointer type. `item*`
+///
+/// When using `Array<T, n>` to construct a Ptr, instead of `Ptr<Array<T, n>>`
+/// it wil automagically reduce to `Ptr<T>`.
 class PtrTy : public Ty {
  public:
-  PtrTy(unique_ptr<Ty> to) { this->to = move(to); }
+  PtrTy(std::shared_ptr<Ty> item) {
+    this->item = std::move(item);
+    // reduce "to" type to array item if it's an array
+    reduce_array();
+  }
 
-  unique_ptr<Ty> to;
-  virtual bool is_value_type() { return false; }
-  virtual int size() { return PTR_SIZE; };
+  std::shared_ptr<Ty> item;
+  virtual TyKind kind() const { return TyKind::Ptr; }
+  virtual bool is_value_type() const { return false; }
+  virtual int size() const { return PTR_SIZE; };
 
  private:
-  void reduce_ty();
+  void reduce_array();
 };
 
 }  // namespace mir::types
