@@ -9,6 +9,7 @@ enum class InstKind { Assign, Op, Ref, Load, Store, PtrOffset, Call, Phi };
 
 enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
 
+// TODO: how are variable and values typed?
 class Variable {};
 
 class Value {};
@@ -24,7 +25,7 @@ class Inst {
 };
 
 /// Assign instruction. `$dest = $src`
-class AssignInst : public Inst {
+class AssignInst final : public Inst {
  public:
   Value src;
 
@@ -32,7 +33,7 @@ class AssignInst : public Inst {
 };
 
 /// Operator instruction. `$dest = $lhs op $rhs`
-class OpInst : public Inst {
+class OpInst final : public Inst {
  public:
   Value lhs;
   Value rhs;
@@ -42,7 +43,7 @@ class OpInst : public Inst {
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
-class CallInst : public Inst {
+class CallInst final : public Inst {
  public:
   Variable func;
   std::vector<Value> params;
@@ -51,7 +52,7 @@ class CallInst : public Inst {
 };
 
 /// Reference instruction. `$dest = &$val`
-class RefInst : public Inst {
+class RefInst final : public Inst {
  public:
   Variable val;
 
@@ -59,14 +60,14 @@ class RefInst : public Inst {
 };
 
 /// Dereference instruction. `$dest = *$val`
-class LoadInst : public Inst {
+class LoadInst final : public Inst {
  public:
   Value val;
 
   virtual InstKind inst_kind() { return InstKind::Load; }
 };
 
-class StoreInst : public Inst {
+class StoreInst final : public Inst {
  public:
   Variable dest;
   Value val;
@@ -75,7 +76,7 @@ class StoreInst : public Inst {
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
-class PhiInst : public Inst {
+class PhiInst final : public Inst {
  public:
   std::vector<Variable> vars;
 
@@ -101,7 +102,7 @@ class Ty {
 };
 
 /// Int type. `i32` or `int32` in some languages.
-class IntTy : public Ty {
+class IntTy final : public Ty {
  public:
   virtual TyKind kind() const { return TyKind::Int; }
   virtual bool is_value_type() const { return true; }
@@ -109,7 +110,7 @@ class IntTy : public Ty {
 };
 
 /// Void or unit type.
-class VoidTy : public Ty {
+class VoidTy final : public Ty {
  public:
   virtual TyKind kind() { return TyKind::Void; }
   virtual bool is_value_type() { return true; }
@@ -117,7 +118,7 @@ class VoidTy : public Ty {
 };
 
 /// Array type. `item[len]`
-class ArrayTy : public Ty {
+class ArrayTy final : public Ty {
  public:
   ArrayTy(std::shared_ptr<Ty> item, int len) {
     this->item = std::move(item);
@@ -136,7 +137,7 @@ class ArrayTy : public Ty {
 ///
 /// When using `Array<T, n>` to construct a Ptr, instead of `Ptr<Array<T, n>>`
 /// it wil automagically reduce to `Ptr<T>`.
-class PtrTy : public Ty {
+class PtrTy final : public Ty {
  public:
   PtrTy(std::shared_ptr<Ty> item) {
     this->item = std::move(item);
