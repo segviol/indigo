@@ -1,4 +1,3 @@
-#pragma once;
 #include "mir.hpp"
 
 #include <memory>
