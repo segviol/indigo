@@ -9,6 +9,10 @@ enum class InstKind { Assign, Op, Ref, Load, Store, PtrOffset, Call, Phi };
 
 enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
 
+enum class ValueKind { Imm, Void, Variable };
+
+void display_op(std::ostream& o, Op val);
+
 // TODO: how are variable and values typed?
 class Variable {};
 
@@ -90,6 +94,8 @@ namespace mir::types {
 const int INT_SIZE = 4;
 const int PTR_SIZE = 4;
 
+typedef std::shared_ptr<Ty> SharedTyPtr;
+
 enum class TyKind { Int, Void, Array, Ptr };
 
 /// Base class for types
@@ -98,6 +104,7 @@ class Ty {
   virtual TyKind kind() const = 0;
   virtual bool is_value_type() const = 0;
   virtual int size() const = 0;
+  virtual void display(std::ostream& o) const = 0;
   virtual ~Ty();
 };
 
@@ -107,6 +114,7 @@ class IntTy final : public Ty {
   virtual TyKind kind() const { return TyKind::Int; }
   virtual bool is_value_type() const { return true; }
   virtual int size() { return INT_SIZE; };
+  virtual void display(std::ostream& o) const;
 };
 
 /// Void or unit type.
@@ -115,22 +123,24 @@ class VoidTy final : public Ty {
   virtual TyKind kind() { return TyKind::Void; }
   virtual bool is_value_type() { return true; }
   virtual int size() { return 0; };
+  virtual void display(std::ostream& o) const;
 };
 
 /// Array type. `item[len]`
 class ArrayTy final : public Ty {
  public:
-  ArrayTy(std::shared_ptr<Ty> item, int len) {
+  ArrayTy(SharedTyPtr item, int len) {
     this->item = std::move(item);
     this->len = len;
   }
 
-  std::shared_ptr<Ty> item;
+  SharedTyPtr item;
   int len;
 
   virtual TyKind kind() { return TyKind::Array; }
   virtual bool is_value_type() { return true; }
   virtual int size() { return item->size() * len; };
+  virtual void display(std::ostream& o) const;
 };
 
 /// Pointer type. `item*`
@@ -139,19 +149,32 @@ class ArrayTy final : public Ty {
 /// it wil automagically reduce to `Ptr<T>`.
 class PtrTy final : public Ty {
  public:
-  PtrTy(std::shared_ptr<Ty> item) {
+  PtrTy(SharedTyPtr item) {
     this->item = std::move(item);
     // reduce "to" type to array item if it's an array
     reduce_array();
   }
 
-  std::shared_ptr<Ty> item;
+  SharedTyPtr item;
   virtual TyKind kind() const { return TyKind::Ptr; }
   virtual bool is_value_type() const { return false; }
   virtual int size() const { return PTR_SIZE; };
+  virtual void display(std::ostream& o) const;
 
  private:
   void reduce_array();
 };
+
+/// Create a new IntTy behind a shared pointer
+std::shared_ptr<IntTy> new_int_ty();
+
+/// Create a new VoidTy behind shared pointer
+std::shared_ptr<VoidTy> new_void_ty();
+
+/// Create a new ArrayTy behind shared pointer
+std::shared_ptr<ArrayTy> new_array_ty(SharedTyPtr item, int len);
+
+/// Create a new PtrTy behind shared pointer
+std::shared_ptr<PtrTy> new_ptr_ty(SharedTyPtr item);
 
 }  // namespace mir::types
