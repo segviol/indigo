@@ -18,6 +18,7 @@ class Variable {};
 
 class Value {};
 
+// TODO: Constructors for all these types
 /// Base class for instruction
 class Inst {
  public:
@@ -63,7 +64,7 @@ class RefInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Ref; }
 };
 
-/// Dereference instruction. `$dest = *$val`
+/// Dereference instruction. `$dest = load $val`
 class LoadInst final : public Inst {
  public:
   Value val;
@@ -71,12 +72,21 @@ class LoadInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Load; }
 };
 
+/// Store instruction. `store $val to $dest`
 class StoreInst final : public Inst {
  public:
-  Variable dest;
   Value val;
 
   virtual InstKind inst_kind() { return InstKind::Store; }
+};
+
+/// Offset ptr by offset. `$dest = $ptr + $offset`
+class PtrOffetInst final : public Inst {
+ public:
+  Variable ptr;
+  Value offset;
+
+  virtual InstKind inst_kind() { return InstKind::PtrOffset; }
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
