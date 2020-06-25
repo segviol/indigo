@@ -4,7 +4,6 @@
 
 #include "../../mir/mir.hpp"
 
-
 namespace backend::codegen {
 
 // TODO: implement ARM code
@@ -16,7 +15,11 @@ class ArmOptimizePass;
 class Codegen {
  public:
   Codegen(mir::inst::MirPackage package)
-      : package(package), mir_passes(), arm_passes(), extra_data() {}
+      : package(package),
+        arm_code(),
+        mir_passes(),
+        arm_passes(),
+        extra_data() {}
 
   void add_pass(std::unique_ptr<MirOptimizePass> pass) {
     mir_passes.push_back(std::move(pass));
