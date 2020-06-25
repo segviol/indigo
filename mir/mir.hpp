@@ -89,7 +89,7 @@ class PtrTy final : public Ty {
   void reduce_array();
 };
 
-/// Rest param for variadic function. This type only works in standard library
+/// Rest param for variadic function. This type only appears in standard library
 /// `putf(char*, ...rest)` function.
 class RestParamTy final : public Ty {
  public:
@@ -269,6 +269,18 @@ class BasicBlk : public prelude::Displayable {
   std::vector<std::unique_ptr<Inst>> inst;
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
+};
+
+class MirFunction : public prelude::Displayable {
+  // TODO: function definition?
+
+  virtual void display(std::ostream& o) const {}
+};
+
+class MirPackage : public prelude::Displayable {
+  // TODO: package definition?
+
+  virtual void display(std::ostream& o) const {}
 };
 
 }  // namespace mir::inst
