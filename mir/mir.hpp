@@ -1,7 +1,119 @@
 #pragma once
 #include <memory>
 #include <optional>
+#include <set>
 #include <vector>
+
+#include "../prelude/prelude.hpp"
+
+namespace mir::types {
+
+const int INT_SIZE = 4;
+const int PTR_SIZE = 4;
+
+class Ty;
+
+typedef std::shared_ptr<Ty> SharedTyPtr;
+
+enum class TyKind { Int, Void, Array, Ptr, RestParam };
+
+/// Base class for types
+class Ty : public prelude::Displayable {
+ public:
+  virtual TyKind kind() const = 0;
+  virtual bool is_value_type() const = 0;
+  virtual int size() const = 0;
+  virtual void display(std::ostream& o) const = 0;
+  virtual ~Ty(){};
+};
+
+/// Int type. `i32` or `int32` in some languages.
+class IntTy final : public Ty {
+ public:
+  IntTy() {}
+
+  virtual TyKind kind() const { return TyKind::Int; }
+  virtual bool is_value_type() const { return true; }
+  virtual int size() const { return INT_SIZE; };
+  virtual void display(std::ostream& o) const;
+  virtual ~IntTy() {}
+};
+
+/// Void or unit type.
+class VoidTy final : public Ty {
+ public:
+  VoidTy() {}
+
+  virtual TyKind kind() const { return TyKind::Void; }
+  virtual bool is_value_type() const { return true; }
+  virtual int size() const { return 0; };
+  virtual void display(std::ostream& o) const;
+  virtual ~VoidTy() {}
+};
+
+/// Array type. `item[len]`
+class ArrayTy final : public Ty {
+ public:
+  ArrayTy(SharedTyPtr item, int len) : item(item), len(len) {}
+
+  SharedTyPtr item;
+  int len;
+
+  virtual TyKind kind() const { return TyKind::Array; }
+  virtual bool is_value_type() const { return true; }
+  virtual int size() const { return item->size() * len; };
+  virtual void display(std::ostream& o) const;
+  virtual ~ArrayTy() {}
+};
+
+/// Pointer type. `item*`
+///
+/// When using `Array<T, n>` to construct a Ptr, instead of `Ptr<Array<T, n>>`
+/// it wil automagically reduce to `Ptr<T>`.
+class PtrTy final : public Ty {
+ public:
+  PtrTy(SharedTyPtr item) : item(item) {
+    // reduce "to" type to array item if it's an array
+    reduce_array();
+  }
+
+  SharedTyPtr item;
+  virtual TyKind kind() const { return TyKind::Ptr; }
+  virtual bool is_value_type() const { return false; }
+  virtual int size() const { return PTR_SIZE; };
+  virtual void display(std::ostream& o) const;
+  virtual ~PtrTy() {}
+
+ private:
+  void reduce_array();
+};
+
+/// Rest param for variadic function. This type only works in standard library
+/// `putf(char*, ...rest)` function.
+class RestParamTy final : public Ty {
+ public:
+  RestParamTy() {}
+
+  virtual TyKind kind() const { return TyKind::RestParam; }
+  virtual bool is_value_type() const { return true; }
+  virtual int size() const { return 0; };
+  virtual void display(std::ostream& o) const;
+  virtual ~RestParamTy() {}
+};
+
+/// Create a new IntTy behind a shared pointer
+std::shared_ptr<IntTy> new_int_ty();
+
+/// Create a new VoidTy behind shared pointer
+std::shared_ptr<VoidTy> new_void_ty();
+
+/// Create a new ArrayTy behind shared pointer
+std::shared_ptr<ArrayTy> new_array_ty(SharedTyPtr item, int len);
+
+/// Create a new PtrTy behind shared pointer
+std::shared_ptr<PtrTy> new_ptr_ty(SharedTyPtr item);
+
+}  // namespace mir::types
 
 namespace mir::inst {
 
@@ -11,12 +123,17 @@ enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
 
 enum class ValueKind { Imm, Void, Variable };
 
+enum class JumpInstructionKind { Undefined, Return, BrCond, Br, Unreachable };
+
 void display_op(std::ostream& o, Op val);
 
 // TODO: how are variable and values typed?
 class Variable {};
 
 class Value {};
+
+class JumpInstruction;
+class Inst;
 
 // TODO: Constructors for all these types
 /// Base class for instruction
@@ -97,94 +214,30 @@ class PhiInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Phi; }
 };
 
+class JumpInstruction final {
+ public:
+  JumpInstruction(JumpInstructionKind kind, int bb_true = -1, int bb_false = -1,
+                  std::optional<Variable> cond_ = {})
+      : cond(cond) {
+    this->kind = kind;
+    this->bb_true = bb_true;
+    this->bb_false = bb_false;
+  }
+
+  JumpInstructionKind kind;
+  std::optional<Variable> cond;
+  int bb_true;
+  int bb_false;
+};
+
+/// Represents a single basic block
+class BasicBlk {
+ public:
+  BasicBlk() : preced(), inst(), jump(JumpInstructionKind::Undefined) {}
+
+  std::set<int> preced;
+  std::vector<std::unique_ptr<Inst>> inst;
+  JumpInstruction jump;
+};
+
 }  // namespace mir::inst
-
-namespace mir::types {
-
-const int INT_SIZE = 4;
-const int PTR_SIZE = 4;
-
-typedef std::shared_ptr<Ty> SharedTyPtr;
-
-enum class TyKind { Int, Void, Array, Ptr };
-
-/// Base class for types
-class Ty {
- public:
-  virtual TyKind kind() const = 0;
-  virtual bool is_value_type() const = 0;
-  virtual int size() const = 0;
-  virtual void display(std::ostream& o) const = 0;
-  virtual ~Ty();
-};
-
-/// Int type. `i32` or `int32` in some languages.
-class IntTy final : public Ty {
- public:
-  virtual TyKind kind() const { return TyKind::Int; }
-  virtual bool is_value_type() const { return true; }
-  virtual int size() { return INT_SIZE; };
-  virtual void display(std::ostream& o) const;
-};
-
-/// Void or unit type.
-class VoidTy final : public Ty {
- public:
-  virtual TyKind kind() { return TyKind::Void; }
-  virtual bool is_value_type() { return true; }
-  virtual int size() { return 0; };
-  virtual void display(std::ostream& o) const;
-};
-
-/// Array type. `item[len]`
-class ArrayTy final : public Ty {
- public:
-  ArrayTy(SharedTyPtr item, int len) {
-    this->item = std::move(item);
-    this->len = len;
-  }
-
-  SharedTyPtr item;
-  int len;
-
-  virtual TyKind kind() { return TyKind::Array; }
-  virtual bool is_value_type() { return true; }
-  virtual int size() { return item->size() * len; };
-  virtual void display(std::ostream& o) const;
-};
-
-/// Pointer type. `item*`
-///
-/// When using `Array<T, n>` to construct a Ptr, instead of `Ptr<Array<T, n>>`
-/// it wil automagically reduce to `Ptr<T>`.
-class PtrTy final : public Ty {
- public:
-  PtrTy(SharedTyPtr item) {
-    this->item = std::move(item);
-    // reduce "to" type to array item if it's an array
-    reduce_array();
-  }
-
-  SharedTyPtr item;
-  virtual TyKind kind() const { return TyKind::Ptr; }
-  virtual bool is_value_type() const { return false; }
-  virtual int size() const { return PTR_SIZE; };
-  virtual void display(std::ostream& o) const;
-
- private:
-  void reduce_array();
-};
-
-/// Create a new IntTy behind a shared pointer
-std::shared_ptr<IntTy> new_int_ty();
-
-/// Create a new VoidTy behind shared pointer
-std::shared_ptr<VoidTy> new_void_ty();
-
-/// Create a new ArrayTy behind shared pointer
-std::shared_ptr<ArrayTy> new_array_ty(SharedTyPtr item, int len);
-
-/// Create a new PtrTy behind shared pointer
-std::shared_ptr<PtrTy> new_ptr_ty(SharedTyPtr item);
-
-}  // namespace mir::types

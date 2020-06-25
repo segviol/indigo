@@ -74,6 +74,8 @@ void ArrayTy::display(std::ostream& o) const {
   o << " x " << len << "]";
 }
 
+void RestParamTy::display(std::ostream& o) const { o << "..."; }
+
 std::shared_ptr<IntTy> new_int_ty() { return std::make_shared<IntTy>(); }
 
 std::shared_ptr<VoidTy> new_void_ty() { return std::make_shared<VoidTy>(); }
