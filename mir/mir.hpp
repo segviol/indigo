@@ -14,6 +14,7 @@ const int PTR_SIZE = 4;
 class Ty;
 
 typedef std::shared_ptr<Ty> SharedTyPtr;
+typedef int LabelId;
 
 enum class TyKind { Int, Void, Array, Ptr, RestParam };
 
@@ -119,31 +120,38 @@ namespace mir::inst {
 
 enum class InstKind { Assign, Op, Ref, Load, Store, PtrOffset, Call, Phi };
 
-enum class Op { Add, Sub, Mul, Div, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
+enum class Op { Add, Sub, Mul, Div, Rem, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
 
 enum class ValueKind { Imm, Void, Variable };
 
 enum class JumpInstructionKind { Undefined, Return, BrCond, Br, Unreachable };
 
+enum class JumpKind { Undefined, Branch, Loop };
+
 void display_op(std::ostream& o, Op val);
 
 // TODO: how are variable and values typed?
-class Variable {};
+class Variable : public prelude::Displayable {
+  virtual void display(std::ostream& o) const;
+};
 
-class Value {};
+class Value : public prelude::Displayable {
+  virtual void display(std::ostream& o) const;
+};
 
 class JumpInstruction;
 class Inst;
 
 // TODO: Constructors for all these types
 /// Base class for instruction
-class Inst {
+class Inst : public prelude::Displayable {
  public:
   /// Instruction destination variable
   Variable dest;
 
   virtual InstKind inst_kind() = 0;
-  virtual ~Inst();
+  virtual void display(std::ostream& o) const = 0;
+  virtual ~Inst() {}
 };
 
 /// Assign instruction. `$dest = $src`
@@ -152,6 +160,8 @@ class AssignInst final : public Inst {
   Value src;
 
   virtual InstKind inst_kind() { return InstKind::Assign; }
+  virtual void display(std::ostream& o) const;
+  virtual ~AssignInst() {}
 };
 
 /// Operator instruction. `$dest = $lhs op $rhs`
@@ -162,6 +172,8 @@ class OpInst final : public Inst {
   Op op;
 
   virtual InstKind inst_kind() { return InstKind::Op; }
+  virtual void display(std::ostream& o) const;
+  virtual ~OpInst() {}
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -171,6 +183,8 @@ class CallInst final : public Inst {
   std::vector<Value> params;
 
   virtual InstKind inst_kind() { return InstKind::Call; }
+  virtual void display(std::ostream& o) const;
+  virtual ~CallInst() {}
 };
 
 /// Reference instruction. `$dest = &$val`
@@ -179,6 +193,8 @@ class RefInst final : public Inst {
   Variable val;
 
   virtual InstKind inst_kind() { return InstKind::Ref; }
+  virtual void display(std::ostream& o) const;
+  virtual ~RefInst() {}
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -187,6 +203,8 @@ class LoadInst final : public Inst {
   Value val;
 
   virtual InstKind inst_kind() { return InstKind::Load; }
+  virtual void display(std::ostream& o) const;
+  virtual ~LoadInst() {}
 };
 
 /// Store instruction. `store $val to $dest`
@@ -195,15 +213,19 @@ class StoreInst final : public Inst {
   Value val;
 
   virtual InstKind inst_kind() { return InstKind::Store; }
+  virtual void display(std::ostream& o) const;
+  virtual ~StoreInst() {}
 };
 
 /// Offset ptr by offset. `$dest = $ptr + $offset`
-class PtrOffetInst final : public Inst {
+class PtrOffsetInst final : public Inst {
  public:
   Variable ptr;
   Value offset;
 
   virtual InstKind inst_kind() { return InstKind::PtrOffset; }
+  virtual void display(std::ostream& o) const;
+  virtual ~PtrOffsetInst() {}
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
@@ -212,32 +234,41 @@ class PhiInst final : public Inst {
   std::vector<Variable> vars;
 
   virtual InstKind inst_kind() { return InstKind::Phi; }
+  virtual void display(std::ostream& o) const;
+  virtual ~PhiInst() {}
 };
 
-class JumpInstruction final {
+class JumpInstruction final : public prelude::Displayable {
  public:
   JumpInstruction(JumpInstructionKind kind, int bb_true = -1, int bb_false = -1,
-                  std::optional<Variable> cond_ = {})
-      : cond(cond) {
-    this->kind = kind;
-    this->bb_true = bb_true;
-    this->bb_false = bb_false;
-  }
+                  std::optional<Variable> cond_ = {},
+                  JumpKind jump_kind = JumpKind::Undefined)
+      : cond_or_ret(cond_or_ret),
+        kind(kind),
+        bb_true(bb_true),
+        bb_false(bb_false),
+        jump_kind(jump_kind) {}
 
   JumpInstructionKind kind;
-  std::optional<Variable> cond;
+  std::optional<Variable> cond_or_ret;
   int bb_true;
   int bb_false;
+  JumpKind jump_kind;
+  virtual void display(std::ostream& o) const;
+  virtual ~JumpInstruction() {}
 };
 
 /// Represents a single basic block
-class BasicBlk {
+class BasicBlk : public prelude::Displayable {
  public:
-  BasicBlk() : preced(), inst(), jump(JumpInstructionKind::Undefined) {}
+  BasicBlk(mir::types::LabelId id)
+      : id(id), preceding(), inst(), jump(JumpInstructionKind::Undefined) {}
 
-  std::set<int> preced;
+  mir::types::LabelId id;
+  std::set<mir::types::LabelId> preceding;
   std::vector<std::unique_ptr<Inst>> inst;
   JumpInstruction jump;
+  virtual void display(std::ostream& o) const;
 };
 
 }  // namespace mir::inst
