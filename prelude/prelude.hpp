@@ -23,6 +23,8 @@ static inline uint32_t rotr32(uint32_t n, unsigned int c) {
 
 class Displayable {
  public:
+  /// Output a text representation of this class using provided output stream
+  /// `o`
   virtual void display(std::ostream& o) const = 0;
   friend std::ostream& operator<<(std::ostream& o, const Displayable& val) {
     val.display(o);
