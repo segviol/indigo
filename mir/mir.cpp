@@ -20,6 +20,9 @@ void display_op(std::ostream& o, Op val) {
     case Op::Div:
       o << "/";
       break;
+    case Op::Rem:
+      o << "%";
+      break;
     case Op::Gt:
       o << ">";
       break;
