@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <typeinfo>
+#include <vector>
 
 namespace mir::inst {
 
@@ -96,7 +97,7 @@ void PhiInst::display(std::ostream& o) const {
 void JumpInstruction::display(std::ostream& o) const {
   switch (kind) {
     case JumpInstructionKind::Undefined:
-      o << "UNDEFINED_JUMP!";
+      o << "undefined_jump!";
       break;
 
     case JumpInstructionKind::Br:
@@ -117,6 +118,10 @@ void JumpInstruction::display(std::ostream& o) const {
         o << "ret " << cond_or_ret.value();
       else
         o << "ret void";
+      break;
+
+    case JumpInstructionKind::Unreachable:
+      o << "unreachable!";
       break;
 
     default:
@@ -169,7 +174,16 @@ void ArrayTy::display(std::ostream& o) const {
   o << " x " << len << "]";
 }
 
-void RestParamTy::display(std::ostream& o) const { o << "..."; }
+void FunctionTy::display(std::ostream& o) const {
+  o << "Fn(";
+  for (auto i = params.begin(); i != params.end(); i++) {
+    if (i != params.begin()) o << ", ";
+    o << *i;
+  }
+  o << ") -> " << *ret;
+}
+
+void RestParamTy::display(std::ostream& o) const { o << "...Rest"; }
 
 std::shared_ptr<IntTy> new_int_ty() { return std::make_shared<IntTy>(); }
 
@@ -181,6 +195,12 @@ std::shared_ptr<ArrayTy> new_array_ty(SharedTyPtr item, int len) {
 
 std::shared_ptr<PtrTy> new_ptr_ty(SharedTyPtr item) {
   return std::make_shared<PtrTy>(item);
+}
+
+std::shared_ptr<FunctionTy> new_function_ty(SharedTyPtr ret,
+                                            std::vector<SharedTyPtr> params,
+                                            bool is_extern = false) {
+  return std::make_shared<FunctionTy>(ret, params, is_extern);
 }
 
 }  // namespace mir::types
