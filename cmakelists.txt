@@ -17,9 +17,14 @@ set(mir_files
     mir/mir.cpp
     mir/mir.hpp)
 
+set(arm_files
+    arm_code/arm.hpp
+    arm_code/arm.cpp)
+
 add_library(backend ${backend_files})
 # add_library(frontend ${frontend_files})
 add_library(mir ${mir_files})
+add_library(arm ${arm_files})
 
 add_executable(compiler main.cpp)
 
@@ -27,4 +32,5 @@ target_link_libraries(
     compiler
     # frontend 
     backend 
-    mir)
+    mir
+    arm)
