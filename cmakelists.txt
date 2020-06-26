@@ -20,8 +20,8 @@ set(mir_files
     mir/mir.hpp)
 
 set(arm_files
-    arm_code/arm.hpp
-    arm_code/arm.cpp)
+    arm_code/arm.cpp
+    arm_code/arm.hpp)
 
 add_library(backend ${backend_files})
 # add_library(frontend ${frontend_files})
