@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -273,6 +274,8 @@ class BasicBlk : public prelude::Displayable {
 
 class MirFunction : public prelude::Displayable {
   // TODO: function definition?
+
+  std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
   virtual void display(std::ostream& o) const {}
 };
