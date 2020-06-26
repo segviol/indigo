@@ -17,14 +17,14 @@ class Ty;
 typedef std::shared_ptr<Ty> SharedTyPtr;
 typedef int LabelId;
 
-enum class TyKind { Int, Void, Array, Ptr, RestParam };
+enum class TyKind { Int, Void, Array, Ptr, Fn, RestParam };
 
 /// Base class for types
 class Ty : public prelude::Displayable {
  public:
   virtual TyKind kind() const = 0;
   virtual bool is_value_type() const = 0;
-  virtual int size() const = 0;
+  virtual std::optional<int> size() const = 0;
   virtual void display(std::ostream& o) const = 0;
   virtual ~Ty(){};
 };
@@ -36,7 +36,7 @@ class IntTy final : public Ty {
 
   virtual TyKind kind() const { return TyKind::Int; }
   virtual bool is_value_type() const { return true; }
-  virtual int size() const { return INT_SIZE; };
+  virtual std::optional<int> size() const { return INT_SIZE; };
   virtual void display(std::ostream& o) const;
   virtual ~IntTy() {}
 };
@@ -48,7 +48,7 @@ class VoidTy final : public Ty {
 
   virtual TyKind kind() const { return TyKind::Void; }
   virtual bool is_value_type() const { return true; }
-  virtual int size() const { return 0; };
+  virtual std::optional<int> size() const { return 0; };
   virtual void display(std::ostream& o) const;
   virtual ~VoidTy() {}
 };
@@ -63,7 +63,13 @@ class ArrayTy final : public Ty {
 
   virtual TyKind kind() const { return TyKind::Array; }
   virtual bool is_value_type() const { return true; }
-  virtual int size() const { return item->size() * len; };
+  virtual std::optional<int> size() const {
+    auto size = item->size();
+    if (size.has_value())
+      return (*size) * len;
+    else
+      return std::nullopt;
+  };
   virtual void display(std::ostream& o) const;
   virtual ~ArrayTy() {}
 };
@@ -82,12 +88,31 @@ class PtrTy final : public Ty {
   SharedTyPtr item;
   virtual TyKind kind() const { return TyKind::Ptr; }
   virtual bool is_value_type() const { return false; }
-  virtual int size() const { return PTR_SIZE; };
+  virtual std::optional<int> size() const { return PTR_SIZE; };
   virtual void display(std::ostream& o) const;
   virtual ~PtrTy() {}
 
  private:
   void reduce_array();
+};
+
+/// Represents a function.
+class FunctionTy final : public Ty {
+ public:
+  FunctionTy(SharedTyPtr return_val, std::vector<SharedTyPtr> params,
+             bool is_extern = false)
+      : ret(return_val), params(params), is_extern(is_extern) {}
+
+  SharedTyPtr ret;
+  std::vector<SharedTyPtr> params;
+
+  bool is_extern;
+
+  virtual TyKind kind() const { return TyKind::Fn; }
+  virtual bool is_value_type() const { return false; }
+  virtual std::optional<int> size() const { return std::nullopt; };
+  virtual void display(std::ostream& o) const;
+  virtual ~FunctionTy() {}
 };
 
 /// Rest param for variadic function. This type only appears in standard library
@@ -98,7 +123,7 @@ class RestParamTy final : public Ty {
 
   virtual TyKind kind() const { return TyKind::RestParam; }
   virtual bool is_value_type() const { return true; }
-  virtual int size() const { return 0; };
+  virtual std::optional<int> size() const { return std::nullopt; };
   virtual void display(std::ostream& o) const;
   virtual ~RestParamTy() {}
 };
@@ -242,7 +267,7 @@ class PhiInst final : public Inst {
 class JumpInstruction final : public prelude::Displayable {
  public:
   JumpInstruction(JumpInstructionKind kind, int bb_true = -1, int bb_false = -1,
-                  std::optional<Variable> cond_ = {},
+                  std::optional<Variable> cond_or_ret = {},
                   JumpKind jump_kind = JumpKind::Undefined)
       : cond_or_ret(cond_or_ret),
         kind(kind),
