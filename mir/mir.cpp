@@ -140,12 +140,29 @@ void BasicBlk::display(std::ostream& o) const {
   }
   o << std::endl;
 
-  for (auto& i : inst) {
-    o << *i << std::endl;
+  for (auto i = inst.begin(); i != inst.end(); i++) {
+    o << '\t' << **i << std::endl;
   }
 
   o << jump << std::endl;
 }
+
+void MirFunction::display(std::ostream& o) const {
+  auto& return_ty = type->ret;
+  auto& params = type->params;
+  o << "fn " << name << "(";
+  for (auto i = params.begin(); i != params.end(); i++) {
+    if (i != params.begin()) o << ", ";
+    o << *i;
+  }
+  o << ") ->" << return_ty << "{" << std::endl;
+  for (auto i = basic_blks.begin(); i != basic_blks.end(); i++) {
+    o << i->second;
+  }
+  o << "}" << std::endl;
+}
+
+void MirPackage::display(std::ostream& o) const {}
 
 }  // namespace mir::inst
 
