@@ -1,0 +1,8 @@
+
+build:
+    image: "clangbuiltinlinux/ubuntu:latest"
+    script:
+        - mkdir build
+        - cd build
+        - cmake ..
+        - make
