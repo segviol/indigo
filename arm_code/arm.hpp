@@ -17,16 +17,40 @@ bool is_valid_immediate(uint32_t val);
 
 enum class RegisterShiftKind : uint8_t { Asr, Lsl, Lsr, Ror, Rrx };
 enum class MemoryAccessKind : uint8_t { None, PreIndex, PostIndex };
+enum class RegisterKind {
+  GeneralPurpose,
+  DoubleVector,
+  QuadVector,
+  VirtualGeneralPurpose,
+  VirtualDoubleVector,
+  VirtualQuadVector
+};
 
-typedef uint8_t Reg;
+// Register type. Any value larger or equal to 64 is considered as a virtual
+// register, and any value larger or equal to 2^31 is considered as a virtual
+// vector register.
+typedef uint32_t Reg;
+
+const uint32_t REG_GP_START = 0;
+const uint32_t REG_DOUBLE_START = 16;
+const uint32_t REG_QUAD_START = 48;
+const uint32_t REG_V_GP_START = 64;
+const uint32_t REG_V_DOUBLE_START = 1 << 31;
+const uint32_t REG_V_QUAD_START = 3 << 30;
+
+inline bool is_virtual_register(Reg r);
+RegisterKind register_type(Reg r);
+uint32_t register_num(Reg r);
+void display_reg_name(std::ostream& o, Reg r);
+
+Reg make_register(RegisterKind ty, uint32_t num);
 
 struct RegisterOperand {
   RegisterOperand() : RegisterOperand(0) {}
 
-  RegisterOperand(uint8_t reg)
-      : RegisterOperand(0, RegisterShiftKind::Lsl, 0) {}
+  RegisterOperand(Reg reg) : RegisterOperand(0, RegisterShiftKind::Lsl, 0) {}
 
-  RegisterOperand(uint8_t reg, RegisterShiftKind shift, uint8_t shift_amount)
+  RegisterOperand(Reg reg, RegisterShiftKind shift, uint8_t shift_amount)
       : reg(reg), shift(shift), shift_amount(shift_amount) {}
 
   Reg reg;
