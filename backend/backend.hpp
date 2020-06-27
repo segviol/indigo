@@ -13,7 +13,7 @@ class ArmOptimizePass;
 class Backend {
  public:
   Backend(mir::inst::MirPackage package)
-      : package(package),
+      : package(std::move(package)),
         arm_code(),
         mir_passes(),
         arm_passes(),

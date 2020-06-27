@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "../prelude/prelude.hpp"
@@ -156,12 +157,25 @@ enum class JumpKind { Undefined, Branch, Loop };
 
 void display_op(std::ostream& o, Op val);
 
-// TODO: how are variable and values typed?
-class Variable : public prelude::Displayable {
+class GlobalValue
+    : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
+      public prelude::Displayable {
+ public:
   virtual void display(std::ostream& o) const;
 };
 
-class Value : public prelude::Displayable {
+typedef uint32_t VarId;
+
+class Variable : public prelude::Displayable {
+ public:
+  VarId id;
+  types::SharedTyPtr ty;
+
+  virtual void display(std::ostream& o) const;
+};
+
+class Value : std::variant<int32_t, VarId>, public prelude::Displayable {
+ public:
   virtual void display(std::ostream& o) const;
 };
 
@@ -295,20 +309,30 @@ class BasicBlk : public prelude::Displayable {
   std::vector<std::unique_ptr<Inst>> inst;
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
+
+  BasicBlk(BasicBlk& other) = delete;
 };
 
 class MirFunction : public prelude::Displayable {
-  // TODO: function definition?
-
+ public:
+  std::string name;
+  std::shared_ptr<types::FunctionTy> type;
   std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
-  virtual void display(std::ostream& o) const {}
+  virtual void display(std::ostream& o) const;
+
+  MirFunction(MirFunction& other) = delete;
 };
 
 class MirPackage : public prelude::Displayable {
-  // TODO: package definition?
+ public:
+  std::map<mir::types::LabelId, MirFunction> functions;
+  std::map<mir::types::LabelId, GlobalValue> global_values;
 
-  virtual void display(std::ostream& o) const {}
+  virtual void display(std::ostream& o) const;
+
+  MirPackage(MirPackage& other) = delete;
+  MirPackage(MirPackage&& other) = default;
 };
 
 }  // namespace mir::inst
