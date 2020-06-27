@@ -2,12 +2,10 @@
 #include <any>
 #include <map>
 
+#include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"
 
 namespace backend {
-
-// TODO: implement ARM code
-class ArmCode {};
 
 class MirOptimizePass;
 class ArmOptimizePass;
@@ -39,11 +37,11 @@ class Backend {
   void do_mir_to_arm_transform();
 
   /// Generate final code
-  ArmCode generate_code();
+  arm::ArmCode generate_code();
 
  private:
   mir::inst::MirPackage package;
-  std::optional<ArmCode> arm_code;
+  std::optional<arm::ArmCode> arm_code;
 
   std::vector<std::unique_ptr<MirOptimizePass>> mir_passes;
   std::vector<std::unique_ptr<ArmOptimizePass>> arm_passes;
@@ -66,7 +64,8 @@ class ArmOptimizePass {
  public:
   virtual std::string pass_name() const = 0;
   virtual void optimize_arm(
-      ArmCode& arm_code, std::map<std::string, std::any>& extra_data_repo) = 0;
+      arm::ArmCode& arm_code,
+      std::map<std::string, std::any>& extra_data_repo) = 0;
 
   virtual ~ArmOptimizePass(){};
 };
