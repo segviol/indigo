@@ -6,9 +6,9 @@ cache:
 
 before_script:
     - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-    - mkdir -p /etc/apk-cache
-    - ln -s /etc/apk/cache /etc/apk-cache
-    - apk cache sync -v
+    # - mkdir -p /etc/apk-cache
+    # - ln -s /etc/apk/cache /etc/apk-cache
+    # - apk cache sync -v
     - apk add clang cmake make
 
 build:
