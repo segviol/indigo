@@ -9,7 +9,7 @@ before_script:
     # - mkdir -p /etc/apk-cache
     # - ln -s /etc/apk/cache /etc/apk-cache
     # - apk cache sync -v
-    - apk add clang ld cmake make
+    - apk add autoconf build-base binutils cmake file gcc g++ git libgcc libtool linux-headers make musl-dev --no-cache
 
 build:
     script:
