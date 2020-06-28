@@ -231,7 +231,7 @@ class AssignInst final : public Inst {
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
     if (src.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(src));
     }
     return s;
   }
@@ -250,10 +250,10 @@ class OpInst final : public Inst {
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
     if (lhs.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(lhs));
     }
     if (rhs.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(rhs));
     }
     return s;
   }
@@ -272,7 +272,7 @@ class CallInst final : public Inst {
     auto s = std::set<VarId>();
     for (auto value : params) {
       if (value.index() == 1) {
-        // s.insert(src);
+        s.insert(std::get<VarId>(value));
       }
     }
     return s;
@@ -305,7 +305,7 @@ class LoadInst final : public Inst {
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
     if (val.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(val));
     }
     return s;
   }
@@ -322,7 +322,7 @@ class StoreInst final : public Inst {
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
     if (val.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(val));
     }
     return s;
   }
@@ -341,7 +341,7 @@ class PtrOffsetInst final : public Inst {
     auto s = std::set<VarId>();
     s.insert(ptr.id);
     if (offset.index() == 1) {
-      // s.insert(src);
+      s.insert(std::get<VarId>(offset));
     }
     return s;
   }
@@ -356,7 +356,10 @@ class PhiInst final : public Inst {
   virtual void display(std::ostream& o) const;
   virtual ~PhiInst() {}
   std::set<VarId> useVars() const {
-    auto s = std::set<VarId>(vars.begin(), vars.end());
+    auto s = std::set<VarId>();
+    for (auto var : vars) {
+      s.insert(var.id);
+    }
     return s;
   }
 };
