@@ -13,7 +13,7 @@ before_script:
 
 build:
     script:
-        - tree
+        - ls -la
         - mkdir -p build
         - cd build
         - cmake -DSTATIC_LINK_ARTIFACTS=1 ..
