@@ -1,7 +1,5 @@
 #include "arm.hpp"
 
-#include <bits/stdint-uintn.h>
-
 #include <cmath>
 #include <cstdint>
 #include <variant>
