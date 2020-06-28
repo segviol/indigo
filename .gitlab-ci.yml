@@ -9,7 +9,7 @@ before_script:
     # - mkdir -p /etc/apk-cache
     # - ln -s /etc/apk/cache /etc/apk-cache
     # - apk cache sync -v
-    - apk add clang cmake make
+    - apk add clang ld cmake make
 
 build:
     script:
