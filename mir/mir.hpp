@@ -335,7 +335,7 @@ class BasicBlk : public prelude::Displayable {
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
 
-  BasicBlk(BasicBlk& other) = delete;
+  BasicBlk(const BasicBlk& other) = delete;
 };
 
 class MirFunction : public prelude::Displayable {
