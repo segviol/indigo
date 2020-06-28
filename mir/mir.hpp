@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "../prelude/prelude.hpp"
@@ -156,12 +157,25 @@ enum class JumpKind { Undefined, Branch, Loop };
 
 void display_op(std::ostream& o, Op val);
 
-// TODO: how are variable and values typed?
-class Variable : public prelude::Displayable {
+class GlobalValue
+    : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
+      public prelude::Displayable {
+ public:
   virtual void display(std::ostream& o) const;
 };
 
-class Value : public prelude::Displayable {
+typedef uint32_t VarId;
+
+class Variable : public prelude::Displayable {
+ public:
+  VarId id;
+  types::SharedTyPtr ty;
+
+  virtual void display(std::ostream& o) const;
+};
+
+class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
+ public:
   virtual void display(std::ostream& o) const;
 };
 
@@ -177,6 +191,7 @@ class Inst : public prelude::Displayable {
 
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
+  virtual std::set<VarId> useVars() const = 0;
   virtual ~Inst() {}
 };
 
@@ -188,6 +203,13 @@ class AssignInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Assign; }
   virtual void display(std::ostream& o) const;
   virtual ~AssignInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (src.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Operator instruction. `$dest = $lhs op $rhs`
@@ -200,6 +222,16 @@ class OpInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Op; }
   virtual void display(std::ostream& o) const;
   virtual ~OpInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (lhs.index() == 1) {
+      // s.insert(src);
+    }
+    if (rhs.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -211,6 +243,15 @@ class CallInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Call; }
   virtual void display(std::ostream& o) const;
   virtual ~CallInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    for (auto value : params) {
+      if (value.index() == 1) {
+        // s.insert(src);
+      }
+    }
+    return s;
+  }
 };
 
 /// Reference instruction. `$dest = &$val`
@@ -221,6 +262,11 @@ class RefInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
   virtual ~RefInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    s.insert(val.id);
+    return s;
+  }
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -231,6 +277,13 @@ class LoadInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Load; }
   virtual void display(std::ostream& o) const;
   virtual ~LoadInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (val.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Store instruction. `store $val to $dest`
@@ -241,6 +294,13 @@ class StoreInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Store; }
   virtual void display(std::ostream& o) const;
   virtual ~StoreInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (val.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Offset ptr by offset. `$dest = $ptr + $offset`
@@ -252,6 +312,14 @@ class PtrOffsetInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::PtrOffset; }
   virtual void display(std::ostream& o) const;
   virtual ~PtrOffsetInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    s.insert(ptr.id);
+    if (offset.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
@@ -262,6 +330,10 @@ class PhiInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Phi; }
   virtual void display(std::ostream& o) const;
   virtual ~PhiInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>(vars.begin(), vars.end());
+    return s;
+  }
 };
 
 class JumpInstruction final : public prelude::Displayable {
@@ -295,20 +367,30 @@ class BasicBlk : public prelude::Displayable {
   std::vector<std::unique_ptr<Inst>> inst;
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
+
+  BasicBlk(const BasicBlk& other) = delete;
 };
 
 class MirFunction : public prelude::Displayable {
-  // TODO: function definition?
-
+ public:
+  std::string name;
+  std::shared_ptr<types::FunctionTy> type;
   std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
-  virtual void display(std::ostream& o) const {}
+  virtual void display(std::ostream& o) const;
+
+  MirFunction(const MirFunction& other) = delete;
 };
 
 class MirPackage : public prelude::Displayable {
-  // TODO: package definition?
+ public:
+  std::map<mir::types::LabelId, MirFunction> functions;
+  std::map<mir::types::LabelId, GlobalValue> global_values;
 
-  virtual void display(std::ostream& o) const {}
+  virtual void display(std::ostream& o) const;
+
+  MirPackage(MirPackage& other) = delete;
+  MirPackage(MirPackage&& other) = default;
 };
 
 }  // namespace mir::inst

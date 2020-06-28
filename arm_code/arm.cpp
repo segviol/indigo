@@ -1,11 +1,87 @@
 #include "arm.hpp"
 
+#include <bits/stdint-uintn.h>
+
 #include <cmath>
 #include <cstdint>
 
 #include "../prelude/prelude.hpp"
 
 namespace arm {
+
+inline bool is_virtual_register(Reg r) { return r >= 64; }
+
+RegisterKind register_type(Reg r) {
+  if (r < 16)
+    return RegisterKind::GeneralPurpose;
+  else if (r < 48)
+    return RegisterKind::DoubleVector;
+  else if (r < 64)
+    return RegisterKind::QuadVector;
+  else if (r < 1 << 31)
+    return RegisterKind::VirtualGeneralPurpose;
+  else if (r < 3 << 30)
+    return RegisterKind::VirtualDoubleVector;
+  else
+    return RegisterKind::VirtualQuadVector;
+}
+
+uint32_t register_num(Reg r) {
+  if (r < 16)
+    return r;
+  else if (r < 48)
+    return r - 16;
+  else if (r < 64)
+    return r - 48;
+  else if (r < 1 << 31)
+    return r - 64;
+  else if (r < 3 << 30)
+    return r - (1 << 31);
+  else
+    return r - (3 << 30);
+}
+
+void display_reg_name(std::ostream &o, Reg r) {
+  switch (register_type(r)) {
+    case RegisterKind::GeneralPurpose:
+      o << "r" << register_num(r);
+      break;
+    case RegisterKind::DoubleVector:
+      o << "d" << register_num(r);
+      break;
+    case RegisterKind::QuadVector:
+      o << "q" << register_num(r);
+      break;
+    case RegisterKind::VirtualGeneralPurpose:
+      o << "v" << register_num(r);
+      break;
+    case RegisterKind::VirtualDoubleVector:
+      o << "vd" << register_num(r);
+      break;
+    case RegisterKind::VirtualQuadVector:
+      o << "vq" << register_num(r);
+      break;
+  }
+}
+
+Reg make_register(RegisterKind k, uint32_t num) {
+  switch (k) {
+    case RegisterKind::GeneralPurpose:
+      return num + REG_GP_START;
+    case RegisterKind::DoubleVector:
+      return num + REG_DOUBLE_START;
+    case RegisterKind::QuadVector:
+      return num + REG_QUAD_START;
+    case RegisterKind::VirtualGeneralPurpose:
+      return num + REG_V_GP_START;
+    case RegisterKind::VirtualDoubleVector:
+      return num + REG_V_DOUBLE_START;
+    case RegisterKind::VirtualQuadVector:
+      return num + REG_V_QUAD_START;
+    default:
+      return num;
+  }
+}
 
 bool is_valid_immediate(uint32_t val) {
   if (val <= 0xff)
