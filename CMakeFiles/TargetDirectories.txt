@@ -1,6 +1,0 @@
-/home/tqnwhz/compiler/CMakeFiles/rebuild_cache.dir
-/home/tqnwhz/compiler/CMakeFiles/edit_cache.dir
-/home/tqnwhz/compiler/CMakeFiles/compiler.dir
-/home/tqnwhz/compiler/CMakeFiles/backend.dir
-/home/tqnwhz/compiler/CMakeFiles/arm.dir
-/home/tqnwhz/compiler/CMakeFiles/mir.dir
