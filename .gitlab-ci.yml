@@ -1,4 +1,4 @@
-image: "clangbuiltinlinux/ubuntu:latest"
+image: "clangbuiltlinux/ubuntu:latest"
 before_script:
     - apt update
     - apt install cmake make
