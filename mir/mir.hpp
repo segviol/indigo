@@ -174,7 +174,7 @@ class Variable : public prelude::Displayable {
   virtual void display(std::ostream& o) const;
 };
 
-class Value : std::variant<int32_t, VarId>, public prelude::Displayable {
+class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
  public:
   virtual void display(std::ostream& o) const;
 };
@@ -191,6 +191,7 @@ class Inst : public prelude::Displayable {
 
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
+  virtual std::set<VarId> useVars() const = 0;
   virtual ~Inst() {}
 };
 
@@ -202,6 +203,13 @@ class AssignInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Assign; }
   virtual void display(std::ostream& o) const;
   virtual ~AssignInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (src.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Operator instruction. `$dest = $lhs op $rhs`
@@ -214,6 +222,16 @@ class OpInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Op; }
   virtual void display(std::ostream& o) const;
   virtual ~OpInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (lhs.index() == 1) {
+      // s.insert(src);
+    }
+    if (rhs.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -225,6 +243,15 @@ class CallInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Call; }
   virtual void display(std::ostream& o) const;
   virtual ~CallInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    for (auto value : params) {
+      if (value.index() == 1) {
+        // s.insert(src);
+      }
+    }
+    return s;
+  }
 };
 
 /// Reference instruction. `$dest = &$val`
@@ -235,6 +262,11 @@ class RefInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
   virtual ~RefInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    s.insert(val.id);
+    return s;
+  }
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -245,6 +277,13 @@ class LoadInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Load; }
   virtual void display(std::ostream& o) const;
   virtual ~LoadInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (val.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Store instruction. `store $val to $dest`
@@ -255,6 +294,13 @@ class StoreInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Store; }
   virtual void display(std::ostream& o) const;
   virtual ~StoreInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (val.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Offset ptr by offset. `$dest = $ptr + $offset`
@@ -266,6 +312,14 @@ class PtrOffsetInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::PtrOffset; }
   virtual void display(std::ostream& o) const;
   virtual ~PtrOffsetInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    s.insert(ptr.id);
+    if (offset.index() == 1) {
+      // s.insert(src);
+    }
+    return s;
+  }
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
@@ -276,6 +330,10 @@ class PhiInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Phi; }
   virtual void display(std::ostream& o) const;
   virtual ~PhiInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>(vars.begin(), vars.end());
+    return s;
+  }
 };
 
 class JumpInstruction final : public prelude::Displayable {
@@ -310,7 +368,7 @@ class BasicBlk : public prelude::Displayable {
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
 
-  BasicBlk(BasicBlk& other) = delete;
+  BasicBlk(const BasicBlk& other) = delete;
 };
 
 class MirFunction : public prelude::Displayable {
@@ -321,7 +379,7 @@ class MirFunction : public prelude::Displayable {
 
   virtual void display(std::ostream& o) const;
 
-  MirFunction(MirFunction& other) = delete;
+  MirFunction(const MirFunction& other) = delete;
 };
 
 class MirPackage : public prelude::Displayable {
