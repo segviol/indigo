@@ -1,11 +1,23 @@
-image: "clangbuiltlinux/ubuntu:latest"
+image: "alpine:latest"
+
+cache:
+    paths:
+        - /etc/apk-cache/
+
 before_script:
-    - apt update
-    - apt install cmake make
+    - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
+    - mkdir -p /etc/apk-cache
+    - ln -s /etc/apk/cache /etc/apk-cache
+    - apk cache sync -v
+    - apk add clang cmake make
 
 build:
     script:
         - mkdir build
         - cd build
-        - cmake ..
+        - cmake -DSTATIC_LINK_ARTIFACTS=1 ..
         - make
+    artifacts:
+        paths:
+            - build/compiler
+        expire_in: 1 week
