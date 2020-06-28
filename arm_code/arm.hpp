@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bits/stdint-uintn.h>
+#include <sys/cdefs.h>
 
 #include <cstdint>
 #include <map>
@@ -29,7 +30,7 @@ enum class RegisterKind {
 // Register type. Any value larger or equal to 64 is considered as a virtual
 // register, and any value larger or equal to 2^31 is considered as a virtual
 // vector register.
-typedef uint32_t Reg;
+using Reg = uint32_t;
 
 const uint32_t REG_GP_START = 0;
 const uint32_t REG_DOUBLE_START = 16;
@@ -45,7 +46,7 @@ void display_reg_name(std::ostream& o, Reg r);
 
 Reg make_register(RegisterKind ty, uint32_t num);
 
-struct RegisterOperand {
+struct RegisterOperand : public prelude::Displayable {
   RegisterOperand() : RegisterOperand(0) {}
 
   RegisterOperand(Reg reg) : RegisterOperand(0, RegisterShiftKind::Lsl, 0) {}
@@ -56,9 +57,11 @@ struct RegisterOperand {
   Reg reg;
   RegisterShiftKind shift;
   uint8_t shift_amount;
+
+  virtual void display(std::ostream& o) const;
 };
 
-struct MemoryOperand {
+struct MemoryOperand : public prelude::Displayable {
   MemoryOperand(Reg r1, int16_t offset = 0,
                 MemoryAccessKind kind = MemoryAccessKind::None)
       : MemoryOperand(r1, std::nullopt, false, offset, kind) {}
@@ -84,11 +87,26 @@ struct MemoryOperand {
   bool neg_rm;
   // another offset
   int16_t offset;
+
+  virtual void display(std::ostream& o) const;
 };
 
 struct NoOperand {};
 
-typedef std::variant<RegisterOperand, uint32_t> Operand2;
+/// Flexible operand as specified in ARM datasheet
+class Operand2 : public std::variant<RegisterOperand, int32_t>,
+                 public prelude::Displayable {
+ public:
+  Operand2(std::variant<RegisterOperand, int32_t>& x)
+      : std::variant<RegisterOperand, int32_t>(x) {}
+  Operand2(std::variant<RegisterOperand, int32_t> x)
+      : std::variant<RegisterOperand, int32_t>(x) {}
+  Operand2(RegisterOperand r) : std::variant<RegisterOperand, int32_t>(r) {}
+  Operand2(int32_t i) : std::variant<RegisterOperand, int32_t>(i) {}
+
+  virtual void display(std::ostream& o) const;
+};
+
 typedef std::string Label;
 
 enum class OpCode {
@@ -130,6 +148,10 @@ enum class OpCode {
   Eor,
   // Bit clear
   Bic,
+  // Logical Shift Left
+  Lsl,
+  // Logical Shift Right
+  Lsr,
   // Arithmetic Shift Right
   Asr,
   // Compare
@@ -182,19 +204,35 @@ void display_cond(ConditionCode cond, std::ostream& o);
 ConditionCode inverse_cond(ConditionCode cond);
 
 struct Inst : public prelude::Displayable {
+  Inst(OpCode op, ConditionCode cond = ConditionCode::Always)
+      : op(op), cond(cond){};
+
   OpCode op;
   ConditionCode cond;
 
-  virtual void display(std::ostream& o) = 0;
+  virtual void display(std::ostream& o) const = 0;
   virtual ~Inst() {}
 };
 
+/// Pure Instruction that does not use any operand
+///
+/// Valid opcode: Nop, Bx
 struct PureInst final : public Inst {
+  PureInst(OpCode op, ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond) {}
+
   virtual void display(std::ostream& o) const;
   virtual ~PureInst() {}
 };
 
+/// 3-operand arithmetic instruction
+///
+/// Valid opcode: Add, Sub, Rsb, Mul, SDiv, And, Orr, Eor, Lsl, Lsr, Asr
 struct Arith3Inst final : public Inst {
+  Arith3Inst(OpCode op, RegisterOperand rd, RegisterOperand r1, Operand2 r2,
+             ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), rd(rd), r1(r1), r2(r2) {}
+
   RegisterOperand rd;
   RegisterOperand r1;
   Operand2 r2;
@@ -203,7 +241,14 @@ struct Arith3Inst final : public Inst {
   virtual ~Arith3Inst() {}
 };
 
+/// 2-operand arithmetic instruction
+///
+/// Valid Opcode: Mov, Cmp, Cmn
 struct Arith2Inst final : public Inst {
+  Arith2Inst(OpCode op, RegisterOperand r1, Operand2 r2,
+             ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), r1(r1), r2(r2) {}
+
   RegisterOperand r1;
   Operand2 r2;
 
@@ -211,6 +256,9 @@ struct Arith2Inst final : public Inst {
   virtual ~Arith2Inst() {}
 };
 
+/// Branch instruction
+///
+/// Valid opcode: B, Bl
 struct BrInst final : public Inst {
   Label l;
 
@@ -218,6 +266,9 @@ struct BrInst final : public Inst {
   virtual ~BrInst() {}
 };
 
+/// Load and store instruction
+///
+/// Valid opcode: LdR, StR
 struct LoadStoreInst final : public Inst {
   Reg rd;
   MemoryOperand mem;
@@ -226,6 +277,9 @@ struct LoadStoreInst final : public Inst {
   virtual ~LoadStoreInst() {}
 };
 
+/// Multi-target load and store instruction
+///
+/// Valid opcode: LdM, StM
 struct MultLoadStoreInst final : public Inst {
   std::vector<Reg> rd;
   MemoryOperand mem;
@@ -234,6 +288,9 @@ struct MultLoadStoreInst final : public Inst {
   virtual ~MultLoadStoreInst() {}
 };
 
+/// Push and pop instruction
+///
+/// Valid opcode: Push, Pop
 struct PushPopInst final : public Inst {
   std::vector<Reg> regs;
 
@@ -241,6 +298,9 @@ struct PushPopInst final : public Inst {
   virtual ~PushPopInst() {}
 };
 
+/// Label pseudo-instruction
+///
+/// Valid opcode: _Label
 struct LabelInst final : public Inst {
   Label label;
 
