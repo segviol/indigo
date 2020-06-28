@@ -1,2 +1,0 @@
-/usr/bin/ar qc libarm.a  CMakeFiles/arm.dir/arm_code/arm.cpp.o
-/usr/bin/ranlib libarm.a
