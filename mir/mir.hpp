@@ -18,7 +18,7 @@ class Ty;
 typedef std::shared_ptr<Ty> SharedTyPtr;
 typedef int LabelId;
 
-enum class TyKind { Int, Void, Array, Ptr, Fn, RestParam };
+enum class TyKind { Int, Void, Array, Ptr, Fn, RestParam, Vector };
 
 /// Base class for types
 class Ty : public prelude::Displayable {
@@ -73,6 +73,31 @@ class ArrayTy final : public Ty {
   };
   virtual void display(std::ostream& o) const;
   virtual ~ArrayTy() {}
+};
+
+/// Array type. `item[len]`
+class VectorTy final : public Ty {
+ public:
+  VectorTy(SharedTyPtr item, int len) : item(item), len(len) {
+    if (item->kind() != TyKind::Int) {
+      // TODO: Throw exception
+    }
+  }
+
+  SharedTyPtr item;
+  int len;
+
+  virtual TyKind kind() const { return TyKind::Vector; }
+  virtual bool is_value_type() const { return true; }
+  virtual std::optional<int> size() const {
+    auto size = item->size();
+    if (size.has_value())
+      return (*size) * len;
+    else
+      return std::nullopt;
+  };
+  virtual void display(std::ostream& o) const;
+  virtual ~VectorTy() {}
 };
 
 /// Pointer type. `item*`

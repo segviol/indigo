@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <variant>
 
 #include "../prelude/prelude.hpp"
 
@@ -64,6 +65,26 @@ void display_reg_name(std::ostream &o, Reg r) {
   }
 }
 
+void display_shift(std::ostream &o, RegisterShiftKind shift) {
+  switch (shift) {
+    case RegisterShiftKind::Lsl:
+      o << "LSL";
+      break;
+    case RegisterShiftKind::Lsr:
+      o << "LSR";
+      break;
+    case RegisterShiftKind::Asr:
+      o << "ASR";
+      break;
+    case RegisterShiftKind::Ror:
+      o << "ROR";
+      break;
+    case RegisterShiftKind::Rrx:
+      o << "RRX";
+      break;
+  }
+}
+
 Reg make_register(RegisterKind k, uint32_t num) {
   switch (k) {
     case RegisterKind::GeneralPurpose:
@@ -83,6 +104,17 @@ Reg make_register(RegisterKind k, uint32_t num) {
   }
 }
 
+void RegisterOperand::display(std::ostream &o) const {
+  display_reg_name(o, reg);
+
+  if (shift != RegisterShiftKind::Lsl || shift_amount != 0) {
+    display_shift(o, shift);
+    if (shift != RegisterShiftKind::Rrx) {
+      o << " #" << shift_amount;
+    }
+  }
+}
+
 bool is_valid_immediate(uint32_t val) {
   if (val <= 0xff)
     return true;
@@ -93,6 +125,14 @@ bool is_valid_immediate(uint32_t val) {
     val = prelude::rotl32(val, 8);
     int highest_bit = log2(val & -val) + 1;
     return (val & ~(0xff << highest_bit)) == 0;
+  }
+}
+
+void Operand2::display(std::ostream &o) const {
+  if (auto x = std::get_if<RegisterOperand>(this)) {
+    x->display(o);
+  } else if (auto x = std::get_if<int32_t>(this)) {
+    o << "#" << *x;
   }
 }
 
@@ -291,19 +331,19 @@ void PureInst::display(std::ostream &o) const {
 void Arith2Inst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " " << r1 << ", " << r2;
 }
 
 void Arith3Inst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " " << rd << ", " << r1 << ", " << r2;
 }
 
 void BrInst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " " << l;
 }
 
 void LoadStoreInst::display(std::ostream &o) const {
