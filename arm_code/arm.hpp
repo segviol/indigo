@@ -1,8 +1,5 @@
 #pragma once
 
-#include <bits/stdint-uintn.h>
-#include <sys/cdefs.h>
-
 #include <cstdint>
 #include <map>
 #include <memory>
