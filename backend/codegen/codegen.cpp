@@ -90,39 +90,164 @@ arm::Reg Codegen::alloc_vq() {
                             vreg_gp_counter++);
 }
 
-arm::Operand2 Codegen::translate_operand2(mir::inst::Value& v) {
-  // TODO
-  throw new std::exception();
+arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
+  if (auto x = v.get_if<int32_t>()) {
+    auto int_value = *x;
+    if (is_valid_immediate(int_value)) {
+      return int_value;
+    } else {
+      auto reg = alloc_vgp();
+      consts.insert({format_label(func.name, const_counter++), int_value});
+      return reg;
+    }
+  } else if (auto x = v.get_if<mir::inst::VarId>()) {
+    return get_or_alloc_vgp(*x);
+  } else {
+    throw new prelude::UnreachableException();
+  }
 }
 
-arm::Reg Codegen::translate_operand2_alloc_reg(mir::inst::Value& v) {
+arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
   // TODO
   throw new std::exception();
 }
 
 arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
-  // TODO
-  throw new std::exception();
+  return get_or_alloc_vgp(v);
 }
 
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
   inst.push_back(
       std::make_unique<Arith2Inst>(arm::OpCode::Mov, translate_var_reg(0),
-                                   translate_operand2_alloc_reg(i.src)));
+                                   translate_value_to_operand2(i.src)));
 }
 
-void Codegen::translate_inst(mir::inst::PhiInst& i) {}
+void Codegen::translate_inst(mir::inst::PhiInst& i) {
+  // noop
+}
 
-void Codegen::translate_inst(mir::inst::CallInst& i) {}
+void Codegen::translate_inst(mir::inst::CallInst& i) {
+  // TODO: make call stuff
+  throw new prelude::NotImplementedException();
+}
 
-void Codegen::translate_inst(mir::inst::StoreInst& i) {}
+void Codegen::translate_inst(mir::inst::StoreInst& i) {
+  auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::StR,
+                                             translate_value_to_reg(i.val),
+                                             translate_var_reg(i.dest.id));
+  inst.push_back(std::move(ins));
+}
 
-void Codegen::translate_inst(mir::inst::LoadInst& i) {}
+void Codegen::translate_inst(mir::inst::LoadInst& i) {
+  auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::LdR,
+                                             translate_value_to_reg(i.val),
+                                             translate_var_reg(i.dest.id));
+  inst.push_back(std::move(ins));
+}
 
-void Codegen::translate_inst(mir::inst::RefInst& i) {}
+void Codegen::translate_inst(mir::inst::RefInst& i) {
+  // TODO: Should we just check whether the variable is stack variable?
+  throw new prelude::NotImplementedException();
+}
 
-void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {}
+void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
+  auto ins = std::make_unique<Arith3Inst>(
+      arm::OpCode::Add, translate_var_reg(i.dest.id),
+      translate_var_reg(i.ptr.id), translate_value_to_operand2(i.offset));
+  inst.push_back(std::move(ins));
+}
 
-void Codegen::translate_inst(mir::inst::OpInst& i) {}
+void Codegen::translate_inst(mir::inst::OpInst& i) {
+  bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+                        (i.op != mir::inst::Op::Div);
+
+  mir::inst::Value& lhs = reverse_params ? i.lhs : i.rhs;
+  mir::inst::Value& rhs = reverse_params ? i.rhs : i.lhs;
+
+  switch (i.op) {
+    case mir::inst::Op::Add:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Add, translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Sub:
+      if (reverse_params) {
+        inst.push_back(std::make_unique<Arith3Inst>(
+            arm::OpCode::Rsb, translate_value_to_reg(lhs),
+            translate_value_to_operand2(lhs)));
+      } else {
+        inst.push_back(std::make_unique<Arith3Inst>(
+            arm::OpCode::Sub, translate_value_to_reg(rhs),
+            translate_value_to_operand2(rhs)));
+      }
+      break;
+
+    case mir::inst::Op::Mul:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Mul, translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Div:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Mul, translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::And:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::And, translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Or:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Orr, translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Rem:
+      throw new prelude::NotImplementedException();
+
+    case mir::inst::Op::Gt:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Gt, reverse_params);
+      break;
+    case mir::inst::Op::Lt:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Lt, reverse_params);
+      break;
+    case mir::inst::Op::Gte:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Ge, reverse_params);
+      break;
+    case mir::inst::Op::Lte:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Le, reverse_params);
+      break;
+    case mir::inst::Op::Eq:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Equal,
+                   reverse_params);
+      break;
+    case mir::inst::Op::Neq:
+      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::NotEqual,
+                   reverse_params);
+      break;
+      break;
+  }
+}
+
+void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
+                           mir::inst::Value& rhs, arm::ConditionCode cond,
+                           bool reversed) {
+  auto lhsv = translate_value_to_reg(lhs);
+  auto rhsv = translate_value_to_operand2(rhs);
+
+  inst.push_back(std::make_unique<Arith2Inst>(
+      reversed ? OpCode::Cmn : OpCode::Cmp, translate_value_to_reg(lhs),
+      translate_value_to_operand2(rhs)));
+
+  inst.push_back(std::make_unique<Arith2Inst>(
+      OpCode::Mov, translate_var_reg(dest), Operand2(0)));
+  inst.push_back(std::make_unique<Arith2Inst>(
+      OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
+}
 
 }  // namespace backend::codegen
