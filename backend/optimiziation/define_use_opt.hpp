@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assert.h>
+
 #include <algorithm>
 #include <iterator>
 #include <map>
@@ -38,20 +40,43 @@ class Block_Live_Var {
   // instLiveVars[idx] means livevars before inst at idx
   std::vector<sharedPtrVariableSet> instLiveVars;
   sharedPtrVariableSet live_vars_out;
+  sharedPtrVariableSet live_vars_in;
+  std::set<sharedPtrVariableSet> subsequents;
   Block_Live_Var(int size = 0) {
     live_vars_out = std::make_shared<VariableSet>();
+    live_vars_in = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
       instLiveVars.emplace_back(std::make_shared<VariableSet>());
     }
   }
 
-  bool build(sharedPtrVariableSet live_vars_out, mir::inst::BasicBlk& block) {
+  /*
+  The function should be only called once to build the prceding relation.
+  After that, the pointer will update automatically when it's sub
+  */
+  void add_subsequent(sharedPtrVariableSet subsequent) {
+    subsequents.insert(subsequent);
+  }
+
+  bool build(mir::inst::BasicBlk& block) {
+    assert(subsequents.size() <= 2 && subsequents.size() >= 0);
     bool modify = false;
-    // std::set_union(
-    //     live_vars_out->begin(), live_vars_out->begin(),
-    //     this->live_vars_out->begin(), this->live_vars_out->end(),
-    //     std::inserter(*(this->live_vars_out), this->live_vars_out->begin()));
-    auto tmp = this->live_vars_out;
+    live_vars_out->clear();
+    auto jump_use_vars = block.jump.useVars();
+    live_vars_out->insert(jump_use_vars.begin(), jump_use_vars.end());
+    if (subsequents.size() == 2) {
+      auto first = subsequents.begin();
+      auto second = subsequents.end();
+      second--;
+      std::set_union(
+          first->get()->begin(), first->get()->end(), second->get()->begin(),
+          second->get()->end(),
+          std::inserter(*(live_vars_out), this->live_vars_out->begin()));
+    } else if (subsequents.size() == 1) {
+      auto iter = subsequents.begin();
+      live_vars_out->insert(iter->get()->begin(), iter->get()->end());
+    }
+    auto tmp = live_vars_out;
     for (int i = instLiveVars.size() - 1; i >= 0; --i) {
       int size_before = instLiveVars[i]->size();
       auto useVars = block.inst[i]->useVars();
@@ -69,12 +94,16 @@ class Block_Live_Var {
                      std::inserter(*instLiveVars[i], instLiveVars[i]->begin()));
       modify |= size_before == instLiveVars[i]->size() ? false : true;
     }
-
+    live_vars_in->clear();
+    if (instLiveVars.size()) {
+      live_vars_in->insert(instLiveVars[0]->begin(), instLiveVars[0]->end());
+    } else {  // Maybe the block's codes are all dead
+      live_vars_in->insert(live_vars_out->begin(), live_vars_out->end());
+    }
     return modify;
   }
   bool remove_dead_code(mir::inst::BasicBlk& block) {
     bool modify = false;
-    auto tmp = live_vars_out;
     for (auto iter = block.inst.begin(); iter != block.inst.end(); iter++) {
       auto defvar = iter->get()->dest;
       int idx = iter - block.inst.begin();
@@ -90,9 +119,14 @@ class Block_Live_Var {
     // if (modify) {
     //   build(live_vars_out, block);
     // }
+    live_vars_in->clear();
+    if (instLiveVars.size()) {
+      live_vars_in->insert(instLiveVars[0]->begin(), instLiveVars[0]->end());
+    } else {  // Maybe the block's codes are all dead
+      live_vars_in->insert(live_vars_out->begin(), live_vars_out->end());
+    }
     return modify;
   }
-  sharedPtrVariableSet get_live_vars_in() { return instLiveVars.front(); }
   ~Block_Live_Var();
 };
 class Remove_Dead_Code : public backend::MirOptimizePass {
@@ -103,10 +137,9 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
       mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
       std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks) {
     bool modify = false;
-    livevars[start.id].build(live_vars_out, basic_blks[start.id]);
+    livevars[start.id].build(basic_blks[start.id]);
     for (auto pre : start.preceding) {
-      modify |= livevars[start.id].build(livevars[start.id].get_live_vars_in(),
-                                         basic_blks[pre]);
+      modify |= livevars[pre].build(basic_blks[pre]);
     }
     return modify;
   }
@@ -116,6 +149,13 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
          ++iter) {
       auto blv = Block_Live_Var(iter->second.inst.size());
       livevars[iter->second.id] = blv;
+    }
+    for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
+         ++iter) {  // init subsequnt relation
+      auto blv = livevars[iter->second.id];
+      for (auto prec : iter->second.preceding) {
+        livevars[prec].add_subsequent(blv.live_vars_in);
+      }
     }
     auto end = func.basic_blks.end();
     end--;
