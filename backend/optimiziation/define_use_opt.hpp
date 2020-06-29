@@ -104,16 +104,17 @@ class Block_Live_Var {
   }
   bool remove_dead_code(mir::inst::BasicBlk& block) {
     bool modify = false;
-    for (auto iter = block.inst.begin(); iter != block.inst.end(); iter++) {
+    auto tmp = live_vars_out;
+    for (auto iter = block.inst.begin(); iter != block.inst.end();) {
       auto defvar = iter->get()->dest;
       int idx = iter - block.inst.begin();
+      if (idx >= instLiveVars.size()) {  // remove the last code
+        tmp = live_vars_out;
+      } else {
+        tmp = *(instLiveVars.begin() + idx);
+      }
       if (defvar.ty->kind() == mir::types::TyKind::Void) {
         continue;
-      }
-      if (!live_vars_out->count(defvar.id)) {
-        modify = true;
-        iter = block.inst.erase(iter);
-        instLiveVars.erase(instLiveVars.begin() + idx);
       }
     }
     // if (modify) {
