@@ -281,6 +281,10 @@ struct BrInst final : public Inst {
 ///
 /// Valid opcode: LdR, StR
 struct LoadStoreInst final : public Inst {
+  LoadStoreInst(OpCode op, Reg rd, MemoryOperand mem,
+                ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), rd(rd), mem(mem) {}
+
   Reg rd;
   MemoryOperand mem;
 
