@@ -1,4 +1,5 @@
 #pragma once
+
 #include <map>
 #include <memory>
 #include <optional>
@@ -180,6 +181,8 @@ enum class JumpInstructionKind { Undefined, Return, BrCond, Br, Unreachable };
 
 enum class JumpKind { Undefined, Branch, Loop };
 
+enum class VarScope { Local, Global };
+
 void display_op(std::ostream& o, Op val);
 
 class GlobalValue
@@ -189,7 +192,48 @@ class GlobalValue
   virtual void display(std::ostream& o) const;
 };
 
-typedef uint32_t VarId;
+struct VarId : public prelude::Displayable {
+  VarId(uint32_t localVarName) : localName(localVarName), globalName() {}
+  VarId(types::LabelId globalVarName)
+      : globalName(globalVarName), localName() {}
+
+  void display(std::ostream& o) const;
+
+  std::optional<uint32_t> localName;
+  std::optional<types::LabelId> globalName;
+
+  VarScope scope() {
+    if (localName.has_value())
+      return VarScope::Local;
+    else
+      return VarScope::Global;
+  }
+
+  std::optional<uint32_t> get_local_id() { return localName; }
+
+  std::optional<types::LabelId> get_global_id() {
+    if (globalName.has_value())
+      return {globalName.value()};
+    else
+      return {};
+  }
+
+  bool operator<(const VarId& other) const {
+    if (this->localName.has_value()) {
+      if (other.localName.has_value()) {
+        return localName.value() < other.localName.value();
+      } else {
+        return true;
+      }
+    } else {
+      if (other.localName.has_value()) {
+        return false;
+      } else {
+        return globalName.value() < other.globalName.value();
+      }
+    }
+  }
+};  // namespace mir::inst
 
 class Variable : public prelude::Displayable {
  public:
@@ -211,8 +255,9 @@ class Inst;
 /// Base class for instruction
 class Inst : public prelude::Displayable {
  public:
+  Inst(Variable& dest) : dest(dest) {}
   /// Instruction destination variable
-  Variable dest;
+  Variable& dest;
 
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
@@ -262,7 +307,7 @@ class OpInst final : public Inst {
 /// Call instruction. `$dest = call $func(...$params)`
 class CallInst final : public Inst {
  public:
-  Variable func;
+  VarId func;
   std::vector<Value> params;
 
   virtual InstKind inst_kind() { return InstKind::Call; }
@@ -282,14 +327,14 @@ class CallInst final : public Inst {
 /// Reference instruction. `$dest = &$val`
 class RefInst final : public Inst {
  public:
-  Variable val;
+  VarId val;
 
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
   virtual ~RefInst() {}
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
-    s.insert(val.id);
+    s.insert(val);
     return s;
   }
 };
@@ -410,6 +455,7 @@ class MirFunction : public prelude::Displayable {
  public:
   std::string name;
   std::shared_ptr<types::FunctionTy> type;
+  std::map<uint32_t, Variable> variables;
   std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
   virtual void display(std::ostream& o) const;

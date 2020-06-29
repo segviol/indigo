@@ -29,6 +29,13 @@ enum class RegisterKind {
 // vector register.
 using Reg = uint32_t;
 
+class ConstValue
+    : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
+      public prelude::Displayable {
+ public:
+  virtual void display(std::ostream& o) const;
+};
+
 const uint32_t REG_GP_START = 0;
 const uint32_t REG_DOUBLE_START = 16;
 const uint32_t REG_QUAD_START = 48;
@@ -308,12 +315,12 @@ struct LabelInst final : public Inst {
 struct Function {
   std::string name;
   std::vector<std::unique_ptr<Inst>> inst;
-  std::map<std::string, std::unique_ptr<char[]>> local_const;
+  std::map<std::string, ConstValue> local_const;
 };
 
 struct ArmCode {
   std::vector<std::unique_ptr<Function>> functions;
-  std::map<std::string, std::unique_ptr<char[]>> consts;
+  std::map<std::string, ConstValue> consts;
 };
 
 }  // namespace arm
