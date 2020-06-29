@@ -1,24 +1,64 @@
 #pragma once
+#include <bits/stdint-uintn.h>
+
+#include <any>
+#include <optional>
 #include <sstream>
 
 #include "../../arm_code/arm.hpp"
 #include "../../prelude/prelude.hpp"
 #include "../backend.hpp"
+#include "../optimization/optimization.hpp"
 
 namespace backend::codegen {
 
-std::string format_label(std::string_view function_name, uint32_t label_id) {
+std::string format_const_label(std::string_view function_name,
+                               uint32_t label_id) {
   auto s = std::stringstream();
   s << "_CONST_" << function_name << "__" << label_id;
+  return s.str();
+}
+
+std::string format_bb_label(std::string_view function_name, uint32_t label_id) {
+  auto s = std::stringstream();
+  s << function_name << "_$bb_" << label_id;
   return s.str();
 }
 
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func,
-
           std::map<std::string, std::any>& extra_data)
-      : func(func), extra_data(extra_data), inst() {}
+      : func(func),
+        extra_data(extra_data),
+        inst(),
+        reg_map(),
+        var_collapse(),
+        bb_ordering() {
+    {
+      // Calculate ordering
+      auto any_ordering =
+          extra_data.find(optimization::BASIC_BLOCK_ORDERING_DATA_NAME);
+      if (any_ordering != extra_data.end()) {
+        auto& order_map = std::any_cast<optimization::BasicBlockOrderingType&>(
+            any_ordering->second);
+        auto o = order_map.find(func.name);
+        if (o != order_map.end()) {
+          auto& ordering = o->second;
+          this->bb_ordering.insert(bb_ordering.end(), ordering.begin(),
+                                   ordering.end());
+        } else {
+          for (auto& a : func.basic_blks) {
+            bb_ordering.push_back(a.first);
+          }
+        }
+      } else {
+        for (auto& a : func.basic_blks) {
+          bb_ordering.push_back(a.first);
+        }
+      }
+    }
+  }
 
   /// Translate MirPackage into ArmCode
   arm::Function translate_function();
@@ -30,6 +70,10 @@ class Codegen final {
   std::vector<std::unique_ptr<arm::Inst>> inst;
   std::map<mir::inst::VarId, arm::Reg> reg_map;
   std::map<arm::Label, arm::ConstValue> consts;
+
+  std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
+
+  std::vector<uint32_t> bb_ordering;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
@@ -61,5 +105,7 @@ class Codegen final {
   void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                     mir::inst::Value& rhs, arm::ConditionCode cond,
                     bool reversed);
+
+  void translate_branch(mir::inst::JumpInstruction& j);
 };
 }  // namespace backend::codegen

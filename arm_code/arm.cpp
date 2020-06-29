@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <sstream>
+#include <string>
 #include <variant>
 
 #include "../prelude/prelude.hpp"
@@ -118,11 +120,11 @@ bool is_valid_immediate(uint32_t val) {
     return true;
   else if (val <= 0x00ffffff) {
     int highest_bit = log2(val & -val) + 1;
-    return (val & ~(0xff << highest_bit)) == 0;
+    return (val & ~(0xff << highest_bit)) == 0 && highest_bit % 2 == 0;
   } else {
     val = prelude::rotl32(val, 8);
     int highest_bit = log2(val & -val) + 1;
-    return (val & ~(0xff << highest_bit)) == 0;
+    return (val & ~(0xff << highest_bit)) == 0 && highest_bit % 2 == 0;
   }
 }
 
@@ -213,6 +215,10 @@ void display_op(OpCode op, std::ostream &o) {
       break;
     case OpCode::_Label:
       // Labels are pseudo-instructions
+      break;
+    case OpCode::_Mod:
+      o << "_MOD";
+
       break;
     default:
       break;
@@ -319,6 +325,12 @@ ConditionCode inverse_cond(ConditionCode cond) {
     default:
       return ConditionCode::Always;
   }
+}
+
+std::string format_bb_name(std::string_view func_name, uint32_t bb_id) {
+  std::stringstream name;
+  name << func_name << "_$bb" << bb_id;
+  return name.str();
 }
 
 void PureInst::display(std::ostream &o) const {
