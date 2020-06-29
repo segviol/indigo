@@ -380,6 +380,13 @@ class JumpInstruction final : public prelude::Displayable {
   int bb_true;
   int bb_false;
   JumpKind jump_kind;
+  std::set<VarId> useVars() {
+    std::set<VarId> s;
+    if (cond_or_ret.has_value()) {
+      s.insert(cond_or_ret->id);
+    }
+    return s;
+  }
   virtual void display(std::ostream& o) const;
   virtual ~JumpInstruction() {}
 };
