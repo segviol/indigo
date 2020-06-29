@@ -20,10 +20,12 @@ class Codegen final {
 
   std::vector<std::unique_ptr<arm::Inst>> inst;
   std::map<mir::inst::VarId, arm::Reg> reg_map;
+  std::map<arm::Label, arm::ConstValue> consts;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
   uint32_t vreg_vq_counter = 0;
+  uint32_t const_counter = 0;
 
   arm::Reg get_or_alloc_vgp(mir::inst::VarId v);
   arm::Reg get_or_alloc_vd(mir::inst::VarId v);

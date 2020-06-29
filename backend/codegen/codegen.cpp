@@ -9,7 +9,13 @@ namespace backend::codegen {
 
 using namespace arm;
 
-arm::Function Codegen::translate_function() { return arm::Function(); }
+arm::Function Codegen::translate_function() {
+  for (auto& bb : func.basic_blks) {
+    translate_basic_block(bb.second);
+  }
+  return arm::Function{func.name, std::move(this->inst),
+                       std::move(this->consts)};
+}
 
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
   for (auto& inst : blk.inst) {
