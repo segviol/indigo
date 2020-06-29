@@ -70,6 +70,10 @@ struct RegisterOperand : public prelude::Displayable {
   uint8_t shift_amount;
 
   virtual void display(std::ostream& o) const;
+  bool operator==(const RegisterOperand& other) const {
+    return reg == other.reg && shift == other.shift &&
+           shift_amount == other.shift_amount;
+  };
 };
 
 struct MemoryOperand : public prelude::Displayable {
@@ -116,6 +120,20 @@ class Operand2 : public std::variant<RegisterOperand, int32_t>,
   Operand2(int32_t i) : std::variant<RegisterOperand, int32_t>(i) {}
 
   virtual void display(std::ostream& o) const;
+  bool operator==(const Operand2& other) const {
+    auto this_ =
+        dynamic_cast<const std::variant<RegisterOperand, int32_t>&>(*this);
+    auto other_ =
+        dynamic_cast<const std::variant<RegisterOperand, int32_t>&>(other);
+    return this_ == other_;
+  }
+  bool operator==(const int32_t& other) const {
+    if (auto ip = std::get_if<int32_t>(this)) {
+      return *ip == other;
+    } else {
+      return false;
+    }
+  }
 };
 
 typedef std::string Label;
@@ -141,6 +159,8 @@ enum class OpCode {
 
   // Move
   Mov,
+  // Move top 16 bits
+  MovT,
   // Add
   Add,
   // Subtract
@@ -185,8 +205,10 @@ enum class OpCode {
   // Pop
   Pop,
 
-  // Label
-  _Label
+  // Label (pseudo-instruction)
+  _Label,
+  // Mod (pseudo-instruction)
+  _Mod
 };
 
 void display_op(OpCode op, std::ostream& o);

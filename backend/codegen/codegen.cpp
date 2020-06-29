@@ -3,6 +3,7 @@
 #include <cassert>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <typeinfo>
 
 namespace backend::codegen {
@@ -117,9 +118,20 @@ arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
 }
 
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
-  inst.push_back(
-      std::make_unique<Arith2Inst>(arm::OpCode::Mov, translate_var_reg(0),
-                                   translate_value_to_operand2(i.src)));
+  if (i.src.is_immediate()) {
+    auto imm = *i.src.get_if<int32_t>();
+    uint32_t imm_u = imm;
+    inst.push_back(std::make_unique<Arith2Inst>(
+        arm::OpCode::Mov, translate_var_reg(i.dest.id), imm_u & 0xffff));
+    if (imm_u > 0xffff) {
+      inst.push_back(std::make_unique<Arith2Inst>(
+          arm::OpCode::MovT, translate_var_reg(i.dest.id), imm_u & 0xffff0000));
+    }
+  } else {
+    inst.push_back(std::make_unique<Arith2Inst>(
+        arm::OpCode::Mov, translate_var_reg(i.dest.id),
+        translate_value_to_operand2(i.src)));
+  }
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
@@ -208,7 +220,11 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       break;
 
     case mir::inst::Op::Rem:
-      throw new prelude::NotImplementedException();
+      // WARN: Mod is a pseudo-instruction!
+      // Mod operations needs to be eliminated in later passes.
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::_Mod, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
 
     case mir::inst::Op::Gt:
       emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Gt, reverse_params);
@@ -248,6 +264,60 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
       OpCode::Mov, translate_var_reg(dest), Operand2(0)));
   inst.push_back(std::make_unique<Arith2Inst>(
       OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
+}
+
+void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
+  switch (j.kind) {
+    case mir::inst::JumpInstructionKind::Br:
+      inst.push_back(std::make_unique<BrInst>(
+          OpCode::B, format_bb_label(func.name, j.bb_true)));
+      break;
+    case mir::inst::JumpInstructionKind::BrCond: {
+      auto back = inst.end() - 2;
+
+      // Find if a comparison exists
+      std::optional<ConditionCode> cond = std::nullopt;
+      if (inst.size() >= 2) {
+        auto b1 = back->get();
+        auto b2 = (back + 1)->get();
+        if (b1->op == arm::OpCode::Mov && b2->op == arm::OpCode::Mov) {
+          auto b1m = dynamic_cast<Arith2Inst*>(b1);
+          auto b2m = dynamic_cast<Arith2Inst*>(b2);
+          if (b1m->r1 == b2m->r1 && b1m->r2 == 1 && b2m->r2 == 0 &&
+              b1m->cond == arm::ConditionCode::Always &&
+              b2m->cond != arm::ConditionCode::Always) {
+            cond = {b2m->cond};
+          }
+        }
+      }
+      if (cond) {
+        inst.push_back(std::make_unique<BrInst>(
+            OpCode::B, format_bb_label(func.name, j.bb_false),
+            inverse_cond(cond.value())));
+        inst.push_back(std::make_unique<BrInst>(
+            OpCode::B, format_bb_label(func.name, j.bb_false)));
+      } else {
+        inst.push_back(std::make_unique<Arith2Inst>(OpCode::Cmp,
+                                                    j.cond_or_ret.value(), 0));
+        inst.push_back(std::make_unique<BrInst>(
+            OpCode::B, format_bb_label(func.name, j.bb_false),
+            ConditionCode::NotEqual));
+        inst.push_back(std::make_unique<BrInst>(
+            OpCode::B, format_bb_label(func.name, j.bb_false)));
+      }
+    } break;
+    case mir::inst::JumpInstructionKind::Return:
+      // TODO: Clean up before return
+      inst.push_back(std::make_unique<PureInst>(OpCode::Bx));
+      break;
+    case mir::inst::JumpInstructionKind::Undefined:
+      // WARN: Error about undefined blocks
+      throw new std::exception();
+      break;
+    case mir::inst::JumpInstructionKind::Unreachable:
+      // TODO: Discard unreachable blocks beforhand
+      break;
+  }
 }
 
 }  // namespace backend::codegen
