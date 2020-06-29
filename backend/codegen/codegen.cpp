@@ -98,7 +98,13 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
       return int_value;
     } else {
       auto reg = alloc_vgp();
-      consts.insert({format_label(func.name, const_counter++), int_value});
+      uint32_t imm_u = int_value;
+      inst.push_back(
+          std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
+      if (imm_u > 0xffff) {
+        inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg,
+                                                    imm_u & 0xffff0000));
+      }
       return reg;
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
@@ -297,8 +303,9 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false)));
       } else {
-        inst.push_back(std::make_unique<Arith2Inst>(OpCode::Cmp,
-                                                    j.cond_or_ret.value(), 0));
+        inst.push_back(std::make_unique<Arith2Inst>(
+            OpCode::Cmp, translate_var_reg(j.cond_or_ret.value()),
+            Operand2(0)));
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
             ConditionCode::NotEqual));

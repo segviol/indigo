@@ -293,6 +293,8 @@ struct Arith2Inst final : public Inst {
 ///
 /// Valid opcode: B, Bl
 struct BrInst final : public Inst {
+  BrInst(OpCode op, Label l, ConditionCode c = ConditionCode::Always)
+      : l(l), Inst(op, c) {}
   Label l;
 
   virtual void display(std::ostream& o) const;
