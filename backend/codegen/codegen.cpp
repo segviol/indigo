@@ -167,44 +167,44 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
   switch (i.op) {
     case mir::inst::Op::Add:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Add, translate_value_to_reg(lhs),
-          translate_value_to_operand2(rhs)));
+          arm::OpCode::Add, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Sub:
       if (reverse_params) {
         inst.push_back(std::make_unique<Arith3Inst>(
-            arm::OpCode::Rsb, translate_value_to_reg(lhs),
-            translate_value_to_operand2(lhs)));
+            arm::OpCode::Rsb, translate_var_reg(i.dest.id),
+            translate_value_to_reg(lhs), translate_value_to_operand2(lhs)));
       } else {
         inst.push_back(std::make_unique<Arith3Inst>(
-            arm::OpCode::Sub, translate_value_to_reg(rhs),
-            translate_value_to_operand2(rhs)));
+            arm::OpCode::Sub, translate_var_reg(i.dest.id),
+            translate_value_to_reg(rhs), translate_value_to_operand2(rhs)));
       }
       break;
 
     case mir::inst::Op::Mul:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Mul, translate_value_to_reg(lhs),
-          translate_value_to_operand2(rhs)));
+          arm::OpCode::Mul, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Div:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Mul, translate_value_to_reg(lhs),
-          translate_value_to_operand2(rhs)));
+          arm::OpCode::SDiv, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::And:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::And, translate_value_to_reg(lhs),
-          translate_value_to_operand2(rhs)));
+          arm::OpCode::And, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Or:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Orr, translate_value_to_reg(lhs),
-          translate_value_to_operand2(rhs)));
+          arm::OpCode::Orr, translate_var_reg(i.dest.id),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Rem:
