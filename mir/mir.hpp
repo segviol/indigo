@@ -246,6 +246,13 @@ class Variable : public prelude::Displayable {
 class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
  public:
   virtual void display(std::ostream& o) const;
+
+  template <typename T>
+  T* get_if() {
+    return std::get_if<T>(this);
+  }
+
+  bool is_immediate() { return std::holds_alternative<int32_t>(*this); }
 };
 
 class JumpInstruction;
