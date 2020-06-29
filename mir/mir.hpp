@@ -419,7 +419,7 @@ class PhiInst final : public Inst {
 class JumpInstruction final : public prelude::Displayable {
  public:
   JumpInstruction(JumpInstructionKind kind, int bb_true = -1, int bb_false = -1,
-                  std::optional<Variable> cond_or_ret = {},
+                  std::optional<VarId> cond_or_ret = {},
                   JumpKind jump_kind = JumpKind::Undefined)
       : cond_or_ret(cond_or_ret),
         kind(kind),
@@ -428,14 +428,14 @@ class JumpInstruction final : public prelude::Displayable {
         jump_kind(jump_kind) {}
 
   JumpInstructionKind kind;
-  std::optional<Variable> cond_or_ret;
+  std::optional<VarId> cond_or_ret;
   int bb_true;
   int bb_false;
   JumpKind jump_kind;
   std::set<VarId> useVars() {
     std::set<VarId> s;
     if (cond_or_ret.has_value()) {
-      s.insert(cond_or_ret->id);
+      s.insert(cond_or_ret.value());
     }
     return s;
   }
