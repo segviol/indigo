@@ -1,13 +1,22 @@
 #pragma once
+#include <sstream>
+
 #include "../../arm_code/arm.hpp"
 #include "../../prelude/prelude.hpp"
 #include "../backend.hpp"
 
 namespace backend::codegen {
 
+std::string format_label(std::string_view function_name, uint32_t label_id) {
+  auto s = std::stringstream();
+  s << "_CONST_" << function_name << "__" << label_id;
+  return s.str();
+}
+
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func,
+
           std::map<std::string, std::any>& extra_data)
       : func(func), extra_data(extra_data), inst() {}
 
@@ -34,8 +43,8 @@ class Codegen final {
   arm::Reg alloc_vd();
   arm::Reg alloc_vq();
 
-  arm::Operand2 translate_operand2(mir::inst::Value& v);
-  arm::Reg translate_operand2_alloc_reg(mir::inst::Value& v);
+  arm::Operand2 translate_value_to_operand2(mir::inst::Value& v);
+  arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
   // arm::Function translate_function(mir::inst::MirFunction& f);
@@ -48,5 +57,9 @@ class Codegen final {
   void translate_inst(mir::inst::RefInst& i);
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
+
+  void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
+                    mir::inst::Value& rhs, arm::ConditionCode cond,
+                    bool reversed);
 };
 }  // namespace backend::codegen
