@@ -1,0 +1,24 @@
+image: "alpine:latest"
+
+cache:
+    paths:
+        - /etc/apk-cache/
+
+before_script:
+    - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
+    # - mkdir -p /etc/apk-cache
+    # - ln -s /etc/apk/cache /etc/apk-cache
+    # - apk cache sync -v
+    - apk add autoconf build-base binutils cmake file gcc g++ git libgcc libtool linux-headers make musl-dev --no-cache
+
+build:
+    script:
+        - ls -la
+        - mkdir -p build
+        - cd build
+        - cmake -DSTATIC_LINK_ARTIFACTS=1 ..
+        - make
+    artifacts:
+        paths:
+            - build/compiler
+        expire_in: 1 week
