@@ -20,11 +20,9 @@ void Backend::do_arm_optimization() {
   }
 }
 
-void Backend::do_mir_to_arm_transform() {
-  // TODO!
-}
+void Backend::do_mir_to_arm_transform() {}
 
-ArmCode Backend::generate_code() {
+arm::ArmCode Backend::generate_code() {
   do_mir_optimization();
   do_mir_to_arm_transform();
   do_arm_optimization();
