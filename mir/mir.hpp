@@ -193,53 +193,75 @@ class GlobalValue
 };
 
 struct VarId : public prelude::Displayable {
-  VarId(uint32_t localVarName) : localName(localVarName), globalName() {}
-  VarId(types::LabelId globalVarName)
-      : globalName(globalVarName), localName() {}
+  VarId(uint32_t id) : id(id) {}
+  uint32_t id;
 
-  void display(std::ostream& o) const;
+  virtual void display(std::ostream& o) const { o << "$" << id; }
+  bool operator<(const VarId& other) const { return id < other.id; }
+  bool operator<(const uint32_t& other) const { return id < other; }
+  operator uint32_t() { return id; }
+};
 
-  std::optional<uint32_t> localName;
-  std::optional<types::LabelId> globalName;
+// struct VarId : public prelude::Displayable {
+//   VarId(uint32_t localVarName) : localName(localVarName), globalName() {}
+//   VarId(types::LabelId globalVarName)
+//       : globalName(globalVarName), localName() {}
 
-  VarScope scope() {
-    if (localName.has_value())
-      return VarScope::Local;
-    else
-      return VarScope::Global;
-  }
+//   void display(std::ostream& o) const;
 
-  std::optional<uint32_t> get_local_id() { return localName; }
+//   std::optional<uint32_t> localName;
+//   std::optional<types::LabelId> globalName;
 
-  std::optional<types::LabelId> get_global_id() {
-    if (globalName.has_value())
-      return {globalName.value()};
-    else
-      return {};
-  }
+//   VarScope scope() {
+//     if (localName.has_value())
+//       return VarScope::Local;
+//     else
+//       return VarScope::Global;
+//   }
 
-  bool operator<(const VarId& other) const {
-    if (this->localName.has_value()) {
-      if (other.localName.has_value()) {
-        return localName.value() < other.localName.value();
-      } else {
-        return true;
-      }
-    } else {
-      if (other.localName.has_value()) {
-        return false;
-      } else {
-        return globalName.value() < other.globalName.value();
-      }
-    }
-  }
-};  // namespace mir::inst
+//   std::optional<uint32_t> get_local_id() { return localName; }
+
+//   std::optional<types::LabelId> get_global_id() {
+//     if (globalName.has_value())
+//       return {globalName.value()};
+//     else
+//       return {};
+//   }
+
+//   bool operator<(const VarId& other) const {
+//     if (this->localName.has_value()) {
+//       if (other.localName.has_value()) {
+//         return localName.value() < other.localName.value();
+//       } else {
+//         return true;
+//       }
+//     } else {
+//       if (other.localName.has_value()) {
+//         return false;
+//       } else {
+//         return globalName.value() < other.globalName.value();
+//       }
+//     }
+//   }
+// };
 
 class Variable : public prelude::Displayable {
  public:
-  VarId id;
+  Variable(types::SharedTyPtr ty, bool is_memory_var = false,
+           bool is_temp_var = false)
+      : ty(ty), is_memory_var(is_memory_var), is_temp_var(is_temp_var) {}
   types::SharedTyPtr ty;
+  bool is_memory_var;
+  bool is_temp_var;
 
+  types::SharedTyPtr type() {
+    if (is_memory_var) {
+      return types::new_ptr_ty(ty);
+    } else {
+      return ty;
+    }
+  }
+  int size() { return ty->size().value(); }
   virtual void display(std::ostream& o) const;
 };
 
@@ -262,9 +284,9 @@ class Inst;
 /// Base class for instruction
 class Inst : public prelude::Displayable {
  public:
-  Inst(Variable& dest) : dest(dest) {}
+  Inst(VarId dest) : dest(dest) {}
   /// Instruction destination variable
-  Variable& dest;
+  VarId dest;
 
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
@@ -334,14 +356,14 @@ class CallInst final : public Inst {
 /// Reference instruction. `$dest = &$val`
 class RefInst final : public Inst {
  public:
-  VarId val;
+  std::variant<VarId, types::LabelId> val;
 
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
   virtual ~RefInst() {}
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
-    s.insert(val);
+    if (auto val = std::get_if<VarId>(&this->val)) s.insert(*val);
     return s;
   }
 };
@@ -349,15 +371,16 @@ class RefInst final : public Inst {
 /// Dereference instruction. `$dest = load $val`
 class LoadInst final : public Inst {
  public:
-  Value val;
+  LoadInst(Value src, VarId dest) : src(src), Inst(dest) {}
+  Value src;
 
   virtual InstKind inst_kind() { return InstKind::Load; }
   virtual void display(std::ostream& o) const;
   virtual ~LoadInst() {}
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
-    if (val.index() == 1) {
-      s.insert(std::get<VarId>(val));
+    if (src.index() == 1) {
+      s.insert(std::get<VarId>(src));
     }
     return s;
   }
@@ -366,6 +389,7 @@ class LoadInst final : public Inst {
 /// Store instruction. `store $val to $dest`
 class StoreInst final : public Inst {
  public:
+  StoreInst(Value val, VarId dest) : val(val), Inst(dest) {}
   Value val;
 
   virtual InstKind inst_kind() { return InstKind::Store; }

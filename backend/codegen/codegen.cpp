@@ -188,14 +188,14 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
     auto imm = *i.src.get_if<int32_t>();
     uint32_t imm_u = imm;
     inst.push_back(std::make_unique<Arith2Inst>(
-        arm::OpCode::Mov, translate_var_reg(i.dest.id), imm_u & 0xffff));
+        arm::OpCode::Mov, translate_var_reg(i.dest), imm_u & 0xffff));
     if (imm_u > 0xffff) {
       inst.push_back(std::make_unique<Arith2Inst>(
-          arm::OpCode::MovT, translate_var_reg(i.dest.id), imm_u & 0xffff0000));
+          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u & 0xffff0000));
     }
   } else {
     inst.push_back(std::make_unique<Arith2Inst>(
-        arm::OpCode::Mov, translate_var_reg(i.dest.id),
+        arm::OpCode::Mov, translate_var_reg(i.dest),
         translate_value_to_operand2(i.src)));
   }
 }
@@ -212,14 +212,14 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 void Codegen::translate_inst(mir::inst::StoreInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::StR,
                                              translate_value_to_reg(i.val),
-                                             translate_var_reg(i.dest.id));
+                                             translate_var_reg(i.dest));
   inst.push_back(std::move(ins));
 }
 
 void Codegen::translate_inst(mir::inst::LoadInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::LdR,
-                                             translate_value_to_reg(i.val),
-                                             translate_var_reg(i.dest.id));
+                                             translate_value_to_reg(i.src),
+                                             translate_var_reg(i.dest));
   inst.push_back(std::move(ins));
 }
 
@@ -230,7 +230,7 @@ void Codegen::translate_inst(mir::inst::RefInst& i) {
 
 void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
   auto ins = std::make_unique<Arith3Inst>(
-      arm::OpCode::Add, translate_var_reg(i.dest.id), translate_var_reg(i.ptr),
+      arm::OpCode::Add, translate_var_reg(i.dest), translate_var_reg(i.ptr),
       translate_value_to_operand2(i.offset));
   inst.push_back(std::move(ins));
 }
@@ -245,43 +245,43 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
   switch (i.op) {
     case mir::inst::Op::Add:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Add, translate_var_reg(i.dest.id),
+          arm::OpCode::Add, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Sub:
       if (reverse_params) {
         inst.push_back(std::make_unique<Arith3Inst>(
-            arm::OpCode::Rsb, translate_var_reg(i.dest.id),
+            arm::OpCode::Rsb, translate_var_reg(i.dest),
             translate_value_to_reg(lhs), translate_value_to_operand2(lhs)));
       } else {
         inst.push_back(std::make_unique<Arith3Inst>(
-            arm::OpCode::Sub, translate_var_reg(i.dest.id),
+            arm::OpCode::Sub, translate_var_reg(i.dest),
             translate_value_to_reg(rhs), translate_value_to_operand2(rhs)));
       }
       break;
 
     case mir::inst::Op::Mul:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Mul, translate_var_reg(i.dest.id),
+          arm::OpCode::Mul, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Div:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::SDiv, translate_var_reg(i.dest.id),
+          arm::OpCode::SDiv, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::And:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::And, translate_var_reg(i.dest.id),
+          arm::OpCode::And, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
     case mir::inst::Op::Or:
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Orr, translate_var_reg(i.dest.id),
+          arm::OpCode::Orr, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
@@ -289,27 +289,26 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       // WARN: Mod is a pseudo-instruction!
       // Mod operations needs to be eliminated in later passes.
       inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::_Mod, translate_var_reg(i.dest.id),
+          arm::OpCode::_Mod, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
 
     case mir::inst::Op::Gt:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Gt, reverse_params);
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Gt, reverse_params);
       break;
     case mir::inst::Op::Lt:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Lt, reverse_params);
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Lt, reverse_params);
       break;
     case mir::inst::Op::Gte:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Ge, reverse_params);
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Ge, reverse_params);
       break;
     case mir::inst::Op::Lte:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Le, reverse_params);
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Le, reverse_params);
       break;
     case mir::inst::Op::Eq:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::Equal,
-                   reverse_params);
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Equal, reverse_params);
       break;
     case mir::inst::Op::Neq:
-      emit_compare(i.dest.id, i.lhs, i.rhs, ConditionCode::NotEqual,
+      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::NotEqual,
                    reverse_params);
       break;
       break;

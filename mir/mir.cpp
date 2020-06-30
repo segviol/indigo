@@ -51,15 +51,9 @@ void display_op(std::ostream& o, Op val) {
   }
 }
 
-void Variable::display(std::ostream& o) const { o << id << ": " << *ty; }
+// void Variable::display(std::ostream& o) const { o << id << ": " << *ty; }
 
-void VarId::display(std::ostream& o) const {
-  if (localName) {
-    o << "$" << localName.value();
-  } else if (globalName) {
-    o << "@" << globalName.value();
-  }
-}
+// void VarId::display(std::ostream& o) const { o << "$" << id; }
 
 void Value::display(std::ostream& o) const {
   if (auto x = std::get_if<VarId>(this)) {
@@ -89,11 +83,12 @@ void CallInst::display(std::ostream& o) const {
 void RefInst::display(std::ostream& o) const { o << dest << " = &" << val; }
 
 void LoadInst::display(std::ostream& o) const {
-  o << dest << " = load " << val;
+  o << dest << " = load " << src;
 }
 
 void StoreInst::display(std::ostream& o) const {
-  o << dest << " = store " << val;
+  o << "store " << val << " to "
+    << "dest";
 }
 
 void PtrOffsetInst::display(std::ostream& o) const {
