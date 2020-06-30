@@ -1,5 +1,6 @@
 #pragma once
 #include <climits>
+#include <exception>
 #include <iostream>
 
 namespace prelude {
@@ -31,5 +32,8 @@ class Displayable {
     return o;
   }
 };
+
+class UnreachableException : public std::exception {};
+class NotImplementedException : public std::exception {};
 
 }  // namespace prelude
