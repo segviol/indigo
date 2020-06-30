@@ -25,6 +25,12 @@ std::string format_bb_label(std::string_view function_name, uint32_t label_id) {
   return s.str();
 }
 
+std::string format_fn_end_label(std::string_view function_name) {
+  auto s = std::stringstream();
+  s << function_name << "_$end";
+  return s.str();
+}
+
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func,
@@ -33,6 +39,7 @@ class Codegen final {
         extra_data(extra_data),
         inst(),
         reg_map(),
+        fixed_vars(),
         var_collapse(),
         bb_ordering() {
     {
@@ -72,6 +79,7 @@ class Codegen final {
   std::map<arm::Label, arm::ConstValue> consts;
 
   std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
+  std::map<mir::inst::VarId, arm::Reg> fixed_vars;
 
   std::vector<uint32_t> bb_ordering;
 
@@ -90,6 +98,11 @@ class Codegen final {
   arm::Operand2 translate_value_to_operand2(mir::inst::Value& v);
   arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
+
+  void scan_phi();
+  mir::inst::VarId get_collapsed_var(mir::inst::VarId i);
+  void generate_startup();
+  void generate_return_and_cleanup();
 
   // arm::Function translate_function(mir::inst::MirFunction& f);
   void translate_basic_block(mir::inst::BasicBlk& blk);
