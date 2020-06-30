@@ -43,6 +43,15 @@ class ConstValue
   virtual void display(std::ostream& o) const;
 };
 
+/// Frame pointer (base pointer)
+const uint32_t REG_FP = 11;
+/// Stack pointer
+const uint32_t REG_SP = 13;
+/// Link register
+const uint32_t REG_LR = 14;
+/// Program counter
+const uint32_t REG_PC = 15;
+
 const uint32_t REG_GP_START = 0;
 const uint32_t REG_DOUBLE_START = 16;
 const uint32_t REG_QUAD_START = 48;
@@ -331,6 +340,10 @@ struct MultLoadStoreInst final : public Inst {
 ///
 /// Valid opcode: Push, Pop
 struct PushPopInst final : public Inst {
+  PushPopInst(OpCode op, std::vector<Reg> regs,
+              ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), regs(regs) {}
+
   std::vector<Reg> regs;
 
   virtual void display(std::ostream& o) const;
@@ -341,6 +354,9 @@ struct PushPopInst final : public Inst {
 ///
 /// Valid opcode: _Label
 struct LabelInst final : public Inst {
+  LabelInst(Label label)
+      : Inst(OpCode::_Label, ConditionCode::Always), label(label) {}
+
   Label label;
 
   virtual void display(std::ostream& o) const;

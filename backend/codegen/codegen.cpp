@@ -11,6 +11,7 @@ namespace backend::codegen {
 using namespace arm;
 
 arm::Function Codegen::translate_function() {
+  scan_phi();
   for (auto& bb : func.basic_blks) {
     translate_basic_block(bb.second);
   }
@@ -19,6 +20,8 @@ arm::Function Codegen::translate_function() {
 }
 
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
+  inst.push_back(
+      std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
   for (auto& inst : blk.inst) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
@@ -43,7 +46,26 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
+void Codegen::generate_return_and_cleanup() {
+  inst.push_back(std::make_unique<LabelInst>(format_fn_end_label(func.name)));
+  // NOTE: Register counting is done AFTER register allocation, so there's not
+  // much cleanup here. Insert register counting after end label.
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_SP, REG_FP));
+  inst.push_back(
+      std::make_unique<PushPopInst>(OpCode::Pop, std::vector{REG_FP, REG_PC}));
+  // ^ this final pop sets PC and returns the function
+}
+
+void Codegen::generate_startup() {
+  inst.push_back(
+      std::make_unique<PushPopInst>(OpCode::Push, std::vector{REG_FP, REG_LR}));
+  // TODO: Push all used register to save them, probably after register alloc
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_FP, REG_SP));
+  // TODO: Expand stack here; we haven't allocated the stack for now!
+}
+
+arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -54,7 +76,8 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
+arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -65,7 +88,8 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
+arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -73,6 +97,40 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
     return found->second;
   } else {
     return alloc_vq();
+  }
+}
+
+mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  auto res = this->var_collapse.find(i);
+  if (res != var_collapse.end()) {
+    while (true) {
+      auto res_ = this->var_collapse.find(res->second);
+      if (res_ == var_collapse.end() || res == res_) {
+        return res->second;
+      }
+    }
+  } else {
+    return i;
+  }
+}
+
+void Codegen::scan_phi() {
+  for (auto& bb : func.basic_blks) {
+    for (auto& inst : bb.second.inst) {
+      if (auto x = dynamic_cast<mir::inst::PhiInst*>(&*inst)) {
+        auto min = x->dest.id;
+        auto vec = std::vector<mir::inst::VarId>();
+        vec.push_back(min);
+        for (auto& id : x->vars) {
+          auto x = get_collapsed_var(id);
+          if (x < min) min = x;
+          vec.push_back(x);
+        }
+        for (auto& x : vec) {
+          var_collapse.insert_or_assign(x, min);
+        }
+      }
+    }
   }
 }
 
@@ -170,8 +228,8 @@ void Codegen::translate_inst(mir::inst::RefInst& i) {
 
 void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
   auto ins = std::make_unique<Arith3Inst>(
-      arm::OpCode::Add, translate_var_reg(i.dest.id),
-      translate_var_reg(i.ptr.id), translate_value_to_operand2(i.offset));
+      arm::OpCode::Add, translate_var_reg(i.dest.id), translate_var_reg(i.ptr),
+      translate_value_to_operand2(i.offset));
   inst.push_back(std::move(ins));
 }
 
@@ -296,6 +354,8 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
           }
         }
       }
+      // TODO: Omit the second jump argument if label is right after it
+      // TODO: Move this^ to peephole optimization
       if (cond) {
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
@@ -314,8 +374,16 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
       }
     } break;
     case mir::inst::JumpInstructionKind::Return:
-      // TODO: Clean up before return
-      inst.push_back(std::make_unique<PureInst>(OpCode::Bx));
+      if (j.cond_or_ret.has_value()) {
+        // Move return value to its register
+        inst.push_back(std::make_unique<Arith2Inst>(
+            OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
+            translate_var_reg(j.cond_or_ret.value())));
+      }
+      inst.push_back(
+          std::make_unique<BrInst>(OpCode::B, format_fn_end_label(func.name)));
+      // Jumps to function end, the rest is cleanup generation in function
+      // `generate_return_and_cleanup`
       break;
     case mir::inst::JumpInstructionKind::Undefined:
       // WARN: Error about undefined blocks

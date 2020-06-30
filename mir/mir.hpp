@@ -383,7 +383,7 @@ class StoreInst final : public Inst {
 /// Offset ptr by offset. `$dest = $ptr + $offset`
 class PtrOffsetInst final : public Inst {
  public:
-  Variable ptr;
+  VarId ptr;
   Value offset;
 
   virtual InstKind inst_kind() { return InstKind::PtrOffset; }
@@ -391,7 +391,7 @@ class PtrOffsetInst final : public Inst {
   virtual ~PtrOffsetInst() {}
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
-    s.insert(ptr.id);
+    s.insert(ptr);
     if (offset.index() == 1) {
       s.insert(std::get<VarId>(offset));
     }
@@ -402,7 +402,7 @@ class PtrOffsetInst final : public Inst {
 /// Phi instruction. `$dest = phi(...$vars)`
 class PhiInst final : public Inst {
  public:
-  std::vector<Variable> vars;
+  std::vector<VarId> vars;
 
   virtual InstKind inst_kind() { return InstKind::Phi; }
   virtual void display(std::ostream& o) const;
@@ -410,7 +410,7 @@ class PhiInst final : public Inst {
   std::set<VarId> useVars() const {
     auto s = std::set<VarId>();
     for (auto var : vars) {
-      s.insert(var.id);
+      s.insert(var);
     }
     return s;
   }
