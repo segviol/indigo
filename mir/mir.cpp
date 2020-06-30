@@ -80,7 +80,14 @@ void CallInst::display(std::ostream& o) const {
   o << ")";
 }
 
-void RefInst::display(std::ostream& o) const { o << dest << " = &" << val; }
+void RefInst::display(std::ostream& o) const {
+  o << dest << " = &";
+  if (auto x = std::get_if<VarId>(&val)) {
+    o << *x;
+  } else if (auto x = std::get_if<types::LabelId>(&val)) {
+    o << "@" << *x;
+  }
+}
 
 void LoadInst::display(std::ostream& o) const {
   o << dest << " = load " << src;
