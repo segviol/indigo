@@ -51,8 +51,23 @@ void display_op(std::ostream& o, Op val) {
   }
 }
 
-void Variable::display(std::ostream& o) const { o << "TODO:VARIABLE"; }
-void Value::display(std::ostream& o) const { o << "TODO:VALUE"; }
+void Variable::display(std::ostream& o) const { o << id << ": " << *ty; }
+
+void VarId::display(std::ostream& o) const {
+  if (localName) {
+    o << "$" << localName.value();
+  } else if (globalName) {
+    o << "@" << globalName.value();
+  }
+}
+
+void Value::display(std::ostream& o) const {
+  if (auto x = std::get_if<VarId>(this)) {
+    o << *x;
+  } else if (auto x = std::get_if<int32_t>(this)) {
+    o << *x;
+  }
+}
 
 void AssignInst::display(std::ostream& o) const { o << dest << " = " << src; }
 

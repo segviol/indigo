@@ -29,6 +29,29 @@ enum class RegisterKind {
 // vector register.
 using Reg = uint32_t;
 
+class ConstValue
+    : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
+      public prelude::Displayable {
+ public:
+  ConstValue(uint32_t x)
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+  ConstValue(std::vector<uint32_t> x)
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+  ConstValue(std::string x)
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+
+  virtual void display(std::ostream& o) const;
+};
+
+/// Frame pointer (base pointer)
+const uint32_t REG_FP = 11;
+/// Stack pointer
+const uint32_t REG_SP = 13;
+/// Link register
+const uint32_t REG_LR = 14;
+/// Program counter
+const uint32_t REG_PC = 15;
+
 const uint32_t REG_GP_START = 0;
 const uint32_t REG_DOUBLE_START = 16;
 const uint32_t REG_QUAD_START = 48;
@@ -56,6 +79,10 @@ struct RegisterOperand : public prelude::Displayable {
   uint8_t shift_amount;
 
   virtual void display(std::ostream& o) const;
+  bool operator==(const RegisterOperand& other) const {
+    return reg == other.reg && shift == other.shift &&
+           shift_amount == other.shift_amount;
+  };
 };
 
 struct MemoryOperand : public prelude::Displayable {
@@ -102,6 +129,20 @@ class Operand2 : public std::variant<RegisterOperand, int32_t>,
   Operand2(int32_t i) : std::variant<RegisterOperand, int32_t>(i) {}
 
   virtual void display(std::ostream& o) const;
+  bool operator==(const Operand2& other) const {
+    auto this_ =
+        dynamic_cast<const std::variant<RegisterOperand, int32_t>&>(*this);
+    auto other_ =
+        dynamic_cast<const std::variant<RegisterOperand, int32_t>&>(other);
+    return this_ == other_;
+  }
+  bool operator==(const int32_t& other) const {
+    if (auto ip = std::get_if<int32_t>(this)) {
+      return *ip == other;
+    } else {
+      return false;
+    }
+  }
 };
 
 typedef std::string Label;
@@ -127,6 +168,8 @@ enum class OpCode {
 
   // Move
   Mov,
+  // Move top 16 bits
+  MovT,
   // Add
   Add,
   // Subtract
@@ -171,8 +214,10 @@ enum class OpCode {
   // Pop
   Pop,
 
-  // Label
-  _Label
+  // Label (pseudo-instruction)
+  _Label,
+  // Mod (pseudo-instruction)
+  _Mod
 };
 
 void display_op(OpCode op, std::ostream& o);
@@ -257,6 +302,8 @@ struct Arith2Inst final : public Inst {
 ///
 /// Valid opcode: B, Bl
 struct BrInst final : public Inst {
+  BrInst(OpCode op, Label l, ConditionCode c = ConditionCode::Always)
+      : l(l), Inst(op, c) {}
   Label l;
 
   virtual void display(std::ostream& o) const;
@@ -267,6 +314,10 @@ struct BrInst final : public Inst {
 ///
 /// Valid opcode: LdR, StR
 struct LoadStoreInst final : public Inst {
+  LoadStoreInst(OpCode op, Reg rd, MemoryOperand mem,
+                ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), rd(rd), mem(mem) {}
+
   Reg rd;
   MemoryOperand mem;
 
@@ -289,6 +340,10 @@ struct MultLoadStoreInst final : public Inst {
 ///
 /// Valid opcode: Push, Pop
 struct PushPopInst final : public Inst {
+  PushPopInst(OpCode op, std::vector<Reg> regs,
+              ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), regs(regs) {}
+
   std::vector<Reg> regs;
 
   virtual void display(std::ostream& o) const;
@@ -299,6 +354,9 @@ struct PushPopInst final : public Inst {
 ///
 /// Valid opcode: _Label
 struct LabelInst final : public Inst {
+  LabelInst(Label label)
+      : Inst(OpCode::_Label, ConditionCode::Always), label(label) {}
+
   Label label;
 
   virtual void display(std::ostream& o) const;
@@ -308,12 +366,12 @@ struct LabelInst final : public Inst {
 struct Function {
   std::string name;
   std::vector<std::unique_ptr<Inst>> inst;
-  std::map<std::string, std::unique_ptr<char[]>> local_const;
+  std::map<std::string, ConstValue> local_const;
 };
 
 struct ArmCode {
   std::vector<std::unique_ptr<Function>> functions;
-  std::map<std::string, std::unique_ptr<char[]>> consts;
+  std::map<std::string, ConstValue> consts;
 };
 
 }  // namespace arm
