@@ -42,6 +42,10 @@ class Block_Live_Var {
     subsequents.insert(subsequent);
   }
 
+  // std::set<mir::inst::VarId> filter_vars(
+  //     mir::inst::MirFunction& func) {  // remove global vars and array varas
+  // }
+
   bool build(mir::inst::BasicBlk& block) {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
     bool modify = false;
