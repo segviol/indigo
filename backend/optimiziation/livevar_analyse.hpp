@@ -1,50 +1,34 @@
-#pragma once
-
 #include <assert.h>
 
 #include <algorithm>
-#include <iterator>
 #include <map>
 #include <memory>
-#include <vector>
 
 #include "../backend.hpp"
 
-namespace optimization::ud_chain {
-
-class Var_Point;
-
-class Define_Use_Chain;
-class Remove_Dead_Code;
+namespace optimization::livevar_analyse {
 class Block_Live_Var;
-
 typedef uint32_t InstIdx;
 typedef std::set<mir::inst::VarId> VariableSet;
 typedef std::shared_ptr<VariableSet> sharedPtrVariableSet;
-class Var_Point {
-  mir::types::LabelId blk_id;
-  mir::inst::Variable var;
-  InstIdx instidx;
-};
-class Define_Use_Chain {
- public:
-  Var_Point define;
-  std::vector<Var_Point> uses;
-};
+typedef std::shared_ptr<Block_Live_Var> sharedPtrBlkLivevar;
 
-std::map<mir::inst::VarId, std::shared_ptr<Define_Use_Chain> > ud_map;
-std::map<mir::types::LabelId, Block_Live_Var&> livevars;
-
+// The class will ignore global variables and array variables
 class Block_Live_Var {
  public:
   // instLiveVars[idx] means livevars before inst at idx
   std::vector<sharedPtrVariableSet> instLiveVars;
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
+  sharedPtrVariableSet all_vars;
+  sharedPtrVariableSet define_vars;
   std::set<sharedPtrVariableSet> subsequents;
-  Block_Live_Var(int size = 0) {
+  bool ignore_global_and_array = true;
+  Block_Live_Var(int size = 0, bool ignore_global_and_array = true) {
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
+    all_vars = std::make_shared<VariableSet>();
+    define_vars = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
       instLiveVars.emplace_back(std::make_shared<VariableSet>());
     }
@@ -102,60 +86,35 @@ class Block_Live_Var {
     }
     return modify;
   }
-  bool remove_dead_code(mir::inst::BasicBlk& block) {
-    bool modify = false;
-    auto tmp = live_vars_out;
-    for (auto iter = block.inst.begin(); iter != block.inst.end();) {
-      auto defvar = iter->get()->dest;
-      int idx = iter - block.inst.begin();
-      if (idx >= instLiveVars.size()) {  // remove the last code
-        tmp = live_vars_out;
-      } else {
-        tmp = *(instLiveVars.begin() + idx);
-      }
-      if (defvar.ty->kind() == mir::types::TyKind::Void) {
-        continue;
-      }
-    }
-    // if (modify) {
-    //   build(live_vars_out, block);
-    // }
-    live_vars_in->clear();
-    if (instLiveVars.size()) {
-      live_vars_in->insert(instLiveVars[0]->begin(), instLiveVars[0]->end());
-    } else {  // Maybe the block's codes are all dead
-      live_vars_in->insert(live_vars_out->begin(), live_vars_out->end());
-    }
-    return modify;
-  }
+
   ~Block_Live_Var();
 };
-class Remove_Dead_Code : public backend::MirOptimizePass {
-  std::string name = "RemoveDeadCode";
-  std::string pass_name() { return name; }
 
+class Livevar_Analyse {
+ public:
+  std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
   bool dfs_build(
       mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
       std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks) {
     bool modify = false;
-    livevars[start.id].build(basic_blks[start.id]);
+    livevars[start.id]->build(basic_blks[start.id]);
     for (auto pre : start.preceding) {
-      modify |= livevars[pre].build(basic_blks[pre]);
+      modify |= livevars[pre]->build(basic_blks[pre]);
     }
     return modify;
   }
 
-  void optimize_func(mir::inst::MirFunction& func) {
+  void build(mir::inst::MirFunction& func) {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      auto blv = Block_Live_Var(iter->second.inst.size());
+      auto blv = std::make_shared<Block_Live_Var>(iter->second.inst.size());
       livevars[iter->second.id] = blv;
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {  // init subsequnt relation
       auto blv = livevars[iter->second.id];
       for (auto prec : iter->second.preceding) {
-        livevars[prec].add_subsequent(blv.live_vars_in);
+        livevars[prec]->add_subsequent(blv->live_vars_in);
       }
     }
     auto end = func.basic_blks.end();
@@ -163,26 +122,6 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
     while (dfs_build(end->second, empty, func.basic_blks))
       ;
-    while (true) {  // delete death code for each block and build again util no
-                    // death code to remove
-      bool modify = false;
-      for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
-           iter++) {
-        modify |= livevars[iter->first].remove_dead_code(iter->second);
-      }
-      if (!modify) {
-        break;
-      }
-      while (dfs_build(end->second, empty, func.basic_blks))
-        ;
-    }
-  }
-  void optimize_mir(mir::inst::MirPackage& package,
-                    std::map<std::string, std::any>& extra_data_repo) {
-    for (auto iter = package.functions.begin(); iter != package.functions.end();
-         ++iter) {
-      optimize_func(iter->second);
-    }
   }
 };
-}  // namespace optimization::ud_chain
+}  // namespace optimization::livevar_analyse
