@@ -1,1 +1,9 @@
 /build
+/CMakeFiles
+compile_commands.json
+cmake_install.cmake
+.clangd
+.vscode
+.vs
+Makefile
+CMakeCache.txt
