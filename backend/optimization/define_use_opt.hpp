@@ -32,9 +32,6 @@ class Define_Use_Chain {
   std::vector<Var_Point> uses;
 };
 
-std::map<mir::inst::VarId, std::shared_ptr<Define_Use_Chain> > ud_map;
-std::map<mir::types::LabelId, Block_Live_Var&> livevars;
-
 class Block_Live_Var {
  public:
   // instLiveVars[idx] means livevars before inst at idx
@@ -42,7 +39,15 @@ class Block_Live_Var {
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
   std::set<sharedPtrVariableSet> subsequents;
-  Block_Live_Var(int size = 0) {
+
+  mir::inst::MirPackage& package_ref;
+  mir::inst::MirFunction& function_ref;
+
+  Block_Live_Var(Block_Live_Var&&) = default;
+
+  Block_Live_Var(mir::inst::MirPackage& package_ref,
+                 mir::inst::MirFunction& function_ref, int size = 0)
+      : package_ref(package_ref), function_ref(function_ref) {
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
@@ -57,6 +62,14 @@ class Block_Live_Var {
   void add_subsequent(sharedPtrVariableSet subsequent) {
     subsequents.insert(subsequent);
   }
+
+  // mir::types::SharedTyPtr get_ty(mir::inst::VarId& id) {
+  //   if (auto local_id = id.get_local_id()) {
+
+  //   } else {
+  //     auto global_id = id.get_global_id().value();
+  //   }
+  // }
 
   bool build(mir::inst::BasicBlk& block) {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
@@ -134,6 +147,9 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
   std::string name = "RemoveDeadCode";
   std::string pass_name() { return name; }
 
+  std::map<mir::inst::VarId, std::shared_ptr<Define_Use_Chain> > ud_map;
+  std::map<mir::types::LabelId, Block_Live_Var> livevars;
+
   bool dfs_build(
       mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
       std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks) {
@@ -145,15 +161,16 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
     return modify;
   }
 
-  void optimize_func(mir::inst::MirFunction& func) {
+  void optimize_func(mir::inst::MirFunction& func,
+                     mir::inst::MirPackage& package_ref) {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      auto blv = Block_Live_Var(iter->second.inst.size());
-      livevars[iter->second.id] = blv;
+      auto blv = Block_Live_Var(package_ref, func, iter->second.inst.size());
+      livevars.insert({iter->second.id, std::move(blv)});
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {  // init subsequnt relation
-      auto blv = livevars[iter->second.id];
+      auto& blv = livevars[iter->second.id];
       for (auto prec : iter->second.preceding) {
         livevars[prec].add_subsequent(blv.live_vars_in);
       }
@@ -181,7 +198,7 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
                     std::map<std::string, std::any>& extra_data_repo) {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          ++iter) {
-      optimize_func(iter->second);
+      optimize_func(iter->second, package);
     }
   }
 };
