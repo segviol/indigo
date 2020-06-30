@@ -10,9 +10,7 @@ SyntaxAnalyze::SyntaxAnalyze()
 
 SyntaxAnalyze::SyntaxAnalyze(vector<Word>& in_word_list)
     : matched_index(-1), word_list(in_word_list)
-{
-    //output.open("output.txt");
-}
+{}
 
 SyntaxAnalyze::~SyntaxAnalyze()
 {}
@@ -54,38 +52,78 @@ void SyntaxAnalyze::gm_const_decl()
 
 void SyntaxAnalyze::gm_const_def()
 {
+    string name;
+    SymbolKind kind;
+    SharedSyPtr symbol;
+    SharedExNdPtr dimension;
+    vector<SharedExNdPtr> init_values;
+    vector<SharedExNdPtr> dimensions;
 
     match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
 
     if (try_word(1, Token::LBRACK))
     {
+        kind = SymbolKind::Array;
         while (try_word(1, Token::LBRACK))
         {
             match_one_word(Token::LBRACK);
+            dimension = gm_const_exp();
             match_one_word(Token::RBRACK);
+
+            dimensions.push_back(dimension);
         }
+    }
+    else
+    {
+        kind = SymbolKind::INT;
     }
 
     match_one_word(Token::ASSIGN);
 
-    gm_const_init_val();
+    gm_const_init_val(init_values);
+
+    if (kind == SymbolKind::INT)
+    {
+        symbol.reset(new IntSymbol(name, layer_num, true, init_values.front()->_value));
+    }
+    else
+    {
+        symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(), layer_num, true, false));
+        for (auto var : dimensions)
+        {
+            std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
+        }
+        for (auto var : init_values)
+        {
+            std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
+        }
+    }
+
+    symbolTable.push_symbol(symbol);
 }
 
-void SyntaxAnalyze::gm_const_init_val()
+void SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr>& init_values)
 {
     if (try_word(1, Token::LBRACE))
     {
         match_one_word(Token::LBRACE);
         if (!try_word(1, Token::RBRACE))
         {
-            gm_const_init_val();
+            gm_const_init_val(init_values);
             while (try_word(1, Token::COMMA))
             {
                 match_one_word(Token::COMMA);
-                gm_const_init_val();
+                gm_const_init_val(init_values);
             }
         }
         match_one_word(Token::RBRACE);
+    }
+    else
+    {
+        SharedExNdPtr value;
+        value = gm_const_exp();
+        init_values.push_back(value);
     }
 }
 
@@ -103,93 +141,207 @@ void SyntaxAnalyze::gm_var_decl()
 
 void SyntaxAnalyze::gm_var_def()
 {
+    string name;
+    SymbolKind kind;
+    SharedExNdPtr dimension;
+    vector<SharedExNdPtr> dimensions;
+    vector<SharedExNdPtr> init_values;
+    SharedSyPtr symbol;
+
     match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
 
     if (try_word(1, Token::LBRACK))
     {
+        kind = SymbolKind::Array;
         while (try_word(1, Token::LBRACK))
         {
             match_one_word(Token::LBRACK);
+            dimension = gm_const_exp();
             match_one_word(Token::RBRACK);
         }
+    }
+    else
+    {
+        kind = SymbolKind::INT;
     }
 
     if (try_word(1, Token::ASSIGN))
     {
         match_one_word(Token::ASSIGN);
-        gm_init_val();
+        gm_init_val(init_values);
     }
+
+    if (kind == SymbolKind::INT)
+    {
+        // TODO: mir to init var
+        symbol.reset(new IntSymbol(name, layer_num, false));
+    }
+    else
+    {
+        symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(), layer_num, false, false));
+        for (auto var : dimensions)
+        {
+            std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
+        }
+        // TODO: mir to init var
+    }
+
+    symbolTable.push_symbol(symbol);
 }
 
-void SyntaxAnalyze::gm_init_val()
+void SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr>& init_values)
 {
     if (try_word(1, Token::LBRACE))
     {
         match_one_word(Token::LBRACE);
         if (!try_word(1, Token::RBRACE))
         {
-            gm_init_val();
+            gm_init_val(init_values);
             while (try_word(1, Token::COMMA))
             {
                 match_one_word(Token::COMMA);
-                gm_init_val();
+                gm_init_val(init_values);
             }
         }
         match_one_word(Token::RBRACE);
     }
+    else
+    {
+        SharedExNdPtr value;
+        value = gm_exp();
+        init_values.push_back(value);
+    }
 }
 
-
-void SyntaxAnalyze::gm_const_exp()
+SharedExNdPtr SyntaxAnalyze::gm_const_exp()
 {
     return gm_exp();
 }
 
-void SyntaxAnalyze::gm_exp()
+SharedExNdPtr SyntaxAnalyze::gm_exp()
 {
-    gm_mul_exp();
+    SharedExNdPtr first;
+
+    first = gm_mul_exp();
 
     while (try_word(1, Token::PLUS, Token::MINU))
     {
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
+
         if (try_word(1, Token::PLUS))
         {
             match_one_word(Token::PLUS);
+            father->_operation = OperationType::PLUS;
         }
         else
         {
             match_one_word(Token::MINU);
+            father->_operation = OperationType::MINU;
         }
+        opStr = get_least_matched_word().get_self();
+
+        second = gm_mul_exp();
+
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            switch (father->_operation)
+            {
+            case OperationType::PLUS:
+                father->_value = first->_value + second->_value;
+                break;
+            case OperationType::MINU:
+                father->_value = first->_value - second->_value;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
+        }
+        father->addChild(first);
+        father->addChild(second);
+
+        first = father;
     }
+
+    return first;
 }
 
-void SyntaxAnalyze::gm_mul_exp()
+SharedExNdPtr SyntaxAnalyze::gm_mul_exp()
 {
-    gm_unary_exp();
+    SharedExNdPtr first;
+    first = gm_unary_exp();
 
     while (try_word(1, Token::MULT, Token::DIV, Token::MOD))
     {
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
+
         if (try_word(1, Token::MULT))
         {
             match_one_word(Token::MULT);
+            father->_operation = OperationType::MUL;
         }
         else if (try_word(1, Token::DIV))
         {
             match_one_word(Token::DIV);
+            father->_operation = OperationType::DIV;
         }
         else
         {
             match_one_word(Token::MOD);
+            father->_operation = OperationType::MOD;
         }
+        opStr = get_least_matched_word().get_self();
+
+        second = gm_unary_exp();
+
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            switch (father->_operation)
+            {
+            case OperationType::MUL:
+                father->_value = first->_value * second->_value;
+                break;
+            case OperationType::DIV:
+                father->_value = first->_value / second->_value;
+                break;
+            case OperationType::MOD:
+                father->_value = first->_value % second->_value;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
+        }
+        father->addChild(first);
+        father->addChild(second);
+        first = father;
     }
+    return first;
 }
 
-void SyntaxAnalyze::gm_unary_exp()
+SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
 {
+    SharedExNdPtr node;
+    string opStr;
+
     if (try_word(1, Token::LPARENT))
     {
         match_one_word(Token::LPARENT);
 
-        gm_exp();
+        node = gm_exp();
 
         match_one_word(Token::RPARENT);
     }
@@ -197,58 +349,153 @@ void SyntaxAnalyze::gm_unary_exp()
     {
         if (try_word(2, Token::LPARENT))
         {
-            gm_func_call();
+            node = gm_func_call();
         }
         else
         {
-            gm_l_val();
+            node = gm_l_val();
         }
     }
     else if (try_word(1, Token::INTCON))
     {
+        string num;
         match_one_word(Token::INTCON);
+        num = get_least_matched_word().get_self();
+        node.reset(new ExpressNode());
+        node->_value = front::word::stringToInt(num);
+        node->_type = NodeType::CONST;
+        node->_operation = OperationType::NUMBER;
     }
     else
     {
+        node.reset(new ExpressNode());
         if (try_word(1, Token::PLUS, Token::MINU, Token::NOT))
         {
             if (try_word(1, Token::PLUS))
             {
                 match_one_word(Token::PLUS);
+                node->_operation = OperationType::UN_PLUS;
             }
             else if (try_word(1, Token::MINU))
             {
                 match_one_word(Token::MINU);
+                node->_operation = OperationType::UN_MINU;
             }
             else
             {
                 match_one_word(Token::NOT);
+                node->_operation = OperationType::UN_NOT;
             }
         }
 
-        gm_unary_exp();
+        if (node->_operation == OperationType::UN_PLUS)
+        {
+            node = gm_unary_exp();
+        }
+        else
+        {
+            SharedExNdPtr child = gm_unary_exp();
+            if (child->_type == NodeType::CONST)
+            {
+                node->_type = NodeType::CONST;
+                switch (node->_operation)
+                {
+                case OperationType::UN_MINU:
+                    node->_value = -child->_value;
+                    break;
+                case OperationType::UN_NOT:
+                    node->_value = !child->_value;
+                    break;
+                default:
+                    break;
+                }
+            }
+            else
+            {
+                node->_type = NodeType::VAR;
+
+                if (node->_operation == OperationType::UN_MINU)
+                {
+                }
+                else
+                {
+                }
+            }
+            node->addChild(child);
+        }
     }
+    return node;
 }
 
-void SyntaxAnalyze::gm_l_val()
+SharedExNdPtr SyntaxAnalyze::gm_l_val()
 {
+    SharedExNdPtr node(new ExpressNode());
+    string name;
+
     match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
 
     if (try_word(1, Token::LBRACK))
     {
+        SharedSyPtr arr = symbolTable.find_least_layer_symbol(name);
+        SharedExNdPtr index;
+        SharedExNdPtr child;
+
         while (try_word(1, Token::LBRACK))
         {
             match_one_word(Token::LBRACK);
+            child = gm_exp();
+            node->addChild(child);
             match_one_word(Token::RBRACK);
         }
+
+        // TODO: gen ir to compute index
+
+        node->_type = NodeType::VAR;
+        node->_operation = OperationType::ARR;
+        node->addChild(index);
     }
+    else
+    {
+        SharedSyPtr var = symbolTable.find_least_layer_symbol(name);
+
+        if (var->kind() == SymbolKind::INT)
+        {
+            if (std::static_pointer_cast<IntSymbol>(var)->isConst())
+            {
+                node->_type = NodeType::CONST;
+                node->_operation = OperationType::VAR;
+                node->_value = std::static_pointer_cast<IntSymbol>(var)->getValue();
+            }
+            else
+            {
+                node->_type = NodeType::VAR;
+                node->_operation = OperationType::VAR;
+            }
+        }
+        else if (var->kind() == SymbolKind::Array)
+        {
+            // The existing of arr name alone which must be the param to func
+            node->_type = NodeType::VAR;
+            node->_operation = OperationType::ARR_NAME;
+        }
+    }
+
+    return node;
 }
 
-void SyntaxAnalyze::gm_func_call()
+SharedExNdPtr SyntaxAnalyze::gm_func_call()
 {
-    match_one_word(Token::IDENFR);
+    SharedExNdPtr node(new ExpressNode());
+    SharedSyPtr func;
+    string name;
+    vector<SharedExNdPtr> params;
 
-    // TODO: deal IO function and redefine ir
+    match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
+    func = symbolTable.find_least_layer_symbol(name);
+
+    // TODO: deal IO function
     match_one_word(Token::LPARENT);
     if (!try_word(1, Token::RPARENT))
     {
@@ -261,52 +508,136 @@ void SyntaxAnalyze::gm_func_call()
         }
     }
     match_one_word(Token::RPARENT);
+
+    if (std::static_pointer_cast<FunctionSymbol>(func)->getRet() == SymbolKind::INT)
+    {
+        node->_type = NodeType::VAR;
+        node->_operation = OperationType::RETURN_FUNC_CALL;
+        // TODO: init node name
+    }
+    else
+    {
+        node.reset();
+    }
+
+    // TODO: deal IO function
+
+    if (name == "putf")
+    {
+        match_one_word(Token::LPARENT);
+
+        match_one_word(Token::STRCON);
+        while (try_word(1, Token::COMMA))
+        {
+            match_one_word(Token::COMMA);
+            gm_exp();
+        }
+        match_one_word(Token::RPARENT);
+    }
+    else
+    {
+        match_one_word(Token::LPARENT);
+        if (!try_word(1, Token::RPARENT))
+        {
+            SharedExNdPtr child;
+            child = gm_exp();
+            params.push_back(child);
+            node->addChild(child);
+
+            while (try_word(1, Token::COMMA))
+            {
+                match_one_word(Token::COMMA);
+                child = gm_exp();
+                params.push_back(child);
+                node->addChild(child);
+            }
+        }
+        match_one_word(Token::RPARENT);
+    }
+    return node;
 }
 
 void SyntaxAnalyze::gm_func_def()
 {
+    string name;
+    SymbolKind ret;
+    int funcLayerNum;
+    vector<SharedSyPtr> params;
+    SharedSyPtr func;
+
     if (try_word(1, Token::INTTK))
     {
         match_one_word(Token::INTTK);
+        ret = SymbolKind::INT;
     }
     else
     {
         match_one_word(Token::VOIDTK);
+        ret = SymbolKind::VOID;
     }
 
     match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
+    funcLayerNum = layer_num;
 
     match_one_word(Token::LPARENT);
     if (!try_word(1, Token::RPARENT))
     {
+        gm_func_param(params, funcLayerNum);
         while (try_word(1, Token::COMMA))
         {
             match_one_word(Token::COMMA);
+            gm_func_param(params, funcLayerNum);
         }
     }
     match_one_word(Token::RPARENT);
 
+    func.reset(new FunctionSymbol(name, ret, funcLayerNum));
+    symbolTable.push_symbol(func);
+    for (auto var : params)
+    {
+        symbolTable.push_symbol(var);
+    }
+
     gm_block();
 }
 
-void SyntaxAnalyze::gm_func_param()
+void SyntaxAnalyze::gm_func_param(vector<SharedSyPtr>& params, int funcLayerNum)
 {
+    string name;
+    SharedSyPtr symbol;
+
     match_one_word(Token::INTTK);
     match_one_word(Token::IDENFR);
+    name = get_least_matched_word().get_self();
 
     if (try_word(1, Token::LBRACK))
     {
+        symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(), funcLayerNum + 1, false, true));
         match_one_word(Token::LBRACK);
         match_one_word(Token::RBRACK);
 
         while (try_word(1, Token::LBRACK))
         {
+            SharedExNdPtr dimension;
             match_one_word(Token::LBRACK);
-            gm_exp();
+            dimension = gm_exp();
             match_one_word(Token::RBRACK);
-            // TODO: generate a new var to save the variable dimension
+            if (dimension->_type == NodeType::CONST)
+            {
+                std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(dimension);
+            }
+            else
+            {
+                // TODO: generate a new var to save the variable dimension
+            }
         }
     }
+    else
+    {
+        symbol.reset(new IntSymbol(name, funcLayerNum + 1, false));
+    }
+    params.push_back(symbol);
 }
 
 void SyntaxAnalyze::gm_block()
@@ -383,11 +714,13 @@ void SyntaxAnalyze::gm_stmt()
 
 void SyntaxAnalyze::gm_if_stmt()
 {
+    SharedExNdPtr cond;
+
     match_one_word(Token::IFTK);
 
     match_one_word(Token::LPARENT);
 
-    gm_cond();
+    cond = gm_cond();
 
     match_one_word(Token::RPARENT);
 
@@ -403,10 +736,12 @@ void SyntaxAnalyze::gm_if_stmt()
 
 void SyntaxAnalyze::gm_while_stmt()
 {
+    SharedExNdPtr cond;
+
     match_one_word(Token::WHILETK);
     match_one_word(Token::LPARENT);
 
-    gm_cond();
+    cond = gm_cond();
 
     match_one_word(Token::RPARENT);
 
@@ -418,87 +753,209 @@ void SyntaxAnalyze::gm_return_stmt()
     match_one_word(Token::RETURNTK);
     if (!try_word(1, Token::SEMICN))
     {
-        gm_exp();
+        SharedExNdPtr retValue;
+        retValue = gm_exp();
     }
     match_one_word(Token::SEMICN);
 }
 
 void SyntaxAnalyze::gm_assign_stmt()
 {
-    gm_l_val();
+    SharedExNdPtr lVal;
+    SharedExNdPtr rVal;
+
+    lVal = gm_l_val();
     match_one_word(Token::ASSIGN);
-    gm_exp();
+    rVal = gm_exp();
     match_one_word(Token::SEMICN);
 }
 
-void SyntaxAnalyze::gm_cond()
+SharedExNdPtr SyntaxAnalyze::gm_cond()
 {
-    gm_and_exp();
+    SharedExNdPtr first;
+    first = gm_and_exp();
 
     while (try_word(1, Token::OR))
     {
-        match_one_word(Token::OR);
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
 
-        gm_and_exp();
+        father->_operation = OperationType::OR;
+
+        match_one_word(Token::OR);
+        opStr = get_least_matched_word().get_self();
+
+        second = gm_and_exp();
+
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            father->_value = first->_value || second->_value;
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
+        }
+        father->addChild(first);
+        father->addChild(second);
+        first = father;
     }
+
+    return first;
 }
 
-void SyntaxAnalyze::gm_and_exp()
+SharedExNdPtr SyntaxAnalyze::gm_and_exp()
 {
-    gm_eq_exp();
+    SharedExNdPtr first;
+    first = gm_eq_exp();
 
     while (try_word(1, Token::AND))
     {
-        match_one_word(Token::AND);
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
 
-        gm_eq_exp();
+        father->_operation = OperationType::OR;
+
+        match_one_word(Token::AND);
+        opStr = get_least_matched_word().get_self();
+
+        second = gm_eq_exp();
+
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            father->_value = first->_value && second->_value;
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
+        }
+        father->addChild(first);
+        father->addChild(second);
+        first = father;
     }
+    return first;
 }
 
-void SyntaxAnalyze::gm_eq_exp()
+SharedExNdPtr SyntaxAnalyze::gm_eq_exp()
 {
-    gm_rel_exp();
+    SharedExNdPtr first;
+    first = gm_rel_exp();
 
     while (try_word(1, Token::EQL, Token::NEQ))
     {
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
+
         if (try_word(1, Token::EQL))
         {
             match_one_word(Token::EQL);
+            father->_operation = OperationType::EQL;
         }
         else
         {
             match_one_word(Token::NEQ);
+            father->_operation = OperationType::NEQ;
+        }
+        opStr = get_least_matched_word().get_self();
+
+        second = gm_rel_exp();
+
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            switch (father->_operation)
+            {
+            case OperationType::EQL:
+                father->_value = first->_value == second->_value;
+                break;
+            case OperationType::NEQ:
+                father->_value = first->_value != second->_value;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
         }
 
-        gm_rel_exp();
+        father->addChild(first);
+        father->addChild(second);
+        first = father;
     }
+    return first;
 }
 
-void SyntaxAnalyze::gm_rel_exp()
+SharedExNdPtr SyntaxAnalyze::gm_rel_exp()
 {
-    gm_exp();
+    SharedExNdPtr first;
+    first = gm_exp();
 
     while (try_word(1, Token::LSS, Token::GRE) || try_word(1, Token::LEQ, Token::GEQ))
     {
+        SharedExNdPtr second;
+        SharedExNdPtr father(new ExpressNode());
+        string opStr;
+
         if (try_word(1, Token::LSS))
         {
+            father->_operation = OperationType::LSS;
             match_one_word(Token::LSS);
         }
         else if (try_word(1, Token::GRE))
         {
+            father->_operation = OperationType::GRE;
             match_one_word(Token::GRE);
         }
         else if (try_word(1, Token::LEQ))
         {
+            father->_operation = OperationType::LEQ;
             match_one_word(Token::LEQ);
         }
         else
         {
+            father->_operation = OperationType::GEQ;
             match_one_word(Token::GEQ);
         }
+        opStr = get_least_matched_word().get_self();
 
-        gm_exp();
+        second = gm_exp();
+        if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
+        {
+            father->_type = NodeType::CONST;
+            switch (father->_operation)
+            {
+            case OperationType::LSS:
+                father->_value = first->_value < second->_value;
+                break;
+            case OperationType::LEQ:
+                father->_value = first->_value <= second->_value;
+                break;
+            case OperationType::GRE:
+                father->_value = first->_value > second->_value;
+                break;
+            case OperationType::GEQ:
+                father->_value = first->_value >= second->_value;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            father->_type = NodeType::VAR;
+        }
+
+        father->addChild(first);
+        father->addChild(second);
+        first = father;
     }
+    return first;
 }
 
 bool SyntaxAnalyze::try_word(int n, Token tk)
@@ -571,6 +1028,7 @@ void SyntaxAnalyze::in_layer()
 
 void SyntaxAnalyze::out_layer()
 {
+    symbolTable.pop_layer_symbols(layer_num);
     layer_num--;
 }
 
@@ -597,7 +1055,7 @@ size_t SyntaxAnalyze::get_matched_index()
     return matched_index;
 }
 
-void SyntaxAnalyze::set_matched_idnex(size_t new_index)
+void SyntaxAnalyze::set_matched_index(size_t new_index)
 {
     matched_index = new_index;
 }

@@ -53,6 +53,7 @@ namespace front::word {
     inline void get_char(char& ch, int& index, const string& str);
     inline void retract(char& ch, int& index, const string& str);
     inline bool is_illegel_char(char ch);
+    int stringToInt(string s);
     Token get_token(const string& buf);
 
     #define VECTOR_SIZE 1024
