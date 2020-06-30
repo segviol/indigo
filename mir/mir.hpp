@@ -268,8 +268,7 @@ class Inst : public prelude::Displayable {
 
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
-  virtual std::set<VarId> useVars(
-      bool ignore_global_and_array = true) const = 0;
+  virtual std::set<VarId> useVars() const = 0;
   virtual ~Inst() {}
 };
 
