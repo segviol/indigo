@@ -12,9 +12,11 @@ using namespace arm;
 
 arm::Function Codegen::translate_function() {
   scan_phi();
+  generate_startup();
   for (auto& bb : func.basic_blks) {
     translate_basic_block(bb.second);
   }
+  generate_return_and_cleanup();
   return arm::Function{func.name, std::move(this->inst),
                        std::move(this->consts)};
 }
