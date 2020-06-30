@@ -318,6 +318,24 @@ inline bool front::word::is_illegel_char(char ch)
     return (ch == '`' || ch == '~' || ch == '@' || ch == '#' || ch == '$' || ch == '^');
 }
 
+int front::word::stringToInt(string s)
+{
+    int value;
+    if (s[0] != '0')
+    {
+        value = stoi(s, NULL, 10);
+    }
+    else if (s.size() > 1 && s[1] == 'X')
+    {
+        value = stoi(s, NULL, 16);
+    }
+    else
+    {
+        value = stoi(s, NULL, 8);
+    }
+    return value;
+}
+
 Token front::word::get_token(const string& buf)
 {
     if (buf == "const")
