@@ -63,13 +63,10 @@ class Block_Live_Var {
     subsequents.insert(subsequent);
   }
 
-  // mir::types::SharedTyPtr get_ty(mir::inst::VarId& id) {
-  //   if (auto local_id = id.get_local_id()) {
-
-  //   } else {
-  //     auto global_id = id.get_global_id().value();
-  //   }
-  // }
+  mir::types::SharedTyPtr get_ty(mir::inst::VarId id) {
+    // This function assumes variable is valid at all times.
+    return function_ref.variables.find(id)->second.ty;
+  }
 
   bool build(mir::inst::BasicBlk& block) {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
@@ -95,7 +92,7 @@ class Block_Live_Var {
       auto useVars = block.inst[i]->useVars();
       auto defvar = block.inst[i]->dest;
       VariableSet defvars;
-      if (defvar.ty->kind() != mir::types::TyKind::Void) {
+      if (get_ty(defvar)->kind() != mir::types::TyKind::Void) {
         defvars.insert(defvar.id);
       }
       VariableSet diff_result;
@@ -126,7 +123,7 @@ class Block_Live_Var {
       } else {
         tmp = *(instLiveVars.begin() + idx);
       }
-      if (defvar.ty->kind() == mir::types::TyKind::Void) {
+      if (get_ty(defvar)->kind() == mir::types::TyKind::Void) {
         continue;
       }
     }
