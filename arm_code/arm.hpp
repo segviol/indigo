@@ -369,6 +369,7 @@ struct Function {
   std::map<std::string, ConstValue> local_const;
   uint32_t stack_size;
 
+  Function(Function&&) = default;
   Function(const Function&) = delete;
 };
 

@@ -485,6 +485,7 @@ class MirFunction : public prelude::Displayable {
 
   virtual void display(std::ostream& o) const;
 
+  MirFunction(MirFunction&& other) = default;
   MirFunction(const MirFunction& other) = delete;
 };
 

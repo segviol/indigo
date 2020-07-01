@@ -27,8 +27,7 @@ void Backend::do_mir_to_arm_transform() {
   for (auto& f : package.functions) {
     auto cg = codegen::Codegen(f.second, package, extra_data);
     auto arm_f = cg.translate_function();
-    code.functions.push_back(
-        std::move(std::make_unique<arm::Function>(std::move(arm_f))));
+    code.functions.push_back(std::make_unique<arm::Function>(std::move(arm_f)));
   }
   for (auto& v : package.global_values) {
     code.consts.insert({codegen::format_const_label("", v.first), v.second});
