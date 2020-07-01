@@ -367,6 +367,10 @@ struct Function {
   std::string name;
   std::vector<std::unique_ptr<Inst>> inst;
   std::map<std::string, ConstValue> local_const;
+  uint32_t stack_size;
+
+  Function(Function&&) = default;
+  Function(const Function&) = delete;
 };
 
 struct ArmCode {
