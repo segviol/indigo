@@ -12,6 +12,22 @@ typedef uint32_t InstIdx;
 typedef std::set<mir::inst::VarId> VariableSet;
 typedef std::shared_ptr<VariableSet> sharedPtrVariableSet;
 typedef std::shared_ptr<Block_Live_Var> sharedPtrBlkLivevar;
+class Var_Point;
+
+class Define_Use_Chain;
+class Remove_Dead_Code;
+
+typedef uint32_t InstIdx;
+class Var_Point {
+  mir::types::LabelId blk_id;
+  mir::inst::Variable var;
+  InstIdx instidx;
+};
+class Define_Use_Chain {
+ public:
+  Var_Point define;
+  std::vector<Var_Point> uses;
+};
 
 // The class will ignore global variables and array variables
 class Block_Live_Var {
@@ -20,15 +36,11 @@ class Block_Live_Var {
   std::vector<sharedPtrVariableSet> instLiveVars;
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
-  sharedPtrVariableSet all_vars;
-  sharedPtrVariableSet define_vars;
   std::set<sharedPtrVariableSet> subsequents;
   bool ignore_global_and_array = true;
   Block_Live_Var(int size = 0, bool ignore_global_and_array = true) {
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
-    all_vars = std::make_shared<VariableSet>();
-    define_vars = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
       instLiveVars.emplace_back(std::make_shared<VariableSet>());
     }
@@ -60,7 +72,7 @@ class Block_Live_Var {
   bool build(mir::inst::BasicBlk& block,
              std::map<uint32_t, mir::inst::Variable>& vartable) {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
-    bool modify = false;
+    auto live_vars_out_before = *live_vars_out;
     live_vars_out->clear();
     auto jump_use_vars = block.jump.useVars();
     live_vars_out->insert(jump_use_vars.begin(), jump_use_vars.end());
@@ -75,6 +87,13 @@ class Block_Live_Var {
     } else if (subsequents.size() == 1) {
       auto iter = subsequents.begin();
       live_vars_out->insert(iter->get()->begin(), iter->get()->end());
+    }
+    if (std::equal(
+            live_vars_out_before.begin(), live_vars_out_before.end(),
+            live_vars_out->begin(),
+            live_vars_out->end())) {  // if live_vars out dont't change, then
+                                      // the block will not be modified
+      return false;
     }
     auto tmp = live_vars_out;
     for (int i = instLiveVars.size() - 1; i >= 0; --i) {
@@ -97,7 +116,6 @@ class Block_Live_Var {
       std::set_union(useVars.begin(), useVars.end(), diff_result.begin(),
                      diff_result.end(),
                      std::inserter(*instLiveVars[i], instLiveVars[i]->begin()));
-      modify |= size_before == instLiveVars[i]->size() ? false : true;
     }
     live_vars_in->clear();
     if (instLiveVars.size()) {
@@ -105,7 +123,7 @@ class Block_Live_Var {
     } else {  // Maybe the block's codes are all dead
       live_vars_in->insert(live_vars_out->begin(), live_vars_out->end());
     }
-    return modify;
+    return true;
   }
 
   ~Block_Live_Var();
@@ -114,8 +132,9 @@ class Block_Live_Var {
 class Livevar_Analyse {
  public:
   std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
-
-  Livevar_Analyse(mir::inst::MirFunction& func) {
+  std::map<mir::inst::VarId, std::set<mir::types::LabelId> > var_blks;
+  mir::inst::MirFunction& func;
+  Livevar_Analyse(mir::inst::MirFunction& func) : func(func) {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
       auto blv = std::make_shared<Block_Live_Var>(iter->second.inst.size());
@@ -140,7 +159,8 @@ class Livevar_Analyse {
     return modify;
   }
 
-  void build(mir::inst::MirFunction& func) {
+  void build() {
+    var_blks.clear();
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
