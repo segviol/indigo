@@ -82,8 +82,7 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     inst.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::LdR, reg, MemoryOperand(REG_FP, (int16_t)(-(v - 4) * 4)),
-        MemoryAccessKind::None));
+        OpCode::LdR, reg, MemoryOperand(REG_FP, (int16_t)(-(v - 4) * 4))));
     return reg;
   }
   auto found = reg_map.find(v);
