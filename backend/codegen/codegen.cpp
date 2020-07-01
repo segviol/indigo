@@ -6,12 +6,14 @@
 #include <optional>
 #include <typeinfo>
 
+#include "err.hpp"
+
 namespace backend::codegen {
 
 using namespace arm;
 
 arm::Function Codegen::translate_function() {
-  scan_phi();
+  scan();
   generate_startup();
   for (auto& bb : func.basic_blks) {
     translate_basic_block(bb.second);
@@ -116,23 +118,31 @@ mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
   }
 }
 
-void Codegen::scan_phi() {
+void Codegen::scan() {
   for (auto& bb : func.basic_blks) {
     for (auto& inst : bb.second.inst) {
       if (auto x = dynamic_cast<mir::inst::PhiInst*>(&*inst)) {
-        auto min = x->dest.id;
-        auto vec = std::vector<mir::inst::VarId>();
-        vec.push_back(min);
-        for (auto& id : x->vars) {
-          auto x = get_collapsed_var(id);
-          if (x < min) min = x;
-          vec.push_back(x);
-        }
-        for (auto& x : vec) {
-          var_collapse.insert_or_assign(x, min);
-        }
+        deal_phi(*x);
+      } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&*inst)) {
+        deal_call(*x);
       }
     }
+  }
+}
+
+void deal_call(mir::inst::CallInst& call) {}
+
+void Codegen::deal_phi(mir::inst::PhiInst& phi) {
+  auto min = phi.dest.id;
+  auto vec = std::vector<mir::inst::VarId>();
+  vec.push_back(min);
+  for (auto& id : phi.vars) {
+    auto x = get_collapsed_var(id);
+    if (x < min) min = x;
+    vec.push_back(x);
+  }
+  for (auto& x : vec) {
+    var_collapse.insert_or_assign(x, min);
   }
 }
 
@@ -175,8 +185,22 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
 }
 
 arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
-  // TODO
-  throw new std::exception();
+  if (auto x = v.get_if<int32_t>()) {
+    auto int_value = *x;
+    auto reg = alloc_vgp();
+    uint32_t imm_u = int_value;
+    inst.push_back(
+        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
+    if (imm_u > 0xffff) {
+      inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg,
+                                                  imm_u & 0xffff0000));
+    }
+    return reg;
+  } else if (auto x = v.get_if<mir::inst::VarId>()) {
+    return get_or_alloc_vgp(*x);
+  } else {
+    throw new prelude::UnreachableException();
+  }
 }
 
 arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
@@ -206,6 +230,57 @@ void Codegen::translate_inst(mir::inst::PhiInst& i) {
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
   // TODO: make call stuff
+  auto fn_id = i.func.id;
+  auto f_ = package.functions.find(fn_id);
+  if (f_ == package.functions.end()) {
+    throw new FunctionNotFoundError{fn_id};
+  }
+  auto& f = *f_;
+  auto params = f.second.type->params;
+  uint32_t param_count = params.size();
+
+  if (params.size() > 0 &&
+      params.back().get()->kind() == mir::types::TyKind::RestParam) {
+    // Deal with variable length params
+    param_count = i.params.size();
+  }
+
+  auto stack_size = param_count > 4 ? param_count - 4 : 0;
+  auto reg_size = param_count > 4 ? 4 : param_count;
+  // Expand stack
+  if (stack_size > 0)
+    inst.push_back(
+        std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP, stack_size));
+
+  {
+    // Push params
+    int param_idx = 0;
+    for (auto& param : i.params) {
+      if (param_idx < 4) {
+        inst.push_back(std::make_unique<Arith2Inst>(
+            OpCode::Mov, Reg(param_idx), translate_value_to_operand2(param)));
+      } else {
+        inst.push_back(std::make_unique<LoadStoreInst>(
+            OpCode::StR, translate_value_to_reg(param),
+            MemoryOperand(REG_SP, (int16_t)(-param_idx * 4),
+                          MemoryAccessKind::None)));
+      }
+      param_idx++;
+    }
+  }
+  // Call instruction
+  inst.push_back(std::make_unique<BrInst>(OpCode::Bl, f.second.name));
+
+  // Shrink stack
+  if (stack_size > 0)
+    inst.push_back(
+        std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP, stack_size));
+
+  // Move return value
+  if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
+    inst.push_back(std::make_unique<Arith2Inst>(
+        OpCode::Mov, translate_var_reg(i.dest), Reg(0)));
+
   throw new prelude::NotImplementedException();
 }
 
