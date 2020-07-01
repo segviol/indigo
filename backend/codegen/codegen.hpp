@@ -94,7 +94,7 @@ class Codegen final {
   uint32_t const_counter = 0;
 
   int param_size;
-  int stack_size;
+  uint32_t stack_size;
 
   arm::Reg get_or_alloc_vgp(mir::inst::VarId v);
   arm::Reg get_or_alloc_vd(mir::inst::VarId v);
