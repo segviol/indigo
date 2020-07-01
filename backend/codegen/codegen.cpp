@@ -14,6 +14,7 @@ using namespace arm;
 
 arm::Function Codegen::translate_function() {
   init_reg_map();
+  scan_stack();
   scan();
   generate_startup();
   for (auto& bb : func.basic_blks) {
@@ -84,14 +85,22 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
     inst.push_back(std::make_unique<LoadStoreInst>(
         OpCode::LdR, reg, MemoryOperand(REG_FP, (int16_t)(-(v - 4) * 4))));
     return reg;
-  }
-  auto found = reg_map.find(v);
-  if (found != reg_map.end()) {
-    assert(arm::register_type(found->second) ==
-           arm::RegisterKind::VirtualGeneralPurpose);
-    return found->second;
   } else {
-    return alloc_vgp();
+    auto x = stack_space_allocation.find(v);
+    if (x != stack_space_allocation.end()) {
+      auto reg = alloc_vgp();
+      inst.push_back(std::make_unique<LoadStoreInst>(
+          OpCode::LdR, reg, MemoryOperand(REG_SP, (int16_t)(-x->second))));
+    } else {
+      auto found = reg_map.find(v);
+      if (found != reg_map.end()) {
+        assert(arm::register_type(found->second) ==
+               arm::RegisterKind::VirtualGeneralPurpose);
+        return found->second;
+      } else {
+        return alloc_vgp();
+      }
+    }
   }
 }
 
@@ -158,6 +167,17 @@ void Codegen::deal_phi(mir::inst::PhiInst& phi) {
   }
   for (auto& x : vec) {
     var_collapse.insert_or_assign(x, min);
+  }
+}
+
+void Codegen::scan_stack() {
+  for (auto& var_ : func.variables) {
+    auto& id = var_.first;
+    auto& var = var_.second;
+    if (var.is_memory_var) {
+      stack_space_allocation.insert({id, stack_size});
+      stack_size += var.size();
+    }
   }
 }
 
