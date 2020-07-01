@@ -11,7 +11,6 @@ set(backend_files
     backend/backend.hpp
     backend/backend.cpp
     backend/optimization/optimization.hpp
-    backend/optimization/define_use_opt.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp)
 
