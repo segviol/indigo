@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "../arm_code/arm.hpp"
 #include "../prelude/prelude.hpp"
 
 namespace mir::types {
@@ -184,13 +185,6 @@ enum class JumpKind { Undefined, Branch, Loop };
 enum class VarScope { Local, Global };
 
 void display_op(std::ostream& o, Op val);
-
-class GlobalValue
-    : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
-      public prelude::Displayable {
- public:
-  virtual void display(std::ostream& o) const;
-};
 
 struct VarId : public prelude::Displayable {
   VarId(uint32_t id) : id(id) {}
@@ -497,7 +491,7 @@ class MirFunction : public prelude::Displayable {
 class MirPackage : public prelude::Displayable {
  public:
   std::map<mir::types::LabelId, MirFunction> functions;
-  std::map<mir::types::LabelId, GlobalValue> global_values;
+  std::map<mir::types::LabelId, arm::ConstValue> global_values;
 
   virtual void display(std::ostream& o) const;
 
