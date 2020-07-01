@@ -106,6 +106,7 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
       auto reg = alloc_vgp();
       inst.push_back(std::make_unique<LoadStoreInst>(
           OpCode::LdR, reg, MemoryOperand(REG_SP, (int16_t)(-x->second))));
+      return reg;
     } else {
       auto found = reg_map.find(v);
       if (found != reg_map.end()) {
