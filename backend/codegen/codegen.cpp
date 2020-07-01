@@ -21,8 +21,23 @@ arm::Function Codegen::translate_function() {
     translate_basic_block(bb.second);
   }
   generate_return_and_cleanup();
+
+  {
+    // Put variable to vreg map in extra data
+    auto data =
+        extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
+    if (data == extra_data.end()) {
+      extra_data.insert({optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME,
+                         optimization::MirVariableToArmVRegType()});
+      data = extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
+    }
+    auto map =
+        std::any_cast<optimization::MirVariableToArmVRegType&>(data->second);
+    map.insert({func.name, std::move(this->reg_map)});
+  }
+
   return arm::Function{func.name, std::move(this->inst),
-                       std::move(this->consts)};
+                       std::move(this->consts), stack_size};
 }
 
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
@@ -334,7 +349,7 @@ void Codegen::translate_inst(mir::inst::LoadInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::RefInst& i) {
-  // TODO: Should we just check whether the variable is stack variable?
+  // TODO: Stack variable need no Ref. Global variables are hard to deal with.
   throw new prelude::NotImplementedException();
 }
 
