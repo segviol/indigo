@@ -13,6 +13,7 @@ namespace backend::codegen {
 using namespace arm;
 
 arm::Function Codegen::translate_function() {
+  init_reg_map();
   scan();
   generate_startup();
   for (auto& bb : func.basic_blks) {
@@ -50,6 +51,13 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
   }
 }
 
+void Codegen::init_reg_map() {
+  reg_map.insert({mir::inst::VarId(0), Reg(0)});
+  for (int i = 0; i < 4 && i < param_size; i++) {
+    reg_map.insert({mir::inst::VarId(i + 1), Reg(i)});
+  }
+}
+
 void Codegen::generate_return_and_cleanup() {
   inst.push_back(std::make_unique<LabelInst>(format_fn_end_label(func.name)));
   // NOTE: Register counting is done AFTER register allocation, so there's not
@@ -70,6 +78,14 @@ void Codegen::generate_startup() {
 
 arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
+  // If it's param, load before use
+  if (v >= 4 && v <= param_size) {
+    auto reg = alloc_vgp();
+    inst.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::LdR, reg, MemoryOperand(REG_FP, (int16_t)(-(v - 4) * 4)),
+        MemoryAccessKind::None));
+    return reg;
+  }
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
