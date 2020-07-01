@@ -84,6 +84,8 @@ class Codegen final {
   std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
   std::map<mir::inst::VarId, arm::Reg> fixed_vars;
 
+  std::map<mir::inst::VarId, int32_t> stack_space_allocation;
+
   std::vector<uint32_t> bb_ordering;
 
   uint32_t vreg_gp_counter = 0;
@@ -92,6 +94,7 @@ class Codegen final {
   uint32_t const_counter = 0;
 
   int param_size;
+  int stack_size;
 
   arm::Reg get_or_alloc_vgp(mir::inst::VarId v);
   arm::Reg get_or_alloc_vd(mir::inst::VarId v);
@@ -105,6 +108,7 @@ class Codegen final {
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
   void scan();
+  void scan_stack();
   void init_reg_map();
   void deal_call(mir::inst::CallInst& call);
   void deal_phi(mir::inst::PhiInst& phi);
