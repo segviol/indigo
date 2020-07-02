@@ -549,8 +549,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
     RightVal rightvalue1;
     RightVal rightvalue2;
     SharedExNdPtr index = node->_children.front();
-    int i;
-    int j;
+    size_t i;
 
     tmpPtr = irGenerator.getNewTmpValueId();
     irGenerator.ir_load(tmpPtr, std::static_pointer_cast<ArraySymbol>(arr)->getName());

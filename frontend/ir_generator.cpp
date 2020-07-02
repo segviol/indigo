@@ -26,8 +26,7 @@ LabelId irGenerator::getNewTmpValueId()
 {
     if (_funcStack.back() == _GlobalInitFuncId)
     {
-        _package.global_values[_nowGlobalValueId] = GlobalValue();
-        _package.global_values[_nowGlobalValueId].emplace<0>(_nowGlobalValueId);
+        _package.global_values[_nowGlobalValueId] = GlobalValue(std::to_string(_nowGlobalValueId));
         _globalValueNameToId[std::to_string(_nowGlobalValueId)] = _nowGlobalValueId;
         return _nowGlobalValueId++;
     }
@@ -75,8 +74,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
 {
     if (_funcStack.back() == _GlobalInitFuncId)
     {
-        GlobalValue globalValue;
-        globalValue.emplace<2>(name);
+        GlobalValue globalValue = GlobalValue(name);
         _package.global_values[_nowGlobalValueId] = globalValue;
         _globalValueNameToId[get<string>(globalValue)] = _nowGlobalValueId;
         _nowGlobalValueId++;
@@ -318,13 +316,10 @@ shared_ptr<Value> irGenerator::rightValueToValue(RightVal& rightValue)
     switch (rightValue.index())
     {
     case 0:
-        value->operator=(get<int>(rightValue));
-        break;
-    case 1:
-        value->emplace<1>(VarId(nameToLabelId(get<LabelId>(rightValue))));
+        value->emplace<int32_t>(get<0>(rightValue));
         break;
     case 2:
-        value->emplace<1>(VarId(nameToLabelId(get<string>(rightValue))));
+        value->emplace<VarId>(VarId(nameToLabelId(get<2>(rightValue))));
         break;
     default:
         break;
