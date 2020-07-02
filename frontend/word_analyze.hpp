@@ -50,8 +50,8 @@ namespace front::word {
     inline bool hex_digit(char ch);
     inline bool is_letter(char c);
     inline bool have_body_char(char c);
-    inline void get_char(char& ch, int& index, const string& str);
-    inline void retract(char& ch, int& index, const string& str);
+    inline void get_char(char& ch, size_t& index, const string& str);
+    inline void retract(char& ch, size_t& index, const string& str);
     inline bool is_illegel_char(char ch);
     int stringToInt(string s);
     Token get_token(const string& buf);

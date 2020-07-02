@@ -33,6 +33,7 @@ class ConstValue
     : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
       public prelude::Displayable {
  public:
+  ConstValue() {}
   ConstValue(uint32_t x)
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
   ConstValue(std::vector<uint32_t> x)

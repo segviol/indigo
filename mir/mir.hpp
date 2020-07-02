@@ -187,6 +187,7 @@ namespace mir::inst {
     void display_op(std::ostream& o, Op val);
 
     struct VarId : public prelude::Displayable {
+        VarId() { id = -1; }
         VarId(uint32_t id) : id(id) {}
         uint32_t id;
 
@@ -241,6 +242,7 @@ namespace mir::inst {
 
     class Variable : public prelude::Displayable {
     public:
+        Variable() { is_memory_var = false; is_temp_var = false; }
         Variable(types::SharedTyPtr ty, bool is_memory_var = false,
             bool is_temp_var = false)
             : ty(ty), is_memory_var(is_memory_var), is_temp_var(is_temp_var) {}

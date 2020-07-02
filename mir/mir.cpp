@@ -73,7 +73,7 @@ void OpInst::display(std::ostream& o) const {
 
 void CallInst::display(std::ostream& o) const {
   o << dest << " = " << func << "(";
-  for (int i = 0; i < params.size(); i++) {
+  for (size_t i = 0; i < params.size(); i++) {
     if (i != 0) o << ", ";
     o << params[i];
   }
@@ -104,7 +104,7 @@ void PtrOffsetInst::display(std::ostream& o) const {
 
 void PhiInst::display(std::ostream& o) const {
   o << dest << " = phi [";
-  for (int i = 0; i < vars.size(); i++) {
+  for (size_t i = 0; i < vars.size(); i++) {
     if (i != 0) o << ", ";
     o << vars[i];
   }
