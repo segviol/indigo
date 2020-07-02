@@ -4,10 +4,13 @@
 #include <vector>
 #include <fstream>
 
+#include "../mir/mir.hpp"
+
 #include "word_analyze.hpp"
 #include "symbol.hpp"
 #include "symbol_table.hpp"
 #include "express_node.hpp"
+#include "ir_generator.hpp"
 
 #ifndef COMPILER_FRONT_SYNTAX_H_
 #define COMPILER_FRONT_SYNTAX_H_
@@ -15,24 +18,29 @@
 namespace front::syntax {
 
     using std::string;
+    using std::to_string;
     using std::vector;
     using std::ofstream;
     using std::endl;
     using std::stoi;
 
-    using front::word::Word;
-    using front::word::Token;
-    using front::symbolTable::SymbolTable;
-    using front::symbol::SharedSyPtr;
-    using front::symbol::SymbolKind;
-    using front::symbol::Symbol;
-    using front::symbol::IntSymbol;
-    using front::symbol::ArraySymbol;
-    using front::symbol::FunctionSymbol;
-    using front::express::SharedExNdPtr;
-    using front::express::ExpressNode;
-    using front::express::NodeType;
-    using front::express::OperationType;
+    using mir::types::LabelId;
+    using mir::inst::Op;
+
+    using word::Word;
+    using word::Token;
+    using symbolTable::SymbolTable;
+    using symbol::SharedSyPtr;
+    using symbol::SymbolKind;
+    using symbol::Symbol;
+    using symbol::IntSymbol;
+    using symbol::ArraySymbol;
+    using symbol::FunctionSymbol;
+    using express::SharedExNdPtr;
+    using express::ExpressNode;
+    using express::NodeType;
+    using express::OperationType;
+    using irGenerator::RightVal;
 
     class SyntaxAnalyze
     {
@@ -45,9 +53,11 @@ namespace front::syntax {
     private:
         size_t matched_index = -1;
         unsigned int layer_num = 0;
+        unsigned int _genValueNum = 0;
 
         const vector<Word>& word_list;
         SymbolTable symbolTable;
+        irGenerator::irGenerator irGenerator;
 
         bool try_word(int n, Token tk);
         bool try_word(int n, Token tk1, Token tk2);
@@ -59,7 +69,6 @@ namespace front::syntax {
 
         void in_layer();
         void out_layer();
-        bool in_global_scope();
 
         void gm_const_decl();
         void gm_const_def();
@@ -70,7 +79,7 @@ namespace front::syntax {
         void gm_init_val(vector<SharedExNdPtr>& init_values);
 
         void gm_func_def();
-        void gm_func_param(vector<SharedSyPtr>& params, int funcLayerNum));
+        void gm_func_param(vector<SharedSyPtr>& params, int funcLayerNum, vector<std::pair<SharedSyPtr, string>>& genValues);
         void gm_block();
         void gm_block_item();
         void gm_stmt();
@@ -78,6 +87,10 @@ namespace front::syntax {
         void gm_while_stmt();
         void gm_return_stmt();
         void gm_assign_stmt();
+
+        SharedExNdPtr computeIndex(SharedSyPtr arr, SharedExNdPtr node);
+        void hp_gn_binary_mir(LabelId tmpId, SharedExNdPtr first, SharedExNdPtr second, Op op);
+        string hp_gen_save_value();
 
         SharedExNdPtr gm_cond();
         SharedExNdPtr gm_and_exp();
