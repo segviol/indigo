@@ -21,7 +21,8 @@ namespace front::symbol {
 		INT,
 		VOID,
 		Array,
-		Function
+		Function,
+		Ptr
     };
 
 	// Base class for symbols
@@ -128,6 +129,17 @@ namespace front::symbol {
 				}
 				_size = size * static_pointer_cast<IntSymbol>(_item)->getSize();
 				return _size;
+			}
+		}
+		int getLen()
+		{
+			if (_size > 0)
+			{
+				return _size / static_pointer_cast<IntSymbol>(_item)->getSize();
+			}
+			else
+			{
+				return 0;
 			}
 		}
 		bool valid() const { return _values.size() * 4 == _size; }

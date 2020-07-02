@@ -22,6 +22,7 @@ namespace front::express
     enum class OperationType
     {
         RETURN_FUNC_CALL,
+        VOID_FUNC_CALL,
 
         VAR,
         ARR,
@@ -44,7 +45,9 @@ namespace front::express
 
         UN_PLUS,
         UN_MINU,
-        UN_NOT
+        UN_NOT,
+
+        ASSIGN
     };
 
     class ExpressNode
