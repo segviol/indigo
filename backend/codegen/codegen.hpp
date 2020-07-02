@@ -32,9 +32,10 @@ std::string format_fn_end_label(std::string_view function_name) {
 
 class Codegen final {
  public:
-  Codegen(mir::inst::MirFunction& func,
+  Codegen(mir::inst::MirFunction& func, mir::inst::MirPackage& package,
           std::map<std::string, std::any>& extra_data)
       : func(func),
+        package(package),
         extra_data(extra_data),
         inst(),
         reg_map(),
@@ -64,6 +65,7 @@ class Codegen final {
         }
       }
     }
+    param_size = func.type->params.size();
   }
 
   /// Translate MirPackage into ArmCode
@@ -71,6 +73,8 @@ class Codegen final {
 
  private:
   mir::inst::MirFunction& func;
+  mir::inst::MirPackage& package;
+
   std::map<std::string, std::any>& extra_data;
 
   std::vector<std::unique_ptr<arm::Inst>> inst;
@@ -80,12 +84,17 @@ class Codegen final {
   std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
   std::map<mir::inst::VarId, arm::Reg> fixed_vars;
 
+  std::map<mir::inst::VarId, int32_t> stack_space_allocation;
+
   std::vector<uint32_t> bb_ordering;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
   uint32_t vreg_vq_counter = 0;
   uint32_t const_counter = 0;
+
+  int param_size;
+  uint32_t stack_size;
 
   arm::Reg get_or_alloc_vgp(mir::inst::VarId v);
   arm::Reg get_or_alloc_vd(mir::inst::VarId v);
@@ -98,7 +107,11 @@ class Codegen final {
   arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
-  void scan_phi();
+  void scan();
+  void scan_stack();
+  void init_reg_map();
+  void deal_call(mir::inst::CallInst& call);
+  void deal_phi(mir::inst::PhiInst& phi);
   mir::inst::VarId get_collapsed_var(mir::inst::VarId i);
   void generate_startup();
   void generate_return_and_cleanup();
