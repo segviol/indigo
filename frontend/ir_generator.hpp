@@ -1,8 +1,10 @@
 #pragma once
 
 #include <vector>
+#include <stdint.h>
 
 #include "../mir/mir.hpp"
+#include "../arm_code/arm.hpp"
 #include "symbol.hpp"
 
 #ifndef COMPILER_FRONT_IR_GENERATOR_H_
@@ -25,10 +27,12 @@ namespace front::irGenerator
     using mir::types::PtrTy;
     using mir::types::FunctionTy;
 
-    using mir::inst::GlobalValue;
     using mir::inst::Variable;
     using mir::inst::VarId;
     using mir::inst::Value;
+
+    using arm::ConstValue;
+    typedef ConstValue GlobalValue;
 
     typedef variant<int, LabelId, string> RightVal;
     typedef variant<LabelId, string> LeftVal;

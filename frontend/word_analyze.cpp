@@ -7,7 +7,7 @@ unsigned int line_num = 1;
 void front::word::word_analyse(string& input_str, vector<Word>& word_arr)
 {
     string buf;
-    int index = 0;
+    size_t index = 0;
     char ch = 0;
     input_str = '\0' + input_str;
     while (index < input_str.size())
@@ -272,7 +272,7 @@ void front::word::word_analyse(string& input_str, vector<Word>& word_arr)
     }
 }
 
-inline void front::word::get_char(char& ch, int& index, const string& str)
+inline void front::word::get_char(char& ch, size_t& index, const string& str)
 {
     if (index + 1 < str.size()) {
         ch = str[++index];
@@ -294,7 +294,7 @@ inline bool front::word::hex_digit(char ch)
     return isdigit(ch) || l_ch == 'a' || l_ch == 'b' || l_ch == 'c' || l_ch == 'd' || l_ch == 'e' || l_ch == 'f';
 }
 
-inline void front::word::retract(char& ch, int& index, const string& str)
+inline void front::word::retract(char& ch, size_t& index, const string& str)
 {
     if (ch == '\n')
     {
