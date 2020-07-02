@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(PROJECT_EXE ${PROJECT_NAME})
 
 set(backend_files
+    backend/backend.hpp
+    backend/backend.cpp
+    backend/optimization/optimization.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp)
 
