@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "../arm_code/arm.hpp"
 #include "../prelude/prelude.hpp"
 
 namespace mir::types {
@@ -185,13 +186,6 @@ namespace mir::inst {
 
     void display_op(std::ostream& o, Op val);
 
-    class GlobalValue
-        : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
-        public prelude::Displayable {
-    public:
-        virtual void display(std::ostream& o) const;
-    };
-
     struct VarId : public prelude::Displayable {
         VarId(uint32_t id) : id(id) {}
         uint32_t id;
@@ -257,8 +251,7 @@ namespace mir::inst {
         types::SharedTyPtr type() {
             if (is_memory_var) {
                 return types::new_ptr_ty(ty);
-            }
-            else {
+            } else {
                 return ty;
             }
         }
@@ -511,7 +504,7 @@ namespace mir::inst {
     class MirPackage : public prelude::Displayable {
     public:
         std::map<mir::types::LabelId, MirFunction> functions;
-        std::map<mir::types::LabelId, GlobalValue> global_values;
+        std::map<mir::types::LabelId, arm::ConstValue> global_values;
 
         MirPackage() {}
         virtual void display(std::ostream& o) const;

@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+#include "codegen/codegen.hpp"
+
 namespace backend {
 
 void Backend::do_mir_optimization() {
@@ -21,10 +23,19 @@ void Backend::do_arm_optimization() {
 }
 
 void Backend::do_mir_to_arm_transform() {
-  // TODO!
+  auto code = arm::ArmCode();
+  for (auto& f : package.functions) {
+    auto cg = codegen::Codegen(f.second, package, extra_data);
+    auto arm_f = cg.translate_function();
+    code.functions.push_back(std::make_unique<arm::Function>(std::move(arm_f)));
+  }
+  for (auto& v : package.global_values) {
+    code.consts.insert({codegen::format_const_label("", v.first), v.second});
+  }
+  arm_code.emplace(std::move(code));
 }
 
-ArmCode Backend::generate_code() {
+arm::ArmCode Backend::generate_code() {
   do_mir_optimization();
   do_mir_to_arm_transform();
   do_arm_optimization();
