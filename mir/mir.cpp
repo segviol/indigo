@@ -94,8 +94,7 @@ void LoadInst::display(std::ostream& o) const {
 }
 
 void StoreInst::display(std::ostream& o) const {
-  o << "store " << val << " to "
-    << "dest";
+  o << "store " << val << " to " << dest;
 }
 
 void PtrOffsetInst::display(std::ostream& o) const {

@@ -30,7 +30,7 @@ void Backend::do_mir_to_arm_transform() {
     code.functions.push_back(std::make_unique<arm::Function>(std::move(arm_f)));
   }
   for (auto& v : package.global_values) {
-    code.consts.insert({codegen::format_const_label("", v.first), v.second});
+    code.consts.insert({v.first, v.second});
   }
   arm_code.emplace(std::move(code));
 }
