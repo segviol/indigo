@@ -51,7 +51,15 @@ void display_op(std::ostream& o, Op val) {
   }
 }
 
-// void Variable::display(std::ostream& o) const { o << id << ": " << *ty; }
+void Variable::display(std::ostream& o) const {
+  o << *ty;
+  if (is_memory_var) {
+    o << " memory";
+  }
+  if (is_temp_var) {
+    o << " temp";
+  }
+}
 
 // void VarId::display(std::ostream& o) const { o << "$" << id; }
 
