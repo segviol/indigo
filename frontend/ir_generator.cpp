@@ -32,6 +32,7 @@ LabelId irGenerator::getNewTmpValueId()
     }
     else
     {
+        // TODO: deal the type tmp value
         _package.functions[_funcStack.back()].variables[_nowLocalValueId] = Variable(SharedTyPtr(new IntTy()), false, true);
         _localValueNameToId[std::to_string(_nowLocalValueId)] = _nowLocalValueId;
         return _nowLocalValueId++;
@@ -58,15 +59,15 @@ void irGenerator::ir_op(LeftVal dest, RightVal op1, RightVal op2, mir::inst::Op 
     shared_ptr<VarId> destVarId;
     shared_ptr<Value> op1Value;
     shared_ptr<Value> op2Value;
-    unique_ptr<mir::inst::OpInst> opInst;
+    shared_ptr<mir::inst::OpInst> opInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     op1Value = rightValueToValue(op1);
     op2Value = rightValueToValue(op2);
      
-    opInst = unique_ptr<mir::inst::OpInst>(new mir::inst::OpInst(*destVarId, *op1Value, *op2Value, op));
+    opInst = shared_ptr<mir::inst::OpInst>(new mir::inst::OpInst(*destVarId, *op1Value, *op2Value, op));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(opInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(opInst);
 }
 
 
@@ -160,6 +161,7 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind)
     _package.functions[_nowFuncId].variables[_VoidVarId] = Variable(SharedTyPtr(new VoidTy()), false, false);
 
     _nowLocalValueId = 1;
+    _localValueNameToId.clear();
 }
 
 void irGenerator::ir_leave_function()
@@ -172,14 +174,14 @@ void irGenerator::ir_ref(LeftVal dest, LeftVal src)
 {
     shared_ptr<VarId> destVarId;
     shared_ptr<VarId> srcVarId;
-    unique_ptr<mir::inst::Inst> refInst;
+    shared_ptr<mir::inst::Inst> refInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     srcVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
 
-    refInst = unique_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *srcVarId));
+    refInst = shared_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *srcVarId));
      
-    _funcIdToInstructions[_funcStack.back()].push_back(move(refInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(refInst);
 }
 
 void irGenerator::ir_offset(LeftVal dest, LeftVal ptr, RightVal offset)
@@ -187,55 +189,55 @@ void irGenerator::ir_offset(LeftVal dest, LeftVal ptr, RightVal offset)
     shared_ptr<VarId> destVarId;
     shared_ptr<VarId> ptrVarId;
     shared_ptr<Value> offsetValue;
-    unique_ptr<mir::inst::PtrOffsetInst> offInst;
+    shared_ptr<mir::inst::PtrOffsetInst> offInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     ptrVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(ptr)));
     offsetValue = rightValueToValue(offset);
 
-    offInst = unique_ptr<mir::inst::PtrOffsetInst>(new mir::inst::PtrOffsetInst(*destVarId, *ptrVarId, *offsetValue));
+    offInst = shared_ptr<mir::inst::PtrOffsetInst>(new mir::inst::PtrOffsetInst(*destVarId, *ptrVarId, *offsetValue));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(offInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(offInst);
 }
 
 void irGenerator::ir_assign(LeftVal dest, RightVal src)
 {
     shared_ptr<VarId> destVarId;
     shared_ptr<Value> srcValue;
-    unique_ptr<mir::inst::AssignInst> assginInst;
+    shared_ptr<mir::inst::AssignInst> assginInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     srcValue = rightValueToValue(src);
 
-    assginInst = unique_ptr<mir::inst::AssignInst>(new mir::inst::AssignInst(*destVarId, *srcValue));
+    assginInst = shared_ptr<mir::inst::AssignInst>(new mir::inst::AssignInst(*destVarId, *srcValue));
 }
 
 void irGenerator::ir_load(LeftVal dest, RightVal src)
 {
     shared_ptr<VarId> destVarId;
     shared_ptr<Value> srcValue;
-    unique_ptr<mir::inst::LoadInst> loadInt;
+    shared_ptr<mir::inst::LoadInst> loadInt;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     srcValue = rightValueToValue(src);
 
-    loadInt = unique_ptr<mir::inst::LoadInst>(new mir::inst::LoadInst(*srcValue, *destVarId));
+    loadInt = shared_ptr<mir::inst::LoadInst>(new mir::inst::LoadInst(*srcValue, *destVarId));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(loadInt));
+    _funcIdToInstructions[_funcStack.back()].push_back(loadInt);
 }
 
 void irGenerator::ir_store(LeftVal dest, RightVal src)
 {
     shared_ptr<VarId> destVarId;
     shared_ptr<Value> srcValue;
-    unique_ptr<mir::inst::StoreInst> storeInst;
+    shared_ptr<mir::inst::StoreInst> storeInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
     srcValue = rightValueToValue(src);
 
-    storeInst = unique_ptr<mir::inst::StoreInst>(new mir::inst::StoreInst(*srcValue, *destVarId));
+    storeInst = shared_ptr<mir::inst::StoreInst>(new mir::inst::StoreInst(*srcValue, *destVarId));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(storeInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(storeInst);
 }
 
 void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind, string funcName, std::vector<RightVal> params)
@@ -243,7 +245,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind, stri
     shared_ptr<VarId> destVarId;
     shared_ptr<VarId> funcVarId;
     std::vector<Value> paramValues;
-    unique_ptr<mir::inst::CallInst> callInst;
+    shared_ptr<mir::inst::CallInst> callInst;
 
     switch (kind)
     {
@@ -264,31 +266,31 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind, stri
         paramValues.push_back(*rightValueToValue(var));
     }
 
-    callInst = unique_ptr<mir::inst::CallInst>(new mir::inst::CallInst(*destVarId, *funcVarId, paramValues));
+    callInst = shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(*destVarId, *funcVarId, paramValues));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(callInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(callInst);
 }
 
 void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, LabelId bbFalse,
     std::optional<string> condRetName, mir::inst::JumpKind jumpKind)
 {
     std::optional<VarId> crn;
-    unique_ptr<mir::inst::JumpInstruction> jumpInst;
+    shared_ptr<mir::inst::JumpInstruction> jumpInst;
     
     crn = VarId(LeftValueToLabelId(condRetName.value()));
 
-    jumpInst = unique_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(kind, bbTrue, bbFalse, crn, jumpKind));
+    jumpInst = shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(kind, bbTrue, bbFalse, crn, jumpKind));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(jumpInst));
+    _funcIdToInstructions[_funcStack.back()].push_back(jumpInst);
 }
 
 void irGenerator::ir_label(LabelId label)
 {
-    unique_ptr<JumpLabelId> jumpLabelId;
+    shared_ptr<JumpLabelId> jumpLabelId;
 
-    jumpLabelId = unique_ptr<JumpLabelId>(new JumpLabelId(label));
+    jumpLabelId = shared_ptr<JumpLabelId>(new JumpLabelId(label));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(move(jumpLabelId));
+    _funcIdToInstructions[_funcStack.back()].push_back(jumpLabelId);
 }
 
 LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal)
@@ -311,7 +313,7 @@ LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal)
 shared_ptr<Value> irGenerator::rightValueToValue(RightVal& rightValue)
 {
     shared_ptr<Value> value;
-    value = unique_ptr<Value>(new Value());
+    value = shared_ptr<Value>(new Value());
 
     switch (rightValue.index())
     {
