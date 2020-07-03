@@ -479,6 +479,7 @@ class JumpInstruction final : public prelude::Displayable {
   virtual ~JumpInstruction() {}
   JumpInstruction(const JumpInstruction&) = delete;
   JumpInstruction(JumpInstruction&&) = default;
+  JumpInstruction& operator=(JumpInstruction&&) = default;
 };
 
 /// Represents a single basic block
@@ -504,12 +505,14 @@ class MirFunction : public prelude::Displayable {
   std::map<uint32_t, Variable> variables;
   std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
-  MirFunction() {}
+  // MirFunction() {}
   MirFunction(std::string _name, std::shared_ptr<types::FunctionTy> _type)
-      : name(_name), type(_type) {}
+      : name(_name), type(_type), basic_blks(), variables() {}
   virtual void display(std::ostream& o) const;
 
   MirFunction(const MirFunction& other) = delete;
+  MirFunction(MirFunction&& other) = default;
+  MirFunction& operator=(MirFunction&& other) = default;
 };
 
 class MirPackage : public prelude::Displayable {
@@ -520,7 +523,7 @@ class MirPackage : public prelude::Displayable {
   MirPackage() {}
   virtual void display(std::ostream& o) const;
 
-  MirPackage(MirPackage& other) = delete;
+  MirPackage(const MirPackage& other) = delete;
   MirPackage(MirPackage&& other) = default;
 };
 
