@@ -61,7 +61,7 @@ namespace front::irGenerator
             : _jumpLabelId(id) {}
     };
 
-    typedef std::variant<unique_ptr<mir::inst::Inst>, unique_ptr<mir::inst::JumpInstruction>, unique_ptr<JumpLabelId>> Instruction;
+    typedef std::variant<shared_ptr<mir::inst::Inst>, shared_ptr<mir::inst::JumpInstruction>, shared_ptr<JumpLabelId>> Instruction;
 
     class irGenerator
     {
