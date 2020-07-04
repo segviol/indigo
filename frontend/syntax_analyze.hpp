@@ -58,8 +58,10 @@ namespace front::syntax {
 
         void gm_comp_unit();
     private:
+        const std::uint32_t _initLayerNum = 0;
+
         size_t matched_index = -1;
-        unsigned int layer_num = 0;
+        unsigned int layer_num = _initLayerNum;
         unsigned int _genValueNum = 0;
 
         const vector<Word>& word_list;
@@ -76,6 +78,7 @@ namespace front::syntax {
 
         void in_layer();
         void out_layer();
+        bool inGlobalLayer();
 
         void gm_const_decl();
         void gm_const_def();
@@ -96,7 +99,7 @@ namespace front::syntax {
         void gm_assign_stmt();
 
         SharedExNdPtr computeIndex(SharedSyPtr arr, SharedExNdPtr node);
-        void hp_gn_binary_mir(LabelId tmpId, SharedExNdPtr first, SharedExNdPtr second, Op op);
+        void hp_gn_binary_mir(string tmpId, SharedExNdPtr first, SharedExNdPtr second, Op op);
         string hp_gen_save_value();
 
         SharedExNdPtr gm_cond(ValueMode mode);
