@@ -72,7 +72,7 @@ namespace front::irGenerator
 
         LabelId getNewLabelId();
         // as of now, the tmp for global scope is inserted into global_values of _package
-        LabelId getNewTmpValueId(TyKind kind);
+        string getNewTmpValueName(TyKind kind);
 
         void ir_declare_value(string name, symbol::SymbolKind kind, int len = 0);
         //set "0" + str as str name in globalNameToId, the prefix is 0
@@ -104,30 +104,33 @@ namespace front::irGenerator
 
         string getStringName(string str);
         string getConstName(string name, int id);
+        string getTmpName(std::uint32_t id);
+        std::uint32_t tmpNameToId(string name);
 
     private:
         mir::inst::MirPackage _package;
-        std::map<LabelId, std::vector<Instruction>> _funcIdToInstructions;
+        std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
-        const LabelId _GlobalInitFuncId = 0;
         const LabelId _VoidVarId = (1 << 20);
-        const string stringNamePrefix = "0";
 
-        LabelId _nowFuncId;
-        LabelId _nowLabelId;
-        LabelId _nowGlobalValueId;
-        LabelId _nowLocalValueId;
+        const string _GlobalInitFuncName = "@@__Compiler__GlobalInitFunc__Auto__Generated__@@";
+        const string _stringNamePrefix = "@@0";
+        const string _tmpNamePrefix = "@@1";
+        const string _constNamePrefix = "@@2";
 
-        std::map<string, LabelId> _globalValueNameToId;
-        std::map<string, LabelId> _funcNameToId;
         std::map<string, LabelId> _localValueNameToId;
 
+        LabelId _nowLabelId;
+        std::uint32_t _nowtmpId;
+        std::uint32_t _nowLocalValueId;
+
         std::vector<WhileLabels> _whileStack;
-        std::vector<LabelId> _funcStack;
+        std::vector<string> _funcStack;
 
         // name of {local value, global value}
         LabelId nameToLabelId(string name);
         LabelId LeftValueToLabelId(LeftVal leftVal);
+        // insure the rightvalue is {number, local value}
         shared_ptr<Value> rightValueToValue(RightVal& rightValue);
     };
 }

@@ -16,62 +16,69 @@ std::vector<string> externalFuncName = {
 
 string irGenerator::getStringName(string str)
 {
-    return stringNamePrefix + "_" + str;
+    return _stringNamePrefix + "_" + str;
 }
 
 string irGenerator::getConstName(string name, int id)
 {
-    return std::to_string(id) + "_" + name;
+    return _constNamePrefix + "_" + std::to_string(id) + "_" + name;
+}
+
+string irGenerator::getTmpName(std::uint32_t id)
+{
+    return _tmpNamePrefix + "_" + std::to_string(id);
+}
+
+std::uint32_t irGenerator::tmpNameToId(string name)
+{
+    return std::stoi(name.substr(3));
 }
 
 irGenerator::irGenerator()
 {
     _nowLabelId = 0;
-    _nowFuncId = _GlobalInitFuncId;
-    _nowGlobalValueId = 0;
-    _nowLocalValueId = 1;
+    _nowtmpId = 0;
+    _nowLocalValueId = 0;
 
-    mir::inst::MirFunction func;
-    func.name = "@@__Compiler__GlobalInitFunc__Auto__Generated__@@";
-    _package.functions[_nowFuncId] = func;
-    _funcNameToId[func.name] = _nowFuncId;
-    _funcStack.push_back(_nowFuncId);
-    _nowFuncId++;
+    mir::inst::MirFunction func = mir::inst::MirFunction(
+       _GlobalInitFuncName,
+        shared_ptr<FunctionTy>(new FunctionTy(SharedTyPtr(new VoidTy()), {}, false))
+        );
+    _package.functions.insert_or_assign(func.name, func);
+    _funcStack.push_back(func.name);
 
     for (string funcName : externalFuncName)
     {
-        mir::inst::MirFunction func;
-        func.name = funcName;
+        shared_ptr<mir::inst::MirFunction> func;
+        shared_ptr<FunctionTy> type;
 
         if (funcName == "getint")
         {
-            func.type = SharedTyPtr(
+           type = shared_ptr<FunctionTy>(
                 new FunctionTy(SharedTyPtr(new IntTy()), {}, true)
             );
         }
         else if (funcName == "getch")
         {
-            func.type = SharedTyPtr(
+            type = shared_ptr<FunctionTy>(
                 new FunctionTy(SharedTyPtr(new IntTy()), {}, true)
             );
         }
         else if (funcName == "getarray")
         {
-            func.type = SharedTyPtr(
+            type = shared_ptr<FunctionTy>(
                 new FunctionTy(SharedTyPtr(new IntTy()), { SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))) }, true)
             );
-            func.variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
         }
         else if (funcName == "putint")
         {
-            func.type = SharedTyPtr(
+            type = shared_ptr<FunctionTy>(
                 new FunctionTy(SharedTyPtr(new VoidTy()), {SharedTyPtr(new IntTy())}, true)
             );
-            func.variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
         }
         else if (funcName == "putarray")
         {
-            func.type = SharedTyPtr(
+            type = shared_ptr<FunctionTy>(
                 new FunctionTy(
                     SharedTyPtr(new VoidTy()),
                     {
@@ -84,7 +91,7 @@ irGenerator::irGenerator()
         }
         else if (funcName == "putf")
         {
-            func.type = SharedTyPtr(
+            type = shared_ptr<FunctionTy>(
                 new FunctionTy(
                     SharedTyPtr(new VoidTy()),
                     {
@@ -94,37 +101,49 @@ irGenerator::irGenerator()
                     true
                 )
             );
-            func.variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
-            func.variables[2] = Variable(SharedTyPtr(new RestParamTy()), true, false);
         }
         else if (funcName == "starttime")
         {
-            func.type = SharedTyPtr(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+            type = shared_ptr<FunctionTy>(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
         }
         else if (funcName == "stoptime")
         {
-            func.type = SharedTyPtr(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+            type = shared_ptr<FunctionTy>(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+        }
+
+        func = shared_ptr<mir::inst::MirFunction>(new mir::inst::MirFunction(funcName, type));
+
+        if (funcName == "getarray")
+        {
+            func->variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
+        }
+        else if (funcName == "putint")
+        {
+            func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+        }
+        else if (funcName == "putf")
+        {
+            func->variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
+            func->variables[2] = Variable(SharedTyPtr(new RestParamTy()), true, false);
         }
 
         if (funcName == "putf")
         {
-            _funcNameToId[func.name] = _nowFuncId;
-            func.name = "printf";
+            _package.functions.insert_or_assign(func->name, *func);
+            func->name = "printf";
         }
         else if (funcName == "starttime")
         {
-            _funcNameToId[func.name] = _nowFuncId;
-            func.name = "starttime";
+            _package.functions.insert_or_assign(func->name, *func);
+            func->name = "starttime";
         }
         else if (funcName == "stoptime")
         {
-            _funcNameToId[func.name] = _nowFuncId;
-            func.name = "stoptime";
+            _package.functions.insert_or_assign(func->name, *func);
+            func->name = "stoptime";
         }
 
-        _funcNameToId[func.name] = _nowFuncId;
-        _package.functions[_nowFuncId] = func;
-        _nowFuncId++;
+        _package.functions.insert_or_assign(func->name, *func);
     }
 }
 
@@ -134,10 +153,11 @@ LabelId irGenerator::getNewLabelId()
 }
 
 
-LabelId irGenerator::getNewTmpValueId(TyKind kind)
+string irGenerator::getNewTmpValueName(TyKind kind)
 {
     SharedTyPtr ty;
-    
+    string name;
+
     switch (kind)
     {
     case mir::types::TyKind::Int:
@@ -150,19 +170,10 @@ LabelId irGenerator::getNewTmpValueId(TyKind kind)
         break;
     }
 
-    if (_funcStack.back() == _GlobalInitFuncId)
-    {
-        _package.global_values[_nowGlobalValueId] = GlobalValue(std::to_string(_nowGlobalValueId));
-        _globalValueNameToId[std::to_string(_nowGlobalValueId)] = _nowGlobalValueId;
-        return _nowGlobalValueId++;
-    }
-    else
-    {
-        // TODO: deal the type tmp value
-        _package.functions[_funcStack.back()].variables[_nowLocalValueId] = Variable(ty, false, true);
-        _localValueNameToId[std::to_string(_nowLocalValueId)] = _nowLocalValueId;
-        return _nowLocalValueId++;
-    }
+    name = getTmpName(_nowLocalValueId);
+    _package.functions[_funcStack.back()].variables.insert_or_assign(_nowLocalValueId, Variable(ty, false, true));
+    _nowLocalValueId++;;
+    return name;
 }
 
 void irGenerator::pushWhile(WhileLabels wl)
@@ -193,44 +204,36 @@ void irGenerator::ir_op(LeftVal dest, RightVal op1, RightVal op2, mir::inst::Op 
      
     opInst = shared_ptr<mir::inst::OpInst>(new mir::inst::OpInst(*destVarId, *op1Value, *op2Value, op));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(opInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(opInst);
 }
 
 void irGenerator::ir_declare_string(string str)
 {
-    if (_globalValueNameToId.count(getStringName(str)) == 0)
+    if (_package.global_values.count(getStringName(str)) == 0)
     {
         GlobalValue globalValue = GlobalValue(str);
-        _package.global_values[_nowGlobalValueId] = globalValue;
-        _globalValueNameToId[getStringName(str)] = _nowGlobalValueId;
-        _nowGlobalValueId++;
+        _package.global_values[getStringName(str)] = globalValue;
     }
 }
 
 void irGenerator::ir_declare_const(string name, std::uint32_t value, int id)
 {
     GlobalValue globalValue = GlobalValue(value);
-    _package.global_values[_nowGlobalValueId] = globalValue;
-    _globalValueNameToId[getConstName(name, id)] = _nowGlobalValueId;
-    _nowGlobalValueId++;
+    _package.global_values[getConstName(name, id)] = globalValue;
 }
 
 void irGenerator::ir_declare_const(string name, std::vector<std::uint32_t> values, int id)
 {
     GlobalValue globalValue = GlobalValue(values);
-    _package.global_values[_nowGlobalValueId] = globalValue;
-    _globalValueNameToId[getConstName(name, id)] = _nowGlobalValueId;
-    _nowGlobalValueId++;
+    _package.global_values[getConstName(name, id)] = globalValue;
 }
 
 void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len)
 {
-    if (_funcStack.back() == _GlobalInitFuncId)
+    if (_funcStack.back() == _GlobalInitFuncName)
     {
         GlobalValue globalValue = GlobalValue(0);
-        _package.global_values[_nowGlobalValueId] = globalValue;
-        _globalValueNameToId[name] = _nowGlobalValueId;
-        _nowGlobalValueId++;
+        _package.global_values[name] = globalValue;
     }
     else
     {
@@ -283,7 +286,7 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind)
 
 void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind)
 {
-    mir::inst::MirFunction func;
+    shared_ptr<mir::inst::MirFunction> func;
     shared_ptr<FunctionTy> type;
     SharedTyPtr ret;
     std::vector<SharedTyPtr> params;
@@ -300,14 +303,12 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind)
         break;
     }
     type = shared_ptr<FunctionTy>(new FunctionTy(ret, params));
-    func = mir::inst::MirFunction(name, type);
+    func = shared_ptr<mir::inst::MirFunction>(new mir::inst::MirFunction(name, type));
 
-    _funcNameToId[func.name] = _nowFuncId;
-    _package.functions[_nowFuncId] = func;
-    _funcStack.push_back(_nowFuncId);
-    _nowFuncId++;
+    _package.functions.insert_or_assign(func->name, func);
+    _funcStack.push_back(func->name);
 
-    _package.functions[_nowFuncId].variables[_VoidVarId] = Variable(SharedTyPtr(new VoidTy()), false, false);
+    _package.functions[func->name].variables[_VoidVarId] = Variable(SharedTyPtr(new VoidTy()), false, false);
 
     _nowLocalValueId = 1;
     _localValueNameToId.clear();
@@ -330,7 +331,7 @@ void irGenerator::ir_ref(LeftVal dest, LeftVal src)
 
     refInst = shared_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *srcVarId));
      
-    _funcIdToInstructions[_funcStack.back()].push_back(refInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(refInst);
 }
 
 void irGenerator::ir_offset(LeftVal dest, LeftVal ptr, RightVal offset)
@@ -346,7 +347,7 @@ void irGenerator::ir_offset(LeftVal dest, LeftVal ptr, RightVal offset)
 
     offInst = shared_ptr<mir::inst::PtrOffsetInst>(new mir::inst::PtrOffsetInst(*destVarId, *ptrVarId, *offsetValue));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(offInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(offInst);
 }
 
 void irGenerator::ir_assign(LeftVal dest, RightVal src)
@@ -372,7 +373,7 @@ void irGenerator::ir_load(LeftVal dest, RightVal src)
 
     loadInt = shared_ptr<mir::inst::LoadInst>(new mir::inst::LoadInst(*srcValue, *destVarId));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(loadInt);
+    _funcNameToInstructions[_funcStack.back()].push_back(loadInt);
 }
 
 void irGenerator::ir_store(LeftVal dest, RightVal src)
@@ -386,13 +387,12 @@ void irGenerator::ir_store(LeftVal dest, RightVal src)
 
     storeInst = shared_ptr<mir::inst::StoreInst>(new mir::inst::StoreInst(*srcValue, *destVarId));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(storeInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(storeInst);
 }
 
 void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind, string funcName, std::vector<RightVal> params)
 {
     shared_ptr<VarId> destVarId;
-    shared_ptr<VarId> funcVarId;
     std::vector<Value> paramValues;
     shared_ptr<mir::inst::CallInst> callInst;
 
@@ -408,16 +408,14 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind, stri
         break;
     }
 
-    funcVarId = shared_ptr<VarId>(new VarId(_funcNameToId[funcName]));
-
     for (auto var : params)
     {
         paramValues.push_back(*rightValueToValue(var));
     }
 
-    callInst = shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(*destVarId, *funcVarId, paramValues));
+    callInst = shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(*destVarId, funcName, paramValues));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(callInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(callInst);
 }
 
 void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, LabelId bbFalse,
@@ -430,7 +428,7 @@ void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, L
 
     jumpInst = shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(kind, bbTrue, bbFalse, crn, jumpKind));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(jumpInst);
+    _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
 }
 
 void irGenerator::ir_label(LabelId label)
@@ -439,7 +437,7 @@ void irGenerator::ir_label(LabelId label)
 
     jumpLabelId = shared_ptr<JumpLabelId>(new JumpLabelId(label));
 
-    _funcIdToInstructions[_funcStack.back()].push_back(jumpLabelId);
+    _funcNameToInstructions[_funcStack.back()].push_back(jumpLabelId);
 }
 
 LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal)
@@ -470,7 +468,9 @@ shared_ptr<Value> irGenerator::rightValueToValue(RightVal& rightValue)
         value->emplace<0>(get<0>(rightValue));
         break;
     case 2:
+    {
         value->emplace<1>(VarId(nameToLabelId(get<2>(rightValue))));
+    }
         break;
     default:
         break;
@@ -486,10 +486,6 @@ LabelId irGenerator::nameToLabelId(string name)
     if (_localValueNameToId.count(name) == 1)
     {
         id = _localValueNameToId[name];
-    }
-    else if (_globalValueNameToId.count(name) == 1)
-    {
-        id = _globalValueNameToId[name];
     }
     return id;
 }
