@@ -2,10 +2,11 @@
 
 #include <cstdint>
 #include <exception>
+#include <string>
 
 namespace backend::codegen {
 class FunctionNotFoundError {
  public:
-  uint32_t fn_id;
+  std::string fn_id;
 };
 }  // namespace backend::codegen
