@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -420,5 +421,21 @@ void PushPopInst::display(std::ostream &o) const {
 }
 
 void LabelInst::display(std::ostream &o) const { o << label << ":"; }
+
+void Function::display(std::ostream &o) const {
+  o << name << ":" << std::endl;
+  for (auto &i : inst) {
+    if (!dynamic_cast<LabelInst *>(&*i)) {
+      o << "\t";
+    }
+    o << *i << std::endl;
+  }
+}
+
+void ArmCode::display(std::ostream &o) const {
+  for (auto &f : functions) {
+    o << *f << std::endl;
+  }
+}
 
 }  // namespace arm
