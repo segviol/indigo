@@ -351,7 +351,14 @@ void Codegen::translate_inst(mir::inst::LoadInst& i) {
 
 void Codegen::translate_inst(mir::inst::RefInst& i) {
   // TODO: Stack variable need no Ref. Global variables are hard to deal with.
-  throw new prelude::NotImplementedException();
+  if (auto x = std::get_if<std::string>(&i.val)) {
+    auto global = package.global_values.find(*x);
+    throw new prelude::NotImplementedException();
+  } else if (auto x = std::get_if<mir::inst::VarId>(&i.val)) {
+    auto reg = get_or_alloc_vgp(*x);
+    auto reg1 = get_or_alloc_vgp(i.dest);
+    inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, reg1, reg));
+  }
 }
 
 void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
