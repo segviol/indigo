@@ -46,9 +46,10 @@ class FakeGenerator {
 
     _package = shared_ptr<MirPackage>(new MirPackage());
 
-    _package->functions.at(0) = MirFunction(
-        "main", shared_ptr<FunctionTy>(new FunctionTy(
-                    shared_ptr<IntTy>(new IntTy()), vector<SharedTyPtr>())));
+    _package->functions.insert(
+        {0, MirFunction("main", shared_ptr<FunctionTy>(new FunctionTy(
+                                    shared_ptr<IntTy>(new IntTy()),
+                                    vector<SharedTyPtr>())))});
 
     _package->functions.at(0).variables[1] =
         Variable(SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy), 10)), true);
