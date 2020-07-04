@@ -170,7 +170,7 @@ void Codegen::scan() {
   }
 }
 
-void deal_call(mir::inst::CallInst& call) {}
+void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
   auto min = phi.dest.id;
@@ -281,7 +281,7 @@ void Codegen::translate_inst(mir::inst::PhiInst& i) {
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
   // TODO: make call stuff
-  auto fn_id = i.func.id;
+  auto fn_id = i.func;
   auto f_ = package.functions.find(fn_id);
   if (f_ == package.functions.end()) {
     throw new FunctionNotFoundError{fn_id};
