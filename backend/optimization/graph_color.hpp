@@ -185,9 +185,8 @@ class Graph_Color : backend::MirOptimizePass {
       blk_livevar_analyse;
   std::set<mir::inst::VarId> cross_blk_vars;
   std::map<mir::inst::VarId, color> var_color_map;
-  std::map<mir::types::LabelId, std::shared_ptr<Color_Map>> func_color_map;
-  std::map<mir::types::LabelId, std::shared_ptr<Conflict_Map>>
-      func_conflict_map;
+  std::map<std::string, std::shared_ptr<Color_Map>> func_color_map;
+  std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
   Graph_Color(u_int color_num) : color_num(color_num) {}
   std::string pass_name() const { return name; }
   std::map<mir::inst::VarId, std::set<mir::types::LabelId>> var_blks;
@@ -211,14 +210,15 @@ class Graph_Color : backend::MirOptimizePass {
       }
       auto useVars = iter->get()->useVars();
       livevar_analyse::VariableSet cross_use_vars;
-      std::set_intersection(useVars.begin(), useVars.end(),
-                            cross_blk_vars.begin(), cross_blk_vars.end(),
-                            cross_use_vars.begin());
+      std::set_intersection(
+          useVars.begin(), useVars.end(), cross_blk_vars.begin(),
+          cross_blk_vars.end(),
+          std::inserter(cross_use_vars, cross_use_vars.begin()));
       conflict_map->add_conflict(defVar, cross_use_vars);
     }
   }
 
-  void optimize_func(mir::types::LabelId funcId, mir::inst::MirFunction& func) {
+  void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
     func_color_map[funcId] =
         std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
