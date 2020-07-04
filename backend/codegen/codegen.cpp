@@ -170,7 +170,7 @@ void Codegen::scan() {
   }
 }
 
-void deal_call(mir::inst::CallInst& call) {}
+void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
   auto min = phi.dest.id;

@@ -333,6 +333,51 @@ std::string format_bb_name(std::string_view func_name, uint32_t bb_id) {
   return name.str();
 }
 
+void ConstValue::display(std::ostream &o) const {
+  if (auto x = std::get_if<uint32_t>(this)) {
+    o << ".word " << *x;
+  } else if (auto x = std::get_if<std::vector<uint32_t>>(this)) {
+    o << ".word ";
+    bool is_first = true;
+    for (auto i : *x) {
+      if (!is_first) {
+        o << ", ";
+      }
+      o << i;
+    }
+  } else if (auto x = std::get_if<std::string>(this)) {
+    o << ".asciz \"" << *x << "\"";
+  }
+}
+
+void MemoryOperand::display(std::ostream &o) const {
+  auto display_offset = [&](std::ostream &o) {
+    if (auto x = std::get_if<RegisterOperand>(&offset)) {
+      if (neg_rm) o << "-";
+      o << *x;
+    } else if (auto x = std::get_if<int16_t>(&offset)) {
+      o << *x;
+    }
+  };
+  o << "[" << r1;
+  switch (kind) {
+    case MemoryAccessKind::None:
+      o << ", ";
+      display_offset(o);
+      o << "]";
+      break;
+    case MemoryAccessKind::PostIndex:
+      o << ", ";
+      display_offset(o);
+      o << "]!";
+      break;
+    case MemoryAccessKind::PreIndex:
+      o << "], ";
+      display_offset(o);
+      break;
+  }
+}
+
 void PureInst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
