@@ -36,12 +36,10 @@ std::uint32_t irGenerator::tmpNameToId(string name)
 
 void irGenerator::insertFunc(shared_ptr<mir::inst::MirFunction> func)
 {
-    std::pair<const string, mir::inst::MirFunction>* p = (std::pair<const string, mir::inst::MirFunction>*)malloc(
-        sizeof(std::pair<const string, mir::inst::MirFunction>));
-    memcpy((void*)&(p->first), (void*)&(func->name), sizeof(string));
-    memcpy((void*)&(p->second), (void*)func.get(), sizeof(mir::inst::MirFunction));
-    _package.functions.insert(*p);
-    free(p);
+    _package.functions.insert({
+        func->name,
+        mir::inst::MirFunction(func->name, func->type)
+        });
 }
 
 irGenerator::irGenerator()
