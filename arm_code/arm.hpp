@@ -42,6 +42,7 @@ class ConstValue
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
 
   virtual void display(std::ostream& o) const;
+  virtual ~ConstValue() {}
 };
 
 /// Frame pointer (base pointer)
@@ -89,29 +90,20 @@ struct RegisterOperand : public prelude::Displayable {
 struct MemoryOperand : public prelude::Displayable {
   MemoryOperand(Reg r1, int16_t offset = 0,
                 MemoryAccessKind kind = MemoryAccessKind::None)
-      : MemoryOperand(r1, std::nullopt, false, offset, kind) {}
+      : kind(kind), r1(r1), offset(offset) {}
 
-  MemoryOperand(Reg r1, Reg rm, MemoryAccessKind kind = MemoryAccessKind::None)
-      : MemoryOperand(r1, rm, false, 0, kind) {}
-
-  MemoryOperand(Reg r1, Reg rm, bool neg_rm, int16_t offset,
+  MemoryOperand(Reg r1, RegisterOperand rm, bool neg_rm = false,
                 MemoryAccessKind kind = MemoryAccessKind::None)
-      : kind(kind), r1(r1), rm(rm), neg_rm(neg_rm), offset(offset) {}
-
-  MemoryOperand(Reg r1, std::optional<Reg> rm, bool neg_rm, int16_t offset,
-                MemoryAccessKind kind = MemoryAccessKind::None)
-      : kind(kind), r1(r1), rm(rm), neg_rm(neg_rm), offset(offset) {}
+      : kind(kind), r1(r1), offset(rm), neg_rm(neg_rm) {}
 
   // Pre- or post-indexed memory access
   MemoryAccessKind kind;
   // Base register
   Reg r1;
   // Offset register
-  std::optional<Reg> rm;
+  std::variant<RegisterOperand, int16_t> offset;
   // is offset negative?
   bool neg_rm;
-  // another offset
-  int16_t offset;
 
   virtual void display(std::ostream& o) const;
 };
