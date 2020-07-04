@@ -6,12 +6,12 @@
 
 int main(int argc, char const *argv[]) {
   // TODO: code
-  // front::fake::FakeGenerator x;
-  // x.fakeMirGenerator1();
-  // auto mir = x._package;
+  front::fake::FakeGenerator x;
+  x.fakeMirGenerator1();
+  auto mir = x._package;
 
-  // backend::Backend backend(std::move(*mir));
-  // auto code = backend.generate_code();
+  backend::Backend backend(std::move(*mir));
+  auto code = backend.generate_code();
 
   return 0;
 }
