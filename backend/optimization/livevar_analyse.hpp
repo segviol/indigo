@@ -155,7 +155,7 @@ class Livevar_Analyse {
                  std::map<uint32_t, mir::inst::Variable>& vartable) {
     bool modify = livevars[start.id]->build(basic_blks[start.id], vartable);
     for (auto pre : start.preceding) {
-      modify |= livevars[pre]->build(basic_blks[pre], vartable);
+      modify |= livevars[pre]->build(basic_blks.find(pre)->second, vartable);
     }
     return modify;
   }

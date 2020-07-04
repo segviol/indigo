@@ -11,20 +11,21 @@
 
 namespace backend::codegen {
 
-std::string format_const_label(std::string_view function_name,
-                               uint32_t label_id) {
+inline std::string format_const_label(std::string_view function_name,
+                                      uint32_t label_id) {
   auto s = std::stringstream();
   s << "_CONST_" << function_name << "__" << label_id;
   return s.str();
 }
 
-std::string format_bb_label(std::string_view function_name, uint32_t label_id) {
+inline std::string format_bb_label(std::string_view function_name,
+                                   uint32_t label_id) {
   auto s = std::stringstream();
   s << function_name << "_$bb_" << label_id;
   return s.str();
 }
 
-std::string format_fn_end_label(std::string_view function_name) {
+inline std::string format_fn_end_label(std::string_view function_name) {
   auto s = std::stringstream();
   s << function_name << "_$end";
   return s.str();
