@@ -51,7 +51,15 @@ void display_op(std::ostream& o, Op val) {
   }
 }
 
-// void Variable::display(std::ostream& o) const { o << id << ": " << *ty; }
+void Variable::display(std::ostream& o) const {
+  o << *ty;
+  if (is_memory_var) {
+    o << " memory";
+  }
+  if (is_temp_var) {
+    o << " temp";
+  }
+}
 
 // void VarId::display(std::ostream& o) const { o << "$" << id; }
 
@@ -73,7 +81,7 @@ void OpInst::display(std::ostream& o) const {
 
 void CallInst::display(std::ostream& o) const {
   o << dest << " = " << func << "(";
-  for (int i = 0; i < params.size(); i++) {
+  for (size_t i = 0; i < params.size(); i++) {
     if (i != 0) o << ", ";
     o << params[i];
   }
@@ -94,8 +102,7 @@ void LoadInst::display(std::ostream& o) const {
 }
 
 void StoreInst::display(std::ostream& o) const {
-  o << "store " << val << " to "
-    << "dest";
+  o << "store " << val << " to " << dest;
 }
 
 void PtrOffsetInst::display(std::ostream& o) const {
@@ -104,7 +111,7 @@ void PtrOffsetInst::display(std::ostream& o) const {
 
 void PhiInst::display(std::ostream& o) const {
   o << dest << " = phi [";
-  for (int i = 0; i < vars.size(); i++) {
+  for (size_t i = 0; i < vars.size(); i++) {
     if (i != 0) o << ", ";
     o << vars[i];
   }
