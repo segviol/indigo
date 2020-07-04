@@ -360,7 +360,8 @@ void MemoryOperand::display(std::ostream &o) const {
       o << *x;
     }
   };
-  o << "[" << r1;
+  o << "[";
+  display_reg_name(o, r1);
   switch (kind) {
     case MemoryAccessKind::None:
       o << ", ";
@@ -405,7 +406,9 @@ void BrInst::display(std::ostream &o) const {
 void LoadStoreInst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " ";
+  display_reg_name(o, rd);
+  o << ", " << mem;
 }
 
 void MultLoadStoreInst::display(std::ostream &o) const {

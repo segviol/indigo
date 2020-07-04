@@ -65,6 +65,7 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       throw new std::bad_cast();
     }
   }
+  translate_branch(blk.jump);
 }
 
 void Codegen::init_reg_map() {
@@ -98,14 +99,14 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     inst.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::LdR, reg, MemoryOperand(REG_FP, (int16_t)(-(v - 4) * 4))));
+        OpCode::LdR, reg, MemoryOperand(Reg(REG_FP), (int16_t)(-(v - 4) * 4))));
     return reg;
   } else {
     auto x = stack_space_allocation.find(v);
     if (x != stack_space_allocation.end()) {
       auto reg = alloc_vgp();
       inst.push_back(std::make_unique<LoadStoreInst>(
-          OpCode::LdR, reg, MemoryOperand(REG_SP, (int16_t)(-x->second))));
+          OpCode::LdR, reg, MemoryOperand(Reg(REG_SP), (int16_t)(-x->second))));
       return reg;
     } else {
       auto found = reg_map.find(v);
@@ -204,19 +205,19 @@ arm::Reg Codegen::alloc_vgp() {
 
 arm::Reg Codegen::alloc_vd() {
   return arm::make_register(arm::RegisterKind::VirtualDoubleVector,
-                            vreg_gp_counter++);
+                            vreg_vd_counter++);
 }
 
 arm::Reg Codegen::alloc_vq() {
   return arm::make_register(arm::RegisterKind::VirtualQuadVector,
-                            vreg_gp_counter++);
+                            vreg_vq_counter++);
 }
 
 arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
   if (auto x = v.get_if<int32_t>()) {
     auto int_value = *x;
     if (is_valid_immediate(int_value)) {
-      return int_value;
+      return Operand2(int_value);
     } else {
       auto reg = alloc_vgp();
       uint32_t imm_u = int_value;
@@ -226,10 +227,10 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
         inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg,
                                                     imm_u & 0xffff0000));
       }
-      return reg;
+      return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
-    return get_or_alloc_vgp(*x);
+    return RegisterOperand(get_or_alloc_vgp(*x));
   } else {
     throw new prelude::UnreachableException();
   }
