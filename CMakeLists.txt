@@ -11,6 +11,9 @@ set(backend_files
     backend/backend.hpp
     backend/backend.cpp
     backend/optimization/optimization.hpp
+    backend/optimization/graph_color.hpp
+    backend/optimization/livevar_analyse.hpp
+    backend/optimization/remove_dead_code.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/err.hpp
@@ -38,7 +41,7 @@ set(arm_files
     arm_code/arm.hpp)
 
 add_library(backend ${backend_files})
-add_library(frontend ${frontend_files})
+# add_library(frontend ${frontend_files})
 add_library(mir ${mir_files})
 add_library(arm ${arm_files})
 
@@ -54,7 +57,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 target_link_libraries(
     compiler
-    frontend 
+    # frontend 
     backend 
     mir
     arm)

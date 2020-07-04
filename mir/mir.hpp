@@ -364,9 +364,9 @@ class CallInst final : public Inst {
 /// Reference instruction. `$dest = &$val`
 class RefInst final : public Inst {
  public:
-  std::variant<VarId, types::LabelId> val;
+  std::variant<VarId, std::string> val;
 
-  RefInst(VarId _dest, std::variant<VarId, types::LabelId> _val)
+  RefInst(VarId _dest, std::variant<VarId, std::string> _val)
       : Inst(_dest), val(_val) {}
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
