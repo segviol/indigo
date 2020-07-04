@@ -25,6 +25,7 @@ namespace front::syntax {
     using std::stoi;
 
     using mir::types::LabelId;
+    using mir::types::TyKind;
     using mir::inst::Op;
 
     using word::Word;
@@ -41,6 +42,12 @@ namespace front::syntax {
     using express::NodeType;
     using express::OperationType;
     using irGenerator::RightVal;
+
+    enum class ValueMode
+    {
+        right,
+        left
+    };
 
     class SyntaxAnalyze
     {
@@ -92,17 +99,17 @@ namespace front::syntax {
         void hp_gn_binary_mir(LabelId tmpId, SharedExNdPtr first, SharedExNdPtr second, Op op);
         string hp_gen_save_value();
 
-        SharedExNdPtr gm_cond();
-        SharedExNdPtr gm_and_exp();
-        SharedExNdPtr gm_eq_exp();
-        SharedExNdPtr gm_rel_exp();
+        SharedExNdPtr gm_cond(ValueMode mode);
+        SharedExNdPtr gm_and_exp(ValueMode mode);
+        SharedExNdPtr gm_eq_exp(ValueMode mode);
+        SharedExNdPtr gm_rel_exp(ValueMode mode);
 
-        SharedExNdPtr gm_const_exp();
-        SharedExNdPtr gm_exp();
-        SharedExNdPtr gm_l_val();
-        SharedExNdPtr gm_mul_exp();
-        SharedExNdPtr gm_unary_exp();
-        SharedExNdPtr gm_func_call();
+        SharedExNdPtr gm_const_exp(ValueMode mode);
+        SharedExNdPtr gm_exp(ValueMode mode);
+        SharedExNdPtr gm_l_val(ValueMode mode);
+        SharedExNdPtr gm_mul_exp(ValueMode mode);
+        SharedExNdPtr gm_unary_exp(ValueMode mode);
+        SharedExNdPtr gm_func_call(ValueMode mode);
 
         size_t get_matched_index();
         void set_matched_index(size_t new_index);

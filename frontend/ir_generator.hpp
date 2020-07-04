@@ -26,6 +26,8 @@ namespace front::irGenerator
     using mir::types::ArrayTy;
     using mir::types::PtrTy;
     using mir::types::FunctionTy;
+    using mir::types::RestParamTy;
+    using mir::types::TyKind;
 
     using mir::inst::Variable;
     using mir::inst::VarId;
@@ -70,9 +72,13 @@ namespace front::irGenerator
 
         LabelId getNewLabelId();
         // as of now, the tmp for global scope is inserted into global_values of _package
-        LabelId getNewTmpValueId();
+        LabelId getNewTmpValueId(TyKind kind);
 
         void ir_declare_value(string name, symbol::SymbolKind kind, int len = 0);
+        //set "0" + str as str name in globalNameToId, the prefix is 0
+        void ir_declare_string(string str);
+        void ir_declare_const(string name, std::uint32_t value, int id);
+        void ir_declare_const(string name, std::vector<std::uint32_t> values, int id);
         void ir_declare_function(string name, symbol::SymbolKind kind);
         void ir_leave_function();
         void ir_declare_param(string name, symbol::SymbolKind kind);
@@ -96,12 +102,16 @@ namespace front::irGenerator
         WhileLabels checkWhile();
         void popWhile();
 
+        string getStringName(string str);
+        string getConstName(string name, int id);
+
     private:
         mir::inst::MirPackage _package;
         std::map<LabelId, std::vector<Instruction>> _funcIdToInstructions;
 
         const LabelId _GlobalInitFuncId = 0;
         const LabelId _VoidVarId = (1 << 20);
+        const string stringNamePrefix = "0";
 
         LabelId _nowFuncId;
         LabelId _nowLabelId;
