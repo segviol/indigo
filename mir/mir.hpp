@@ -270,6 +270,9 @@ class Variable : public prelude::Displayable {
 
 class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
  public:
+  Value(int32_t i) : std::variant<int32_t, VarId>(i) {}
+  Value(VarId i) : std::variant<int32_t, VarId>(i) {}
+
   virtual void display(std::ostream& o) const;
 
   template <typename T>
