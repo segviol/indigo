@@ -62,6 +62,7 @@ class Node {
   std::optional<mir::inst::VarId> mainVar;
   std::vector<mir::inst::VarId> live_vars;
   std::vector<mir::inst::VarId> local_vars;
+  mir::inst::Value value;
   bool is_leaf;
   Node() : is_leaf(true) {}
   Node(Op op, std::vector<Operand> operands)
@@ -299,6 +300,9 @@ class Common_Expr_Del : backend::MirOptimizePass {
           break;
         }
         case mir::inst::InstKind::Assign: {
+          auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
+          if (assignInst->src.index() == 0) {
+          }
         }
         case mir::inst::InstKind::Load:
         case mir::inst::InstKind::Store: {

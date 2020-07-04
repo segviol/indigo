@@ -187,13 +187,18 @@ enum class VarScope { Local, Global };
 void display_op(std::ostream& o, Op val);
 
 struct VarId : public prelude::Displayable {
-  VarId(uint32_t id) : id(id) {}
+  constexpr VarId() : id(-1) {}
+  VarId(const VarId& other) = default;
+  VarId(VarId&& other) = default;
+  VarId(const uint32_t id) : id(id) {}
   uint32_t id;
 
   virtual void display(std::ostream& o) const { o << "$" << id; }
+  bool operator==(const VarId& other) const { return id == other.id; };
+  VarId& operator=(const VarId& other) = default;
   bool operator<(const VarId& other) const { return id < other.id; }
   bool operator<(const uint32_t& other) const { return id < other; }
-  operator uint32_t() { return id; }
+  operator uint32_t() const { return id; }
 };
 
 // struct VarId : public prelude::Displayable {
@@ -241,6 +246,10 @@ struct VarId : public prelude::Displayable {
 
 class Variable : public prelude::Displayable {
  public:
+  Variable() {
+    is_memory_var = false;
+    is_temp_var = false;
+  }
   Variable(types::SharedTyPtr ty, bool is_memory_var = false,
            bool is_temp_var = false)
       : ty(ty), is_memory_var(is_memory_var), is_temp_var(is_temp_var) {}
@@ -293,6 +302,7 @@ class AssignInst final : public Inst {
  public:
   Value src;
 
+  AssignInst(VarId _dest, Value _src) : Inst(_dest), src(_src) {}
   virtual InstKind inst_kind() { return InstKind::Assign; }
   virtual void display(std::ostream& o) const;
   virtual ~AssignInst() {}
@@ -312,6 +322,8 @@ class OpInst final : public Inst {
   Value rhs;
   Op op;
 
+  OpInst(VarId _dest, Value _lhs, Value _rhs, Op _op)
+      : Inst(_dest), lhs(_lhs), rhs(_rhs), op(_op) {}
   virtual InstKind inst_kind() { return InstKind::Op; }
   virtual void display(std::ostream& o) const;
   virtual ~OpInst() {}
@@ -330,9 +342,11 @@ class OpInst final : public Inst {
 /// Call instruction. `$dest = call $func(...$params)`
 class CallInst final : public Inst {
  public:
-  VarId func;
+  std::string func;
   std::vector<Value> params;
 
+  CallInst(VarId _dest, std::string _func, std::vector<Value> _params)
+      : Inst(_dest), func(_func), params(_params) {}
   virtual InstKind inst_kind() { return InstKind::Call; }
   virtual void display(std::ostream& o) const;
   virtual ~CallInst() {}
@@ -352,6 +366,8 @@ class RefInst final : public Inst {
  public:
   std::variant<VarId, types::LabelId> val;
 
+  RefInst(VarId _dest, std::variant<VarId, types::LabelId> _val)
+      : Inst(_dest), val(_val) {}
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
   virtual ~RefInst() {}
@@ -404,6 +420,8 @@ class PtrOffsetInst final : public Inst {
   VarId ptr;
   Value offset;
 
+  PtrOffsetInst(VarId _dest, VarId _ptr, Value _offset)
+      : Inst(_dest), ptr(_ptr), offset(_offset) {}
   virtual InstKind inst_kind() { return InstKind::PtrOffset; }
   virtual void display(std::ostream& o) const;
   virtual ~PtrOffsetInst() {}
@@ -459,6 +477,9 @@ class JumpInstruction final : public prelude::Displayable {
   }
   virtual void display(std::ostream& o) const;
   virtual ~JumpInstruction() {}
+  JumpInstruction(const JumpInstruction&) = delete;
+  JumpInstruction(JumpInstruction&&) = default;
+  JumpInstruction& operator=(JumpInstruction&&) = default;
 };
 
 /// Represents a single basic block
@@ -473,7 +494,8 @@ class BasicBlk : public prelude::Displayable {
   JumpInstruction jump;
   virtual void display(std::ostream& o) const;
 
-  BasicBlk(const BasicBlk& other) = delete;
+  constexpr BasicBlk(const BasicBlk& other) = delete;
+  BasicBlk(BasicBlk&&) = default;
 };
 
 class MirFunction : public prelude::Displayable {
@@ -483,20 +505,25 @@ class MirFunction : public prelude::Displayable {
   std::map<uint32_t, Variable> variables;
   std::map<mir::types::LabelId, BasicBlk> basic_blks;
 
+  // MirFunction() {}
+  MirFunction(std::string _name, std::shared_ptr<types::FunctionTy> _type)
+      : name(_name), type(_type), basic_blks(), variables() {}
   virtual void display(std::ostream& o) const;
 
-  MirFunction(MirFunction&& other) = default;
   MirFunction(const MirFunction& other) = delete;
+  MirFunction(MirFunction&& other) = default;
+  MirFunction& operator=(MirFunction&& other) = default;
 };
 
 class MirPackage : public prelude::Displayable {
  public:
-  std::map<mir::types::LabelId, MirFunction> functions;
-  std::map<mir::types::LabelId, arm::ConstValue> global_values;
+  std::map<std::string, MirFunction> functions;
+  std::map<std::string, arm::ConstValue> global_values;
 
+  MirPackage() {}
   virtual void display(std::ostream& o) const;
 
-  MirPackage(MirPackage& other) = delete;
+  MirPackage(const MirPackage& other) = delete;
   MirPackage(MirPackage&& other) = default;
 };
 
