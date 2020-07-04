@@ -34,19 +34,29 @@ std::uint32_t irGenerator::tmpNameToId(string name)
     return std::stoi(name.substr(3));
 }
 
+void irGenerator::insertFunc(shared_ptr<mir::inst::MirFunction> func)
+{
+    std::pair<const string, mir::inst::MirFunction>* p = (std::pair<const string, mir::inst::MirFunction>*)malloc(
+        sizeof(std::pair<const string, mir::inst::MirFunction>));
+    memcpy((void*)&(p->first), (void*)&(func->name), sizeof(string));
+    memcpy((void*)&(p->second), (void*)func.get(), sizeof(mir::inst::MirFunction));
+    _package.functions.insert(*p);
+    free(p);
+}
+
 irGenerator::irGenerator()
 {
     _nowLabelId = 0;
     _nowtmpId = 0;
     _nowLocalValueId = 0;
 
-    mir::inst::MirFunction func = mir::inst::MirFunction(
+    shared_ptr<mir::inst::MirFunction> func = shared_ptr<mir::inst::MirFunction>(new mir::inst::MirFunction(
        _GlobalInitFuncName,
         shared_ptr<FunctionTy>(new FunctionTy(SharedTyPtr(new VoidTy()), {}, false))
-        );
-    _package.functions.insert_or_assign(func.name, func);
-    _funcStack.push_back(func.name);
-
+        ));
+    insertFunc(func);
+    _funcStack.push_back(func->name);
+    
     for (string funcName : externalFuncName)
     {
         shared_ptr<mir::inst::MirFunction> func;
@@ -129,21 +139,27 @@ irGenerator::irGenerator()
 
         if (funcName == "putf")
         {
-            _package.functions.insert_or_assign(func->name, *func);
-            func->name = "printf";
+            string trueName = "printf";
+            insertFunc(func);
+            func->name = trueName;
         }
         else if (funcName == "starttime")
         {
-            _package.functions.insert_or_assign(func->name, *func);
-            func->name = "starttime";
+            string trueName = "_sysy_starttime";
+            insertFunc(func);
+            _package.functions.find(func->name)->second.variables = func->variables;
+            func->name = trueName;
         }
         else if (funcName == "stoptime")
         {
-            _package.functions.insert_or_assign(func->name, *func);
-            func->name = "stoptime";
+            string trueName = "_sysy_stoptime";
+            insertFunc(func);
+            _package.functions.find(func->name)->second.variables = func->variables;
+            func->name = trueName;
         }
 
-        _package.functions.insert_or_assign(func->name, *func);
+        insertFunc(func);
+        _package.functions.find(func->name)->second.variables = func->variables;
     }
 }
 
@@ -171,7 +187,7 @@ string irGenerator::getNewTmpValueName(TyKind kind)
     }
 
     name = getTmpName(_nowLocalValueId);
-    _package.functions[_funcStack.back()].variables.insert_or_assign(_nowLocalValueId, Variable(ty, false, true));
+    _package.functions.find(_funcStack.back())->second.variables.insert(std::pair(_nowLocalValueId, Variable(ty, false, true)));
     _nowLocalValueId++;;
     return name;
 }
@@ -253,7 +269,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
             break;
         }
         Variable variable(ty, true, false);
-        _package.functions[_funcStack.back()].variables[_nowLocalValueId] = variable;
+        _package.functions.find(_funcStack.back())->second.variables.insert(std::pair(_nowLocalValueId, variable));
         _localValueNameToId[name] = _nowLocalValueId;
         _nowLocalValueId++;
     }
@@ -280,8 +296,7 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind)
     default:
         break;
     }
-
-    _package.functions[_funcStack.back()].type->params.push_back(ty);
+    _package.functions.find(_funcStack.back())->second.type->params.push_back(ty);
 }
 
 void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind)
@@ -305,10 +320,12 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind)
     type = shared_ptr<FunctionTy>(new FunctionTy(ret, params));
     func = shared_ptr<mir::inst::MirFunction>(new mir::inst::MirFunction(name, type));
 
-    _package.functions.insert_or_assign(func->name, func);
+    insertFunc(func);
     _funcStack.push_back(func->name);
 
-    _package.functions[func->name].variables[_VoidVarId] = Variable(SharedTyPtr(new VoidTy()), false, false);
+    _package.functions.find(_funcStack.back())->second.variables.insert(
+        std::pair(_VoidVarId, Variable(SharedTyPtr(new VoidTy()), false, false))
+    );
 
     _nowLocalValueId = 1;
     _localValueNameToId.clear();
@@ -450,8 +467,6 @@ LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal)
         break;
     case 1:
         id = nameToLabelId(get<string>(leftVal));
-        break;
-    default:
         break;
     }
     return id;

@@ -1,5 +1,3 @@
-#pragma once
-
 #include <vector>
 #include <stdint.h>
 
@@ -132,6 +130,8 @@ namespace front::irGenerator
         LabelId LeftValueToLabelId(LeftVal leftVal);
         // insure the rightvalue is {number, local value}
         shared_ptr<Value> rightValueToValue(RightVal& rightValue);
+
+        void insertFunc(shared_ptr<mir::inst::MirFunction> func);
     };
 }
 
