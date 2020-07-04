@@ -438,6 +438,7 @@ class PtrOffsetInst final : public Inst {
 /// Phi instruction. `$dest = phi(...$vars)`
 class PhiInst final : public Inst {
  public:
+  PhiInst(VarId _dest, std::vector<VarId> _vars) :Inst(_dest), vars(_vars) {};
   std::vector<VarId> vars;
 
   virtual InstKind inst_kind() { return InstKind::Phi; }
