@@ -92,7 +92,7 @@ void RefInst::display(std::ostream& o) const {
   o << dest << " = &";
   if (auto x = std::get_if<VarId>(&val)) {
     o << *x;
-  } else if (auto x = std::get_if<types::LabelId>(&val)) {
+  } else if (auto x = std::get_if<std::string>(&val)) {
     o << "@" << *x;
   }
 }
