@@ -2,10 +2,32 @@
 
 using namespace front::irGenerator;
 
+std::vector<string> externalFuncName = {
+    "getint",
+    "getch",
+    "getarray",
+    "putint",
+    "putch",
+    "putarray",
+    "putf",
+    "starttime",
+    "stoptime"
+};
+
+string irGenerator::getStringName(string str)
+{
+    return stringNamePrefix + "_" + str;
+}
+
+string irGenerator::getConstName(string name, int id)
+{
+    return std::to_string(id) + "_" + name;
+}
+
 irGenerator::irGenerator()
 {
     _nowLabelId = 0;
-    _nowFuncId = 0;
+    _nowFuncId = _GlobalInitFuncId;
     _nowGlobalValueId = 0;
     _nowLocalValueId = 1;
 
@@ -15,6 +37,95 @@ irGenerator::irGenerator()
     _funcNameToId[func.name] = _nowFuncId;
     _funcStack.push_back(_nowFuncId);
     _nowFuncId++;
+
+    for (string funcName : externalFuncName)
+    {
+        mir::inst::MirFunction func;
+        func.name = funcName;
+
+        if (funcName == "getint")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(SharedTyPtr(new IntTy()), {}, true)
+            );
+        }
+        else if (funcName == "getch")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(SharedTyPtr(new IntTy()), {}, true)
+            );
+        }
+        else if (funcName == "getarray")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(SharedTyPtr(new IntTy()), { SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))) }, true)
+            );
+            func.variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
+        }
+        else if (funcName == "putint")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(SharedTyPtr(new VoidTy()), {SharedTyPtr(new IntTy())}, true)
+            );
+            func.variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+        }
+        else if (funcName == "putarray")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(
+                    SharedTyPtr(new VoidTy()),
+                    {
+                        SharedTyPtr(new IntTy()),
+                        SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy)))
+                    },
+                    true
+                )
+            );
+        }
+        else if (funcName == "putf")
+        {
+            func.type = SharedTyPtr(
+                new FunctionTy(
+                    SharedTyPtr(new VoidTy()),
+                    {
+                        SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
+                        SharedTyPtr(new RestParamTy())
+                    },
+                    true
+                )
+            );
+            func.variables[1] = Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
+            func.variables[2] = Variable(SharedTyPtr(new RestParamTy()), true, false);
+        }
+        else if (funcName == "starttime")
+        {
+            func.type = SharedTyPtr(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+        }
+        else if (funcName == "stoptime")
+        {
+            func.type = SharedTyPtr(new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+        }
+
+        if (funcName == "putf")
+        {
+            _funcNameToId[func.name] = _nowFuncId;
+            func.name = "printf";
+        }
+        else if (funcName == "starttime")
+        {
+            _funcNameToId[func.name] = _nowFuncId;
+            func.name = "starttime";
+        }
+        else if (funcName == "stoptime")
+        {
+            _funcNameToId[func.name] = _nowFuncId;
+            func.name = "stoptime";
+        }
+
+        _funcNameToId[func.name] = _nowFuncId;
+        _package.functions[_nowFuncId] = func;
+        _nowFuncId++;
+    }
 }
 
 LabelId irGenerator::getNewLabelId()
@@ -22,8 +133,23 @@ LabelId irGenerator::getNewLabelId()
     return _nowLabelId++;
 }
 
-LabelId irGenerator::getNewTmpValueId()
+
+LabelId irGenerator::getNewTmpValueId(TyKind kind)
 {
+    SharedTyPtr ty;
+    
+    switch (kind)
+    {
+    case mir::types::TyKind::Int:
+        ty = shared_ptr<IntTy>(new IntTy());
+        break;
+    case mir::types::TyKind::Ptr:
+        ty = shared_ptr<PtrTy>(new PtrTy(shared_ptr<IntTy>(new IntTy())));
+        break;
+    default:
+        break;
+    }
+
     if (_funcStack.back() == _GlobalInitFuncId)
     {
         _package.global_values[_nowGlobalValueId] = GlobalValue(std::to_string(_nowGlobalValueId));
@@ -33,7 +159,7 @@ LabelId irGenerator::getNewTmpValueId()
     else
     {
         // TODO: deal the type tmp value
-        _package.functions[_funcStack.back()].variables[_nowLocalValueId] = Variable(SharedTyPtr(new IntTy()), false, true);
+        _package.functions[_funcStack.back()].variables[_nowLocalValueId] = Variable(ty, false, true);
         _localValueNameToId[std::to_string(_nowLocalValueId)] = _nowLocalValueId;
         return _nowLocalValueId++;
     }
@@ -70,14 +196,40 @@ void irGenerator::ir_op(LeftVal dest, RightVal op1, RightVal op2, mir::inst::Op 
     _funcIdToInstructions[_funcStack.back()].push_back(opInst);
 }
 
+void irGenerator::ir_declare_string(string str)
+{
+    if (_globalValueNameToId.count(getStringName(str)) == 0)
+    {
+        GlobalValue globalValue = GlobalValue(str);
+        _package.global_values[_nowGlobalValueId] = globalValue;
+        _globalValueNameToId[getStringName(str)] = _nowGlobalValueId;
+        _nowGlobalValueId++;
+    }
+}
+
+void irGenerator::ir_declare_const(string name, std::uint32_t value, int id)
+{
+    GlobalValue globalValue = GlobalValue(value);
+    _package.global_values[_nowGlobalValueId] = globalValue;
+    _globalValueNameToId[getConstName(name, id)] = _nowGlobalValueId;
+    _nowGlobalValueId++;
+}
+
+void irGenerator::ir_declare_const(string name, std::vector<std::uint32_t> values, int id)
+{
+    GlobalValue globalValue = GlobalValue(values);
+    _package.global_values[_nowGlobalValueId] = globalValue;
+    _globalValueNameToId[getConstName(name, id)] = _nowGlobalValueId;
+    _nowGlobalValueId++;
+}
 
 void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len)
 {
     if (_funcStack.back() == _GlobalInitFuncId)
     {
-        GlobalValue globalValue = GlobalValue(name);
+        GlobalValue globalValue = GlobalValue(0);
         _package.global_values[_nowGlobalValueId] = globalValue;
-        _globalValueNameToId[get<string>(globalValue)] = _nowGlobalValueId;
+        _globalValueNameToId[name] = _nowGlobalValueId;
         _nowGlobalValueId++;
     }
     else
@@ -118,11 +270,8 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind)
     }
     case front::symbol::SymbolKind::Ptr:
     {
+        ir_declare_value(name, kind);
         ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
-        Variable variable(ty, true, false);
-        _package.functions[_funcStack.back()].variables[_nowLocalValueId] = variable;
-        _localValueNameToId[name] = _nowLocalValueId;
-        _nowLocalValueId++;
         break;
     }
     default:
@@ -318,10 +467,10 @@ shared_ptr<Value> irGenerator::rightValueToValue(RightVal& rightValue)
     switch (rightValue.index())
     {
     case 0:
-        value->emplace<int32_t>(get<0>(rightValue));
+        value->emplace<0>(get<0>(rightValue));
         break;
     case 2:
-        value->emplace<VarId>(VarId(nameToLabelId(get<2>(rightValue))));
+        value->emplace<1>(VarId(nameToLabelId(get<2>(rightValue))));
         break;
     default:
         break;
@@ -338,9 +487,9 @@ LabelId irGenerator::nameToLabelId(string name)
     {
         id = _localValueNameToId[name];
     }
-    else if (_localValueNameToId.count(name) == 1)
+    else if (_globalValueNameToId.count(name) == 1)
     {
-        id = _localValueNameToId[name];
+        id = _globalValueNameToId[name];
     }
     return id;
 }

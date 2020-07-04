@@ -28,6 +28,8 @@ namespace front::express
         ARR,
         ARR_NAME,
         NUMBER,
+        STRING,
+        PTR,
 
         PLUS,
         MINU,
@@ -47,7 +49,8 @@ namespace front::express
         UN_MINU,
         UN_NOT,
 
-        ASSIGN
+        ASSIGN,
+        LOAD
     };
 
     class ExpressNode
