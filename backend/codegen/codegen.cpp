@@ -36,8 +36,8 @@ arm::Function Codegen::translate_function() {
     map.insert({func.name, std::move(this->reg_map)});
   }
 
-  return arm::Function{func.name, std::move(this->inst),
-                       std::move(this->consts), stack_size};
+  return arm::Function(func.name, std::move(this->inst),
+                       std::move(this->consts), stack_size);
 }
 
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {

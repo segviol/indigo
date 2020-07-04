@@ -154,10 +154,10 @@ void JumpInstruction::display(std::ostream& o) const {
 }
 
 void BasicBlk::display(std::ostream& o) const {
-  o << "bb" << id << ":" << std::endl;
+  o << "bb" << id << ":";
 
   // print preceding
-  o << "// preceding: ";
+  o << "    // preceding: ";
   for (auto i = preceding.begin(); i != preceding.end(); i++) {
     if (i != preceding.begin()) o << ", ";
     o << *i;
@@ -168,7 +168,7 @@ void BasicBlk::display(std::ostream& o) const {
     o << '\t' << **i << std::endl;
   }
 
-  o << jump << std::endl;
+  o << "\t" << jump << std::endl;
 }
 
 void MirFunction::display(std::ostream& o) const {
@@ -179,14 +179,18 @@ void MirFunction::display(std::ostream& o) const {
     if (i != params.begin()) o << ", ";
     o << *i;
   }
-  o << ") ->" << return_ty << "{" << std::endl;
+  o << ") ->" << *return_ty << "{" << std::endl;
   for (auto i = basic_blks.begin(); i != basic_blks.end(); i++) {
     o << i->second;
   }
   o << "}" << std::endl;
 }
 
-void MirPackage::display(std::ostream& o) const {}
+void MirPackage::display(std::ostream& o) const {
+  for (auto& f : functions) {
+    o << f.second << std::endl;
+  }
+}
 
 }  // namespace mir::inst
 
