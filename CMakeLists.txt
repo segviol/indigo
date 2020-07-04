@@ -19,8 +19,9 @@ set(frontend_files
     frontend/express_node.cpp
     frontend/ir_generator.hpp
     frontend/ir_generator.cpp
+    frontend/optim_mir.hpp
+    frontend/optim_mir.cpp
     frontend/symbol.hpp
-    frontend/symbol.cpp
     frontend/symbol_table.hpp
     frontend/symbol_table.cpp
     frontend/syntax_analyze.hpp
