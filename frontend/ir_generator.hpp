@@ -63,6 +63,8 @@ namespace front::irGenerator
 
     typedef std::variant<shared_ptr<mir::inst::Inst>, shared_ptr<mir::inst::JumpInstruction>, shared_ptr<JumpLabelId>> Instruction;
 
+    extern std::vector<string> externalFuncName;
+
     class irGenerator
     {
     public:
@@ -71,17 +73,16 @@ namespace front::irGenerator
         void outputInstructions(std::ostream& out);
 
         LabelId getNewLabelId();
-        // as of now, the tmp for global scope is inserted into global_values of _package
+        // as of now, the tmp for global scope is inserted into global init function.variables
         string getNewTmpValueName(TyKind kind);
 
-        void ir_declare_value(string name, symbol::SymbolKind kind, int len = 0);
-        //set "0" + str as str name in globalNameToId, the prefix is 0
+        void ir_declare_value(string name, symbol::SymbolKind kind, int id, int len = 0);
         void ir_declare_string(string str);
         void ir_declare_const(string name, std::uint32_t value, int id);
         void ir_declare_const(string name, std::vector<std::uint32_t> values, int id);
         void ir_declare_function(string name, symbol::SymbolKind kind);
         void ir_leave_function();
-        void ir_declare_param(string name, symbol::SymbolKind kind);
+        void ir_declare_param(string name, symbol::SymbolKind kind, int id);
 
         /* src type mean (src.index())
          * 0: jumplabel
@@ -105,7 +106,7 @@ namespace front::irGenerator
         string getStringName(string str);
         string getConstName(string name, int id);
         string getTmpName(std::uint32_t id);
-        string getLocalName(string name, std::uint32_t id);
+        string getVarName(string name, std::uint32_t id);
         std::uint32_t tmpNameToId(string name);
 
         std::map<string, std::vector<Instruction>>& getfuncNameToInstructions()
@@ -123,7 +124,7 @@ namespace front::irGenerator
         const string _stringNamePrefix = "@@0";
         const string _tmpNamePrefix = "@@1";
         const string _constNamePrefix = "@@2";
-        const string _localValyePrefix = "@@3";
+        const string _varNamePrefix = "@@3";
 
         std::map<string, LabelId> _localValueNameToId;
 
