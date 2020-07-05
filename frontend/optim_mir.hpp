@@ -80,6 +80,10 @@ namespace front::optim_mir {
     //std::map<int, BasicBlock> front::optim_mir::generate_CFG(std::vector<Instruction> instructions);
 }
 
+extern std::vector<mir::inst::VarId> V;
+extern int num;
+extern std::vector<int> order;
+
 std::map<int, front::optim_mir::BasicBlock*> generate_CFG(std::vector<front::optim_mir::Instruction> instructions);
 front::optim_mir::BasicBlock* find_entry(std::map<int, front::optim_mir::BasicBlock*> nodes);
 front::optim_mir::BasicBlock* find_exit(std::map<int, front::optim_mir::BasicBlock*> nodes);
@@ -97,7 +101,8 @@ std::map<int, std::vector<mir::inst::VarId>> active_var(std::map<int, front::opt
 std::vector<int> pred_intersection(std::map<int, front::optim_mir::BasicBlock*> nodes, int n, std::map<int, std::vector<int>> dom);
 std::map<int, int> find_idom(std::map<int, front::optim_mir::BasicBlock*> nodes);
 std::map<int, std::vector<int>> dominac_frontier(std::map<int, int> dom, std::map<int, front::optim_mir::BasicBlock*> nodes);
-std::map<int, front::optim_mir::BasicBlock*> generate_SSA(std::map<int, front::optim_mir::BasicBlock*> nodes, std::map<int,
+void generate_SSA(std::map<int, front::optim_mir::BasicBlock*> nodes, std::map<int,
     std::vector<std::string>> global, std::map<int, std::vector<int>> dom_f, std::vector<front::optim_mir::Instruction> instructions);
+std::map<std::string, std::vector<front::optim_mir::Instruction>> gen_ssa(std::map<std::string, std::vector<front::optim_mir::Instruction>> f);
 
 #endif
