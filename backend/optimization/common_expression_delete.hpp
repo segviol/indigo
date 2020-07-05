@@ -62,11 +62,7 @@ class Node {
   std::optional<mir::inst::VarId> mainVar;
   std::vector<mir::inst::VarId> live_vars;
   std::vector<mir::inst::VarId> local_vars;
-<<<<<<< HEAD
-  mir::inst::Value value;
-=======
-  mir::inst::Value value;  // int Imm
->>>>>>> develop
+  std::optional<mir::inst::Value> value;  // int Imm
   bool is_leaf;
   Node() : is_leaf(true) {}
   Node(Op op, std::vector<Operand> operands)
