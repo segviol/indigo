@@ -55,6 +55,17 @@ namespace front::syntax {
         ~SyntaxAnalyze();
 
         void gm_comp_unit();
+
+        void outputInstructions(std::ostream& out)
+        {
+            irGenerator.outputInstructions(out);
+        }
+
+        irGenerator::irGenerator& getIrGenerator()
+        {
+            return irGenerator;
+        }
+
     private:
         const std::uint32_t _initLayerNum = 0;
 
