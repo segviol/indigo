@@ -68,6 +68,8 @@ namespace front::irGenerator
     public:
         irGenerator();
 
+        void outputInstructions(std::ostream& out);
+
         LabelId getNewLabelId();
         // as of now, the tmp for global scope is inserted into global_values of _package
         string getNewTmpValueName(TyKind kind);
@@ -103,7 +105,13 @@ namespace front::irGenerator
         string getStringName(string str);
         string getConstName(string name, int id);
         string getTmpName(std::uint32_t id);
+        string getLocalName(string name, std::uint32_t id);
         std::uint32_t tmpNameToId(string name);
+
+        std::map<string, std::vector<Instruction>>& getfuncNameToInstructions()
+        {
+            return _funcNameToInstructions;
+        }
 
     private:
         mir::inst::MirPackage _package;
@@ -115,6 +123,7 @@ namespace front::irGenerator
         const string _stringNamePrefix = "@@0";
         const string _tmpNamePrefix = "@@1";
         const string _constNamePrefix = "@@2";
+        const string _localValyePrefix = "@@3";
 
         std::map<string, LabelId> _localValueNameToId;
 
