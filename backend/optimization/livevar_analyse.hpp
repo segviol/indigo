@@ -106,16 +106,19 @@ class Block_Live_Var {
       VariableSet defvars;
       if (vartable[defvar].ty->kind() != mir::types::TyKind::Void) {
         if (ignore_global_and_array && !vartable[defvar.id].is_memory_var ||
-            !ignore_global_and_array)
+            !ignore_global_and_array) {
           defvars.insert(defvar.id);
+        }
       }
       VariableSet diff_result;
+      instLiveVars[i]->clear();
       std::set_difference(tmp->begin(), tmp->end(), defvars.begin(),
                           defvars.end(),
                           std::inserter(diff_result, diff_result.begin()));
       std::set_union(useVars.begin(), useVars.end(), diff_result.begin(),
                      diff_result.end(),
                      std::inserter(*instLiveVars[i], instLiveVars[i]->begin()));
+      tmp = instLiveVars[i];
     }
     live_vars_in->clear();
     if (instLiveVars.size()) {
@@ -132,7 +135,6 @@ class Block_Live_Var {
 class Livevar_Analyse {
  public:
   std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
-  std::map<mir::inst::VarId, std::set<mir::types::LabelId> > var_blks;
   mir::inst::MirFunction& func;
   Livevar_Analyse(mir::inst::MirFunction& func) : func(func) {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
@@ -151,8 +153,7 @@ class Livevar_Analyse {
   bool dfs_build(mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
                  std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks,
                  std::map<uint32_t, mir::inst::Variable>& vartable) {
-    bool modify = false;
-    livevars[start.id]->build(basic_blks.find(start.id)->second, vartable);
+    bool modify = livevars[start.id]->build(basic_blks[start.id], vartable);
     for (auto pre : start.preceding) {
       modify |= livevars[pre]->build(basic_blks.find(pre)->second, vartable);
     }
@@ -160,7 +161,6 @@ class Livevar_Analyse {
   }
 
   void build() {
-    var_blks.clear();
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
