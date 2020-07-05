@@ -354,9 +354,10 @@ void Codegen::translate_inst(mir::inst::StoreInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::LoadInst& i) {
-  auto ins = std::make_unique<LoadStoreInst>(
-      arm::OpCode::LdR, translate_var_reg(i.src), translate_var_reg(i.dest));
-  inst.push_back(std::move(ins));
+    auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::LdR,
+        translate_value_to_reg(i.src),
+        translate_var_reg(i.dest));
+    inst.push_back(std::move(ins));
 }
 
 void Codegen::translate_inst(mir::inst::RefInst& i) {
