@@ -265,12 +265,12 @@ struct PureInst final : public Inst {
 ///
 /// Valid opcode: Add, Sub, Rsb, Mul, SDiv, And, Orr, Eor, Lsl, Lsr, Asr
 struct Arith3Inst final : public Inst {
-  Arith3Inst(OpCode op, RegisterOperand rd, RegisterOperand r1, Operand2 r2,
+  Arith3Inst(OpCode op, Reg rd, Reg r1, Operand2 r2,
              ConditionCode cond = ConditionCode::Always)
       : Inst(op, cond), rd(rd), r1(r1), r2(r2) {}
 
-  RegisterOperand rd;
-  RegisterOperand r1;
+  Reg rd;
+  Reg r1;
   Operand2 r2;
 
   virtual void display(std::ostream& o) const;
@@ -281,11 +281,11 @@ struct Arith3Inst final : public Inst {
 ///
 /// Valid Opcode: Mov, Cmp, Cmn
 struct Arith2Inst final : public Inst {
-  Arith2Inst(OpCode op, RegisterOperand r1, Operand2 r2,
+  Arith2Inst(OpCode op, Reg r1, Operand2 r2,
              ConditionCode cond = ConditionCode::Always)
       : Inst(op, cond), r1(r1), r2(r2) {}
 
-  RegisterOperand r1;
+  Reg r1;
   Operand2 r2;
 
   virtual void display(std::ostream& o) const;
@@ -311,9 +311,12 @@ struct LoadStoreInst final : public Inst {
   LoadStoreInst(OpCode op, Reg rd, MemoryOperand mem,
                 ConditionCode cond = ConditionCode::Always)
       : Inst(op, cond), rd(rd), mem(mem) {}
+  LoadStoreInst(OpCode op, Reg rd, std::string mem,
+                ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), rd(rd), mem(mem) {}
 
   Reg rd;
-  MemoryOperand mem;
+  std::variant<std::string, MemoryOperand> mem;
 
   virtual void display(std::ostream& o) const;
   virtual ~LoadStoreInst() {}
