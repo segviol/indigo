@@ -608,6 +608,178 @@ shared_ptr<mir::inst::PhiInst> ir_phi(mir::inst::VarId var, int n) {
     return shared_ptr<mir::inst::PhiInst>(new mir::inst::PhiInst(var, vars));
 }
 
+mir::inst::VarId rename(mir::inst::VarId oldid) {
+    mir::inst::VarId newid;
+    return newid;
+}
+
+vector<mir::inst::VarId> V;
+int num;
+void push(mir::inst::VarId a) {
+    V.push_back(a);
+}
+mir::inst::VarId pop() {
+    mir::inst::VarId a = V.back();
+    V.pop_back();
+    return a;
+}
+mir::inst::VarId top() {
+    return V.back();
+}
+
+void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f, map<int, BasicBlock*> nodes) {
+    mir::inst::VarId ve = top();
+    for (int i = 0; i < b->inst.size(); i++) {
+        if (b->inst[i].index() == 0) {
+            shared_ptr<mir::inst::Inst> ins = get<0>(b->inst[i]);
+            if (ins->inst_kind() == mir::inst::InstKind::Assign) {
+                shared_ptr<mir::inst::AssignInst> in =
+                    std::static_pointer_cast<mir::inst::AssignInst>(ins);
+                if (in->src.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->src);
+                    if (x == id) {
+                        in->src.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Op) {
+                shared_ptr<mir::inst::OpInst> in =
+                    std::static_pointer_cast<mir::inst::OpInst>(ins);
+                if (in->lhs.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->lhs);
+                    if (x == id) {
+                        in->lhs.emplace<1>(top());
+                    }
+                }
+                if (in->rhs.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->rhs);
+                    if (x == id) {
+                        in->rhs.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Load) {
+                shared_ptr<mir::inst::LoadInst> in =
+                    std::static_pointer_cast<mir::inst::LoadInst>(ins);
+                if (in->src.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->src);
+                    if (x == id) {
+                        in->src.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Store) {
+                shared_ptr<mir::inst::StoreInst> in =
+                    std::static_pointer_cast<mir::inst::StoreInst>(ins);
+                if (in->val.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->val);
+                    if (x == id) {
+                        in->val.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::PtrOffset) {
+                shared_ptr<mir::inst::PtrOffsetInst> in =
+                    std::static_pointer_cast<mir::inst::PtrOffsetInst>(ins);
+                if (in->offset.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->offset);
+                    if (x == id) {
+                        in->offset.emplace<1>(top());
+                    }
+                }
+                if (in->ptr == id) {
+                    in->ptr = top();
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Ref) {
+                shared_ptr<mir::inst::RefInst> in =
+                    std::static_pointer_cast<mir::inst::RefInst>(ins);
+                if (in->val.index() == 1) {
+                    mir::inst::VarId x = get<1>(in->val);
+                    if (x == id) {
+                        in->val.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Phi) {
+            shared_ptr<mir::inst::PhiInst> in =
+                std::static_pointer_cast<mir::inst::PhiInst>(ins);
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else {
+                // nothing
+            }
+        }
+    }
+    map<int, vector<int>>::iterator it = dom_f.find(b->id);
+    if (it != dom_f.end()) {
+        for (int j = 0; j < it->second.size(); j++) {
+            map<int, BasicBlock*>::iterator iter = nodes.find(it->second[j]);
+            BasicBlock* bb = iter->second;
+            for (int i = 0; i < bb->inst.size(); i++) {
+                if (bb->inst[i].index() == 0) {
+                    shared_ptr<mir::inst::Inst> ins = get<0>(bb->inst[i]);
+                    if (ins->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            std::static_pointer_cast<mir::inst::PhiInst>(ins);
+                        if (in->ori_var == id) {
+                            in->vars.erase(in->vars.begin());
+                            in->vars.push_back(top());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for (int i = 0; i < b->nextBlock.size(); i++) {
+        rename_var(id, b->nextBlock[i], dom_f, nodes);
+    }
+    while (top() != ve) {
+        pop();
+    }
+}
+
 map<int, BasicBlock*> generate_SSA(map<int, BasicBlock*> nodes,
     map<int, vector<mir::inst::VarId>> global,
     map<int, vector<int>> dom_f,
@@ -787,8 +959,11 @@ map<int, BasicBlock*> generate_SSA(map<int, BasicBlock*> nodes,
         }
     }
     //step3.2: rename
-    //for (int i = 0; i < vars.size(); i++) {
-
-    //}
+    for (int i = 0; i < vars.size(); i++) {
+        V.clear();
+        num = 1;
+        push(rename(vars[i]));
+        rename_var(vars[i], find_entry(nodes), dom_f, nodes);
+    }
     return nodes;
 }
