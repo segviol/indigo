@@ -270,6 +270,9 @@ class Variable : public prelude::Displayable {
 
 class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
  public:
+  Value(int32_t i) : std::variant<int32_t, VarId>(i) {}
+  Value(VarId i) : std::variant<int32_t, VarId>(i) {}
+
   virtual void display(std::ostream& o) const;
 
   template <typename T>
@@ -364,9 +367,9 @@ class CallInst final : public Inst {
 /// Reference instruction. `$dest = &$val`
 class RefInst final : public Inst {
  public:
-  std::variant<VarId, types::LabelId> val;
+  std::variant<VarId, std::string> val;
 
-  RefInst(VarId _dest, std::variant<VarId, types::LabelId> _val)
+  RefInst(VarId _dest, std::variant<VarId, std::string> _val)
       : Inst(_dest), val(_val) {}
   virtual InstKind inst_kind() { return InstKind::Ref; }
   virtual void display(std::ostream& o) const;
