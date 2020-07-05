@@ -11,16 +11,20 @@ BasicBlock::BasicBlock(int _id, int _pre_id) {
     pre_id = _pre_id;
 }
 
+vector<int> order;
+
 map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
     int id = -3;                  // entry is -1 and exit is -2
     map<int, BasicBlock*> nodes;  // pair(id, Node)
     BasicBlock* entry = new BasicBlock(-1, -1);
     nodes.insert(map<int, BasicBlock*>::value_type(-1, entry));
     int preid = -1;  // tight front block
+    order.clear();
     for (int i = 0; i < instructions.size(); ) {
         BasicBlock* block;
         if (instructions[i].index() == 2) {  // first instruction is JumpLableId
             block = new BasicBlock(get<2>(instructions[i])->_jumpLabelId, preid);
+            block->inst.push_back(instructions[i]);
             preid = get<2>(instructions[i])->_jumpLabelId;
             i++;
         }
@@ -28,6 +32,7 @@ map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
             block = new BasicBlock(id, preid);
             preid = id--;
         }
+        order.push_back(preid);
         // br is the ending, JumpLableId is the beginning.
         // The next sentence of br must be JumpLableId.
         while (i < instructions.size() && instructions[i].index() != 2) {
@@ -780,7 +785,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
     }
 }
 
-map<int, BasicBlock*> generate_SSA(map<int, BasicBlock*> nodes,
+void generate_SSA(map<int, BasicBlock*> nodes,
     map<int, vector<mir::inst::VarId>> global,
     map<int, vector<int>> dom_f,
     vector<Instruction> instructions) {
@@ -965,5 +970,25 @@ map<int, BasicBlock*> generate_SSA(map<int, BasicBlock*> nodes,
         push(rename(vars[i]));
         rename_var(vars[i], find_entry(nodes), dom_f, nodes);
     }
-    return nodes;
+}
+
+map<string, vector<Instruction>> gen_ssa(map<string, vector<Instruction>> f) {
+    map<string, vector<Instruction>>::iterator iter;
+    map<string, vector<Instruction>> inst;
+    for (iter = f.begin(); iter != f.end(); iter++) {
+        map<int, BasicBlock*> nodes = generate_CFG(iter->second);
+        map<int, vector<mir::inst::VarId>> global = active_var(nodes);
+        map<int, int> dom = find_idom(nodes);
+        map<int, vector<int>> df = dominac_frontier(dom, nodes);
+        generate_SSA(nodes, global, df, iter->second);
+        vector<front::optim_mir::Instruction> insts;
+        for (int i = 0; i < order.size(); i++) {
+            map<int, BasicBlock*>::iterator it = nodes.find(order[i]);
+            for (int j = 0; j < it->second->inst.size(); j++) {
+                insts.push_back(it->second->inst[j]);
+            }
+        }
+        inst.insert(map<string, vector<Instruction>>::value_type(iter->first, insts));
+    }
+    return inst;
 }
