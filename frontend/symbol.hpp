@@ -1,5 +1,3 @@
-#pragma once
-
 #include <vector>
 #include <string>
 #include <memory>
@@ -44,8 +42,6 @@ namespace front::symbol {
 		int getLayerNum() { return _layerNum; }
 		virtual ~Symbol() {};
 	};
-
-	int Symbol::symbolId = 0;
 
 	typedef std::shared_ptr<Symbol> SharedSyPtr;
 
@@ -134,6 +130,7 @@ namespace front::symbol {
 					}
 					else
 					{
+						_size = 0;
 						return _size;
 					}
 				}
@@ -143,14 +140,12 @@ namespace front::symbol {
 		}
 		int getLen()
 		{
-			if (_size > 0)
+			if (_size == -1)
 			{
-				return _size / static_pointer_cast<IntSymbol>(_item)->getSize();
+				getSize();
 			}
-			else
-			{
-				return 0;
-			}
+
+			return _size / static_pointer_cast<IntSymbol>(_item)->getSize();
 		}
 		bool valid() const { return _values.size() * 4 == _size; }
 	};
