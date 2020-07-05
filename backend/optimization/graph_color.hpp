@@ -245,8 +245,8 @@ class Graph_Color : backend::MirOptimizePass {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          iter++) {
       optimize_func(iter->first, iter->second);
-      extra_data_repo.insert(func_color_map.begin(), func_color_map.end());
     }
+    extra_data_repo[name] = func_color_map;
   }
 };
 
