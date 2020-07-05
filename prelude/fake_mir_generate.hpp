@@ -41,8 +41,6 @@ class FakeGenerator {
 
   void fakeMirGenerator1() {
     int i;
-    Value value1;
-    Value value2;
 
     _package = shared_ptr<MirPackage>(new MirPackage());
 
@@ -82,17 +80,16 @@ class FakeGenerator {
         move(unique_ptr<Inst>(new RefInst(VarId(4), VarId(1)))));
 
     for (i = 0; i < 10; i++) {
-      value1.emplace<0>(i + 1);
       _package->functions.at("main").basic_blks.at(0).inst.push_back(
-          move(unique_ptr<Inst>(new StoreInst(value1, VarId(4)))));
+          move(unique_ptr<Inst>(new StoreInst(i + 1, VarId(4)))));
       if (i < 9) {
         _package->functions.at("main").basic_blks.at(0).inst.push_back(move(
-            unique_ptr<Inst>(new PtrOffsetInst(VarId(4), VarId(4), value1))));
+            unique_ptr<Inst>(new PtrOffsetInst(VarId(4), VarId(4), i + 1))));
       }
     }
-    value1.emplace<0>(0);
+
     _package->functions.at("main").basic_blks.at(0).inst.push_back(
-        move(unique_ptr<Inst>(new AssignInst(VarId(2), value1))));
+        move(unique_ptr<Inst>(new AssignInst(VarId(2), 0))));
 
     _package->functions.at("main").basic_blks.at(3).id = 3;
     _package->functions.at("main").basic_blks.at(3).jump =
@@ -100,14 +97,12 @@ class FakeGenerator {
                                   JumpKind::Loop));
     _package->functions.at("main").basic_blks.at(3).preceding.insert(0);
     _package->functions.at("main").basic_blks.at(3).preceding.insert(1);
-    value1.emplace<0>(9);
-    value2.emplace<1>(VarId(2));
+
     _package->functions.at("main").basic_blks.at(3).inst.push_back(
-        move(unique_ptr<Inst>(new OpInst(VarId(5), value1, value2, Op::Sub))));
-    value1.emplace<1>(VarId(2));
-    value2.emplace<1>(VarId(5));
-    _package->functions.at("main").basic_blks.at(3).inst.push_back(
-        move(unique_ptr<Inst>(new OpInst(VarId(5), value1, value2, Op::Lt))));
+        move(unique_ptr<Inst>(new OpInst(VarId(5), 9, VarId(2), Op::Sub))));
+
+    _package->functions.at("main").basic_blks.at(3).inst.push_back(move(
+        unique_ptr<Inst>(new OpInst(VarId(5), VarId(2), VarId(5), Op::Lt))));
 
     _package->functions.at("main").basic_blks.at(1).id = 1;
     _package->functions.at("main").basic_blks.at(1).jump = move(JumpInstruction(
@@ -115,34 +110,32 @@ class FakeGenerator {
     _package->functions.at("main").basic_blks.at(1).preceding.insert(3);
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
         move(unique_ptr<Inst>(new RefInst(VarId(4), VarId(1)))));
-    value1.emplace<1>(VarId(2));
+
+    _package->functions.at("main").basic_blks.at(1).inst.push_back(move(
+        unique_ptr<Inst>(new PtrOffsetInst(VarId(4), VarId(4), VarId(2)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new PtrOffsetInst(VarId(4), VarId(4), value1))));
-    value1.emplace<1>(VarId(4));
+        move(unique_ptr<Inst>(new LoadInst(VarId(4), VarId(3)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new LoadInst(value1, VarId(3)))));
-    value1.emplace<0>(9);
-    value2.emplace<1>(VarId(2));
-    _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new OpInst(VarId(5), value1, value2, Op::Sub))));
+        move(unique_ptr<Inst>(new OpInst(VarId(5), 9, VarId(2), Op::Sub))));
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
         move(unique_ptr<Inst>(new RefInst(VarId(6), VarId(1)))));
-    value1.emplace<1>(VarId(2));
+
+    _package->functions.at("main").basic_blks.at(1).inst.push_back(move(
+        unique_ptr<Inst>(new PtrOffsetInst(VarId(6), VarId(6), VarId(2)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new PtrOffsetInst(VarId(6), VarId(6), value1))));
-    value1.emplace<1>(VarId(6));
+        move(unique_ptr<Inst>(new LoadInst(VarId(6), VarId(5)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new LoadInst(value1, VarId(5)))));
-    value1.emplace<1>(VarId(4));
+        move(unique_ptr<Inst>(new StoreInst(VarId(4), VarId(5)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new StoreInst(value1, VarId(5)))));
-    value1.emplace<1>(VarId(6));
+        move(unique_ptr<Inst>(new StoreInst(VarId(6), VarId(3)))));
+
     _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new StoreInst(value1, VarId(3)))));
-    value1.emplace<1>(VarId(2));
-    value2.emplace<0>(1);
-    _package->functions.at("main").basic_blks.at(1).inst.push_back(
-        move(unique_ptr<Inst>(new OpInst(VarId(2), value1, value2, Op::Add))));
+        move(unique_ptr<Inst>(new OpInst(VarId(2), 2, VarId(1), Op::Add))));
 
     _package->functions.at("main").basic_blks.at(2).id = 2;
     _package->functions.at("main").basic_blks.at(2).jump = move(JumpInstruction(
