@@ -432,13 +432,25 @@ void LoadStoreInst::display(std::ostream &o) const {
 void MultLoadStoreInst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " ";
+  display_reg_name(o, rn);
+  o << ", {";
+  for (auto i = rd.begin(); i != rd.end(); i++) {
+    if (i != rd.begin()) o << ", ";
+    display_reg_name(o, *i);
+  }
+  o << "}";
 }
 
 void PushPopInst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  // TODO
+  o << " {";
+  for (auto i = regs.begin(); i != regs.end(); i++) {
+    if (i != regs.begin()) o << ", ";
+    display_reg_name(o, *i);
+  }
+  o << "}";
 }
 
 void LabelInst::display(std::ostream &o) const { o << label << ":"; }
