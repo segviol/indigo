@@ -1,5 +1,4 @@
 #include "optim_mir.hpp"
-#include <iostream>
 
 using namespace std;
 using namespace front::optim_mir;
@@ -13,7 +12,7 @@ BasicBlock::BasicBlock(int _id, int _pre_id) {
 
 vector<int> order;
 
-map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
+map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instructions) {
     int id = -3;                  // entry is -1 and exit is -2
     map<int, BasicBlock*> nodes;  // pair(id, Node)
     BasicBlock* entry = new BasicBlock(-1, -1);
@@ -30,6 +29,8 @@ map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
         }
         else {
             block = new BasicBlock(id, preid);
+            shared_ptr<front::irGenerator::JumpLabelId> j(new front::irGenerator::JumpLabelId(id));
+            block->inst.push_back(j);
             preid = id--;
         }
         order.push_back(preid);
@@ -42,33 +43,41 @@ map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
         nodes.insert(map<int, BasicBlock*>::value_type(preid, block));
     }
     BasicBlock* exit = new BasicBlock(-2, preid);
+    //cout << "##" << preid << endl;
     nodes.insert(map<int, BasicBlock*>::value_type(-2, exit));
     // walk each node and generate control flow graph
     map<int, BasicBlock*>::iterator iter;
     for (iter = nodes.begin(); iter != nodes.end(); iter++) {
         map<int, BasicBlock*>::iterator it = nodes.find(iter->second->pre_id);
         if (it != nodes.end() && iter->second->id != -1) {  // find the pre node and not the entry node
-            if (it->second->inst.size() > 0) { //has instruction 
+            if (it->second->inst.size() > 1) { //has instruction 
                 if (it->second->inst[it->second->inst.size() - 1].index() == 0) { //the last instruction isn't br
                     iter->second->preBlock.push_back(it->second);
                     it->second->nextBlock.push_back(iter->second);
                 }
                 else if (it->second->inst[it->second->inst.size() - 1].index() == 1) { //the last instruction is br
                     BasicBlock* b = it->second;
-                    int l1 = get<1>(b->inst[b->inst.size() - 1])->bb_true;
-                    map<int, BasicBlock*>::iterator itt = nodes.find(l1);
-                    if (itt != nodes.end()) {
-                        b->nextBlock.push_back(itt->second);
-                        itt->second->preBlock.push_back(b);
+                    shared_ptr<mir::inst::JumpInstruction> ins = get<1>(b->inst[b->inst.size() - 1]);
+                    if (ins->kind == mir::inst::JumpInstructionKind::Return) {
+                        iter->second->preBlock.push_back(it->second);
+                        it->second->nextBlock.push_back(iter->second);
                     }
-                    if (get<1>(b->inst[b->inst.size() - 1])->kind ==
-                        mir::inst::JumpInstructionKind::BrCond
-                        ) {
-                        l1 = get<1>(b->inst[b->inst.size() - 1])->bb_false;
-                        itt = nodes.find(l1);
+                    else {
+                        int l1 = get<1>(b->inst[b->inst.size() - 1])->bb_true;
+                        map<int, BasicBlock*>::iterator itt = nodes.find(l1);
                         if (itt != nodes.end()) {
                             b->nextBlock.push_back(itt->second);
                             itt->second->preBlock.push_back(b);
+                        }
+                        if (get<1>(b->inst[b->inst.size() - 1])->kind ==
+                            mir::inst::JumpInstructionKind::BrCond
+                            ) {
+                            l1 = get<1>(b->inst[b->inst.size() - 1])->bb_false;
+                            itt = nodes.find(l1);
+                            if (itt != nodes.end()) {
+                                b->nextBlock.push_back(itt->second);
+                                itt->second->preBlock.push_back(b);
+                            }
                         }
                     }
                 }
@@ -79,6 +88,17 @@ map<int, BasicBlock*> generate_CFG(vector<Instruction> instructions) {
             }
         }
     }
+    /*for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+        cout << iter->first;
+        for (int i = 0; i < iter->second->nextBlock.size(); i++) {
+            cout << " " << iter->second->nextBlock[i]->id;
+        }
+        cout << "|";
+        for (int i = 0; i < iter->second->preBlock.size(); i++) {
+            cout << " " << iter->second->preBlock[i]->id;
+        }
+        cout << endl;
+    }*/
     return nodes;
 }
 
@@ -150,17 +170,17 @@ vector<mir::inst::VarId> vectors_intersection(vector<mir::inst::VarId> v1, vecto
 }
 
 vector<mir::inst::VarId> calcu_out(BasicBlock* b, map<int, vector<mir::inst::VarId>> in) {
+    vector<mir::inst::VarId> v1;
     if (b->nextBlock.size() > 0) {
         map<int, vector<mir::inst::VarId>>::iterator it = in.find(b->nextBlock[0]->id);
-        vector<mir::inst::VarId> v1 = it->second;
-
+        v1 = it->second;
         for (int i = 1; i < b->nextBlock.size(); i++) {
             it = in.find(b->nextBlock[i]->id);
             vector<mir::inst::VarId> v2 = it->second;
             v1 = vectors_set_union(v1, v2);
         }
-        return v1;
     }
+    return v1;
 }
 
 vector<mir::inst::VarId> calcu_in(int n, map<int, vector<mir::inst::VarId>> use,
@@ -207,9 +227,9 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
             if (it == visit.end()) {
                 vector<mir::inst::VarId> def1;
                 vector<mir::inst::VarId> use1;
-                for (int j = 0; j < p->inst.size(); j++) {
-                    if (p->inst[j].index() == 0) {
-                        shared_ptr<mir::inst::Inst> ins = get<0>(p->inst[j]);
+                for (int j = 0; j < p->nextBlock[i]->inst.size(); j++) {
+                    if (p->nextBlock[i]->inst[j].index() == 0) {
+                        shared_ptr<mir::inst::Inst> ins = get<0>(p->nextBlock[i]->inst[j]);
                         if (ins->inst_kind() == mir::inst::InstKind::Assign) {
                             shared_ptr<mir::inst::AssignInst> in =
                                 std::static_pointer_cast<mir::inst::AssignInst>(ins);
@@ -218,6 +238,23 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
                                     !has_this(def1, get<1>(in->src))) {
                                     mir::inst::VarId s = get<1>(in->src);
                                     use1.push_back(s);
+                                }
+                            }
+                            if (!has_this(use1, in->dest) &&
+                                !has_this(def1, in->dest)) {
+                                def1.push_back(in->dest);
+                            }
+                        }
+                        else if (ins->inst_kind() == mir::inst::InstKind::Call) {
+                            shared_ptr<mir::inst::CallInst> in =
+                                std::static_pointer_cast<mir::inst::CallInst>(ins);
+                            for (int k = 0; k < in->params.size(); k++) {
+                                if (in->params[k].index() == 1) {
+                                    if (!has_this(use1, get<1>(in->params[k])) &&
+                                        !has_this(def1, get<1>(in->params[k]))) {
+                                        mir::inst::VarId s = get<1>(in->params[k]);
+                                        use1.push_back(s);
+                                    }
                                 }
                             }
                             if (!has_this(use1, in->dest) &&
@@ -309,39 +346,47 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
                             // nothing
                         }
                     }
+                    else if (p->nextBlock[i]->inst[j].index() == 1) {
+                        shared_ptr<mir::inst::JumpInstruction> ins = get<1>(p->nextBlock[i]->inst[j]);
+                        if (ins->kind == mir::inst::JumpInstructionKind::BrCond
+                            || ins->kind == mir::inst::JumpInstructionKind::Return) {
+                            mir::inst::VarId var;
+                            if (ins->cond_or_ret && !has_this(use1, *ins->cond_or_ret)
+                                && !has_this(def1, *ins->cond_or_ret)) {
+                                use1.push_back(*ins->cond_or_ret);
+                            }
+                        }
+                    }
                 }
-                def.insert(
-                    map<int, vector<mir::inst::VarId>>::value_type(p->nextBlock[i]->id, def1));
-                use.insert(
-                    map<int, vector<mir::inst::VarId>>::value_type(p->nextBlock[i]->id, use1));
+                def[p->nextBlock[i]->id] = def1;
+                use[p->nextBlock[i]->id] = use1;
                 visit.push_back(p->nextBlock[i]->id);
                 q.push(p->nextBlock[i]->id);
             }
         }
     }
-
-    /*Construct special data for testing
-    vector<mir::inst::VarId> y = { "y" };
-    vector<mir::inst::VarId> xy = { "x", "y" };
-    vector<mir::inst::VarId> z = { "z" };
-    vector<mir::inst::VarId> x = { "x" };
-    vector<mir::inst::VarId> w = { "w" };
-    vector<mir::inst::VarId> p;
-    def[-3] = y;
-    def[1] = xy;
-    def[2] = x;
-    def[3] = w;
-    def[4] = z;
-    use[-3] = z;
-    use[1] = z;
-    use[3] = x;
-    use[4] = x;*/
+    //output for test
+    /*for (it = def.begin(); it != def.end(); it++) {
+        cout << "def " << it->first;
+        for (int i = 0; i < it->second.size(); i++) {
+            cout << " " << it->second[i];
+        }
+        cout << endl;
+    }
+    for (it = use.begin(); it != use .end(); it++) {
+        cout << "use " << it->first;
+        for (int i = 0; i < it->second.size(); i++) {
+            cout << " " << it->second[i];
+        }
+        cout << endl;
+    }*/
 
     // step2: fill the in and out
     bool flag = true;
     while (flag) {
         flag = false;
         for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+            //cout << "|" << iter->second->id << endl;
             vector<mir::inst::VarId> _out = calcu_out(iter->second, in);
             out[iter->first] = _out;
             vector<mir::inst::VarId> _in = calcu_in(iter->first, use, out, def);
@@ -351,22 +396,23 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
                 in[iter->first] = _in;
             }
         }
-        /*output for test
-        for (it = in.begin(); it != in.end(); it++) {
-            cout << it->first;
-            for (int i = 0; i < it->second.size(); i++) {
-                cout << " " << it->second[i];
-            }
-            cout << endl;
-        }
-        for (it = out.begin(); it != out.end(); it++) {
-            cout << it->first;
-            for (int i = 0; i < it->second.size(); i++) {
-                cout << " " << it->second[i];
-            }
-            cout << endl;
-        }*/
     }
+    //output for test
+    /*for (it = in.begin(); it != in.end(); it++) {
+        cout << it->first;
+        for (int i = 0; i < it->second.size(); i++) {
+            cout << " " << it->second[i];
+        }
+        cout << endl;
+    }
+    for (it = out.begin(); it != out.end(); it++) {
+        cout << it->first;
+        for (int i = 0; i < it->second.size(); i++) {
+            cout << " " << it->second[i];
+        }
+        cout << endl;
+    }*/
+
     // step3: find the global var
     map<int, vector<mir::inst::VarId>> global;
     for (it = def.begin(); it != def.end(); it++) {
@@ -374,8 +420,8 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
         global.insert(map<int, vector<mir::inst::VarId>>::value_type(
             it->first, vectors_intersection(it->second, iter->second)));
     }
-    /*output for test
-    for (it = global.begin(); it != global.end(); it++) {
+    //output for test
+    /*for (it = global.begin(); it != global.end(); it++) {
         cout << it->first;
         for (int i = 0; i < it->second.size(); i++) {
             cout << " " << it->second[i];
@@ -396,13 +442,16 @@ vector<int> pred_intersection(map<int, BasicBlock*> nodes, int n,
     map<int, vector<int>> dom) {
     //intersect dom of all direct precursor nodes of n and merged with dom of n
     map<int, BasicBlock*>::iterator it = nodes.find(n);
+    //cout << "$$" << n << endl;
     if (it != nodes.end()) {
         BasicBlock* b = it->second;
         map<int, vector<int>>::iterator iter = dom.find(n);
         vector<int> v1 = iter->second;
+        //cout << "$$" << b->preBlock.size() << endl;
         if (b->preBlock.size() == 1) {
             iter = dom.find(b->preBlock[0]->id);
             v1 = vectors_set_union(v1, iter->second);
+            //cout << b->id << "**" << v1[0] << endl;
             return v1;
         }
         else if (b->preBlock.size() >= 2) {
@@ -434,8 +483,8 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
         pre.push_back(it->first);
         dom.insert(map<int, vector<int>>::value_type(it->first, pre));
     }
-    /*map<int, vector<int>>::iterator iter;
-    for (iter = dom.begin(); iter != dom.end(); iter++) {
+    map<int, vector<int>>::iterator iter;
+    /*for (iter = dom.begin(); iter != dom.end(); iter++) {
         cout << iter->first;
         for (int i = 0; i < iter->second.size(); i++) {
             cout << " " << iter->second[i];
@@ -449,6 +498,7 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
         // BFS
         vector<int> visit;
         std::queue<int> q;
+        //cout << "$$" << exit->id << endl;
         vector<int> v = pred_intersection(nodes, exit->id, dom);
         map<int, vector<int>>::iterator iter = dom.find(exit->id);
         vector<int> prev = iter->second;
@@ -479,8 +529,7 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
             }
         }
     }
-    /*map<int, vector<int>>::iterator iter;
-    for (iter = dom.begin(); iter != dom.end(); iter++) {
+    /*for (iter = dom.begin(); iter != dom.end(); iter++) {
         cout << iter->first;
         for (int i = 0; i < iter->second.size(); i++) {
             cout << " " << iter->second[i];
@@ -489,7 +538,6 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
     }*/
     // step2: Calculate the immediate domin nodes of each block
     // step2.1: delete node itself;
-    map<int, vector<int>>::iterator iter;
     for (iter = dom.begin(); iter != dom.end(); iter++) {
         //vector<int>::iterator it = iter->second.begin();
         iter->second.erase(std::remove(iter->second.begin(), iter->second.end(), iter->first), iter->second.end());
@@ -557,8 +605,8 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
             dom1.insert(map<int, int>::value_type(iter->first, iter->second[0]));
         }
     }
-    /*map<int, int>::iterator i;
-    for (i = dom1.begin(); i != dom1.end(); i++) {
+    map<int, int>::iterator i;
+    /*for (i = dom1.begin(); i != dom1.end(); i++) {
         cout << i->first << " " << i->second << endl;
     }*/
     return dom1;
@@ -594,14 +642,14 @@ map<int, vector<int>> dominac_frontier(map<int, int> dom,
             }
         }
     }
-    /*map<int, vector<int>>::iterator i;
+    map<int, vector<int>>::iterator i;
     for (i = dom_f.begin(); i != dom_f.end(); i++) {
         cout << i->first;
         for (int j = 0; j < i->second.size(); j++) {
             cout << " " << i->second[j];
         }
         cout << endl;
-    }*/
+    }
     return dom_f;
 }
 
@@ -613,8 +661,9 @@ shared_ptr<mir::inst::PhiInst> ir_phi(mir::inst::VarId var, int n) {
     return shared_ptr<mir::inst::PhiInst>(new mir::inst::PhiInst(var, vars));
 }
 
+int global_id = 65535;
 mir::inst::VarId rename(mir::inst::VarId oldid) {
-    mir::inst::VarId newid;
+    mir::inst::VarId newid(global_id++);
     return newid;
 }
 
@@ -644,6 +693,24 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
                     mir::inst::VarId x = get<1>(in->src);
                     if (x == id) {
                         in->src.emplace<1>(top());
+                    }
+                }
+                if (in->dest == id) {
+                    mir::inst::VarId xv = rename(id);
+                    in->dest = xv;
+                    push(xv);
+                    num++;
+                }
+            }
+            else if (ins->inst_kind() == mir::inst::InstKind::Call) {
+                shared_ptr<mir::inst::CallInst> in =
+                    std::static_pointer_cast<mir::inst::CallInst>(ins);
+                for (int k = 0; k < in->params.size(); k++) {
+                    if (in->params[k].index() == 1) {
+                        mir::inst::VarId x = get<1>(in->params[k]);
+                        if (x == id) {
+                            in->params[k].emplace<1>(top());
+                        }
                     }
                 }
                 if (in->dest == id) {
@@ -701,10 +768,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
                     }
                 }
                 if (in->dest == id) {
-                    mir::inst::VarId xv = rename(id);
-                    in->dest = xv;
-                    push(xv);
-                    num++;
+                    in->dest = top();
                 }
             }
             else if (ins->inst_kind() == mir::inst::InstKind::PtrOffset) {
@@ -729,10 +793,10 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
             else if (ins->inst_kind() == mir::inst::InstKind::Ref) {
                 shared_ptr<mir::inst::RefInst> in =
                     std::static_pointer_cast<mir::inst::RefInst>(ins);
-                if (in->val.index() == 1) {
-                    mir::inst::VarId x = get<1>(in->val);
+                if (in->val.index() == 0) {
+                    mir::inst::VarId x = get<0>(in->val);
                     if (x == id) {
-                        in->val.emplace<1>(top());
+                        in->val.emplace<0>(top());
                     }
                 }
                 if (in->dest == id) {
@@ -743,8 +807,8 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
                 }
             }
             else if (ins->inst_kind() == mir::inst::InstKind::Phi) {
-            shared_ptr<mir::inst::PhiInst> in =
-                std::static_pointer_cast<mir::inst::PhiInst>(ins);
+                shared_ptr<mir::inst::PhiInst> in =
+                    std::static_pointer_cast<mir::inst::PhiInst>(ins);
                 if (in->dest == id) {
                     mir::inst::VarId xv = rename(id);
                     in->dest = xv;
@@ -754,6 +818,15 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
             }
             else {
                 // nothing
+            }
+        }
+        else if (b->inst[i].index() == 1) {
+            shared_ptr<mir::inst::JumpInstruction> ins = get<1>(b->inst[i]);
+            if (ins->kind == mir::inst::JumpInstructionKind::BrCond
+                || ins->kind == mir::inst::JumpInstructionKind::Return) {
+                if (ins->cond_or_ret && ins->cond_or_ret == id) {
+                    ins->cond_or_ret = top();
+                }
             }
         }
     }
@@ -788,7 +861,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, vector<int>> dom_f,
 void generate_SSA(map<int, BasicBlock*> nodes,
     map<int, vector<mir::inst::VarId>> global,
     map<int, vector<int>> dom_f,
-    vector<Instruction> instructions) {
+    vector<front::irGenerator::Instruction> instructions) {
     map<phi_index, vector< phi_info>> info;
     //step1: for every global var, builds the map named info
     map<int, vector<mir::inst::VarId>>::iterator it;
@@ -890,6 +963,20 @@ void generate_SSA(map<int, BasicBlock*> nodes,
                     vars.push_back(in->dest);
                 }
             }
+            else if (ins->inst_kind() == mir::inst::InstKind::Call) {
+                shared_ptr<mir::inst::CallInst> in =
+                    std::static_pointer_cast<mir::inst::CallInst>(ins);
+                for (int k = 0; k < in->params.size(); k++) {
+                    if (in->params[k].index() == 1) {
+                        if (!has_this(vars, get<1>(in->params[k]))) {
+                            vars.push_back(get<1>(in->params[k]));
+                        }
+                    }
+                }
+                if (!has_this(vars, in->dest)) {
+                    vars.push_back(in->dest);
+                }
+            }
             else if (ins->inst_kind() == mir::inst::InstKind::Op) {
                 shared_ptr<mir::inst::OpInst> in =
                     std::static_pointer_cast<mir::inst::OpInst>(ins);
@@ -949,9 +1036,9 @@ void generate_SSA(map<int, BasicBlock*> nodes,
             else if (ins->inst_kind() == mir::inst::InstKind::Ref) {
                 shared_ptr<mir::inst::RefInst> in =
                     std::static_pointer_cast<mir::inst::RefInst>(ins);
-                if (in->val.index() == 1) {
-                    if (!has_this(vars, get<1>(in->val))) {
-                        vars.push_back(get<1>(in->val));
+                if (in->val.index() == 0) {
+                    if (!has_this(vars, get<0>(in->val))) {
+                        vars.push_back(get<0>(in->val));
                     }
                 }
                 if (!has_this(vars, in->dest)) {
@@ -962,7 +1049,19 @@ void generate_SSA(map<int, BasicBlock*> nodes,
                 // nothing
             }
         }
+        else if (instructions[i].index() == 1) {
+            shared_ptr<mir::inst::JumpInstruction> ins = get<1>(instructions[i]);
+            if (ins->kind == mir::inst::JumpInstructionKind::BrCond
+                || ins->kind == mir::inst::JumpInstructionKind::Return) {
+                if (ins->cond_or_ret && !has_this(vars, *ins->cond_or_ret)) {
+                    vars.push_back(*ins->cond_or_ret);
+                }
+            }
+        }
     }
+    /*for (int i = 0; i < vars.size(); i++) {
+        cout << vars[i] << endl;
+    }*/
     //step3.2: rename
     for (int i = 0; i < vars.size(); i++) {
         V.clear();
@@ -972,23 +1071,23 @@ void generate_SSA(map<int, BasicBlock*> nodes,
     }
 }
 
-map<string, vector<Instruction>> gen_ssa(map<string, vector<Instruction>> f) {
-    map<string, vector<Instruction>>::iterator iter;
-    map<string, vector<Instruction>> inst;
+map<string, vector<front::irGenerator::Instruction>> gen_ssa(map<string, vector<front::irGenerator::Instruction>> f) {
+    map<string, vector<front::irGenerator::Instruction>>::iterator iter;
+    map<string, vector<front::irGenerator::Instruction>> inst;
     for (iter = f.begin(); iter != f.end(); iter++) {
         map<int, BasicBlock*> nodes = generate_CFG(iter->second);
         map<int, vector<mir::inst::VarId>> global = active_var(nodes);
         map<int, int> dom = find_idom(nodes);
         map<int, vector<int>> df = dominac_frontier(dom, nodes);
         generate_SSA(nodes, global, df, iter->second);
-        vector<front::optim_mir::Instruction> insts;
+        vector<front::irGenerator::Instruction> insts;
         for (int i = 0; i < order.size(); i++) {
             map<int, BasicBlock*>::iterator it = nodes.find(order[i]);
             for (int j = 0; j < it->second->inst.size(); j++) {
                 insts.push_back(it->second->inst[j]);
             }
         }
-        inst.insert(map<string, vector<Instruction>>::value_type(iter->first, insts));
+        inst.insert(map<string, vector<front::irGenerator::Instruction>>::value_type(iter->first, insts));
     }
     return inst;
 }
