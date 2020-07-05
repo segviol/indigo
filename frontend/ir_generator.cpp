@@ -19,6 +19,7 @@ void irGenerator::outputInstructions(std::ostream& out)
     out << (string)">====== global_var ======<" << std::endl;
     for (auto i : _package.global_values)
     {
+        out << i.first << (string)" : ";
         i.second.display(out);
         out << std::endl;
     }
@@ -30,6 +31,7 @@ void irGenerator::outputInstructions(std::ostream& out)
         out << ">====== vars : ======<" << std::endl;
         for (auto j : _package.functions.at(i.first).variables)
         {
+            out << j.first << (string)" : ";
             j.second.display(out);
             out << std::endl;
         }
@@ -49,7 +51,7 @@ void irGenerator::outputInstructions(std::ostream& out)
             }
             else
             {
-                out << "label " << get<2>(j);
+                out << "label " << get<2>(j)->_jumpLabelId;
             }
             out << std::endl;
         }
@@ -70,6 +72,11 @@ string irGenerator::getConstName(string name, int id)
 string irGenerator::getTmpName(std::uint32_t id)
 {
     return _tmpNamePrefix + "_" + std::to_string(id);
+}
+
+string irGenerator::getVarName(string name, std::uint32_t id)
+{
+    return _varNamePrefix + "_" + std::to_string(id);
 }
 
 std::uint32_t irGenerator::tmpNameToId(string name)
@@ -293,7 +300,7 @@ void irGenerator::ir_declare_const(string name, std::vector<std::uint32_t> value
     _package.global_values[getConstName(name, id)] = globalValue;
 }
 
-void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len)
+void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id, int len)
 {
     if (_funcStack.back() == _GlobalInitFuncName)
     {
@@ -311,7 +318,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
             }
             globalValue = GlobalValue(inits);
         }
-        _package.global_values[name] = globalValue;
+        _package.global_values[getVarName(name, id)] = globalValue;
     }
     else
     {
@@ -331,12 +338,12 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
             break;
         }
         Variable variable(ty, true, false);
-        insertLocalValue(name, _nowLocalValueId, variable);
+        insertLocalValue(getVarName(name, id), _nowLocalValueId, variable);
         _nowLocalValueId++;
     }
 }
 
-void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind)
+void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind, int id)
 {
     SharedTyPtr ty;
 
@@ -344,13 +351,13 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind)
     {
     case front::symbol::SymbolKind::INT:
     {
-        ir_declare_value(name, kind);
+        ir_declare_value(name, kind, id);
         ty = SharedTyPtr(new IntTy());
         break;
     }
     case front::symbol::SymbolKind::Ptr:
     {
-        ir_declare_value(name, kind);
+        ir_declare_value(name, kind, id);
         ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
         break;
     }
@@ -401,13 +408,21 @@ void irGenerator::ir_leave_function()
 void irGenerator::ir_ref(LeftVal dest, LeftVal src)
 {
     shared_ptr<VarId> destVarId;
-    shared_ptr<VarId> srcVarId;
+    shared_ptr<std::variant<VarId, std::string>> val;
+    LabelId id;
     shared_ptr<mir::inst::Inst> refInst;
 
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
-    srcVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(dest)));
+    if ((id = nameToLabelId(get<1>(src))) >= 0)
+    {
+        val = shared_ptr<std::variant<VarId, std::string>>(new std::variant<VarId, std::string>(VarId(id)));
+    }
+    else
+    {
+        val = shared_ptr<std::variant<VarId, std::string>>(new std::variant<VarId, std::string>(get<1>(src)));
+    }
 
-    refInst = shared_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *srcVarId));
+    refInst = shared_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *val));
      
     _funcNameToInstructions[_funcStack.back()].push_back(refInst);
 }
@@ -503,8 +518,15 @@ void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, L
 {
     std::optional<VarId> crn;
     shared_ptr<mir::inst::JumpInstruction> jumpInst;
-    
-    crn = VarId(LeftValueToLabelId(condRetName.value()));
+
+    if (condRetName.has_value())
+    {
+        crn = VarId(LeftValueToLabelId(condRetName.value()));
+    }
+    else
+    {
+        crn = std::nullopt;
+    }
 
     jumpInst = shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(kind, bbTrue, bbFalse, crn, jumpKind));
 
@@ -538,16 +560,15 @@ LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal)
 shared_ptr<Value> irGenerator::rightValueToValue(RightVal& rightValue)
 {
     shared_ptr<Value> value;
-    value = shared_ptr<Value>(new Value());
 
     switch (rightValue.index())
     {
     case 0:
-        value->emplace<0>(get<0>(rightValue));
+        value = shared_ptr<Value>(new Value(get<0>(rightValue)));
         break;
     case 2:
     {
-        value->emplace<1>(VarId(nameToLabelId(get<2>(rightValue))));
+        value = shared_ptr<Value>(new Value(VarId(nameToLabelId(get<2>(rightValue)))));
     }
         break;
     default:

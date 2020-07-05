@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <algorithm>
 
 #include "../mir/mir.hpp"
 
@@ -108,20 +109,20 @@ namespace front::syntax {
         void gm_assign_stmt();
 
         SharedExNdPtr computeIndex(SharedSyPtr arr, SharedExNdPtr node);
-        void hp_gn_binary_mir(string tmpId, SharedExNdPtr first, SharedExNdPtr second, Op op);
+        void hp_gn_binary_mir(string tmpName, SharedExNdPtr first, SharedExNdPtr second, Op op);
         string hp_gen_save_value();
 
-        SharedExNdPtr gm_cond(ValueMode mode);
-        SharedExNdPtr gm_and_exp(ValueMode mode);
-        SharedExNdPtr gm_eq_exp(ValueMode mode);
-        SharedExNdPtr gm_rel_exp(ValueMode mode);
+        SharedExNdPtr gm_cond();
+        SharedExNdPtr gm_and_exp();
+        SharedExNdPtr gm_eq_exp();
+        SharedExNdPtr gm_rel_exp();
 
-        SharedExNdPtr gm_const_exp(ValueMode mode);
-        SharedExNdPtr gm_exp(ValueMode mode);
+        SharedExNdPtr gm_const_exp();
+        SharedExNdPtr gm_exp();
         SharedExNdPtr gm_l_val(ValueMode mode);
-        SharedExNdPtr gm_mul_exp(ValueMode mode);
-        SharedExNdPtr gm_unary_exp(ValueMode mode);
-        SharedExNdPtr gm_func_call(ValueMode mode);
+        SharedExNdPtr gm_mul_exp();
+        SharedExNdPtr gm_unary_exp();
+        SharedExNdPtr gm_func_call();
 
         size_t get_matched_index();
         void set_matched_index(size_t new_index);
