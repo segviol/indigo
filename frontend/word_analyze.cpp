@@ -19,13 +19,13 @@ void front::word::word_analyse(string& input_str, vector<Word>& word_arr)
             get_char(ch, index, input_str);
         }
 
-        if (is_letter(ch))
+        if (is_nodigit(ch))
         {
             do
             {
                 buf += ch;
                 get_char(ch, index, input_str);
-            } while (is_letter(ch) || isdigit(ch));
+            } while (is_nodigit(ch) || isdigit(ch));
             retract(ch, index, input_str);
             word_arr.push_back(Word(get_token(buf), buf, line_num));
         }
@@ -303,9 +303,9 @@ inline void front::word::retract(char& ch, size_t& index, const string& str)
     ch = str[--index];
 }
 
-inline bool front::word::is_letter(char c)
+inline bool front::word::is_nodigit(char c)
 {
-    return isalpha(c);
+    return isalpha(c) || (c == '_');
 }
 
 inline bool front::word::have_body_char(char c)

@@ -1,5 +1,3 @@
-#pragma once
-
 #include <vector>
 #include <string>
 #include <memory>
@@ -28,8 +26,11 @@ namespace front::symbol {
 	// Base class for symbols
 	class Symbol {
 	public:
+		static int symbolId;
+
 		string _name;
 		int _layerNum;
+		int id;
 
 		static int getNoLayerNum() { return -1; }
 
@@ -37,6 +38,7 @@ namespace front::symbol {
 			: _name(name), _layerNum(layerNum) {}
 		virtual SymbolKind kind() const = 0;
 		string getName() { return _name; }
+		int getId() { return id; }
 		int getLayerNum() { return _layerNum; }
 		virtual ~Symbol() {};
 	};
@@ -57,7 +59,10 @@ namespace front::symbol {
 		}
 
 		IntSymbol(string name, int layer_num, bool is_const, int value = 0)
-			: _is_const(is_const), _value(value), Symbol(name, layer_num) {}
+			: _is_const(is_const), _value(value), Symbol(name, layer_num)
+		{
+			id = Symbol::symbolId++;
+		}
 		virtual SymbolKind kind() const { return SymbolKind::INT; }
 		bool isConst() const { return _is_const; }
 		int getValue() const { return _value; }
@@ -94,6 +99,7 @@ namespace front::symbol {
 			: _item(item), _is_const(is_const), _is_param(is_param), Symbol(name, layer_num)
 		{
 			_size = -1;
+			id = Symbol::symbolId++;
 		}
 		virtual SymbolKind kind() const { return SymbolKind::Array; }
 		virtual ~ArraySymbol() {}
@@ -124,6 +130,7 @@ namespace front::symbol {
 					}
 					else
 					{
+						_size = 0;
 						return _size;
 					}
 				}
@@ -133,14 +140,12 @@ namespace front::symbol {
 		}
 		int getLen()
 		{
-			if (_size > 0)
+			if (_size == -1)
 			{
-				return _size / static_pointer_cast<IntSymbol>(_item)->getSize();
+				getSize();
 			}
-			else
-			{
-				return 0;
-			}
+
+			return _size / static_pointer_cast<IntSymbol>(_item)->getSize();
 		}
 		bool valid() const { return _values.size() * 4 == _size; }
 	};
@@ -152,7 +157,10 @@ namespace front::symbol {
 		vector<SharedSyPtr> _params;
 
 		FunctionSymbol(string name, SymbolKind ret, int layerNum = 0) 
-			: _ret(ret), Symbol(name, layerNum) {}
+			: _ret(ret), Symbol(name, layerNum)
+		{
+			id = Symbol::symbolId++;
+		}
 		virtual ~FunctionSymbol() {}
 		virtual SymbolKind kind() const { return SymbolKind::Function; }
 		SymbolKind getRet() const { return _ret; }

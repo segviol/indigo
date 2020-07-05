@@ -1,5 +1,3 @@
-#pragma once
-
 #include <vector>
 #include <stdint.h>
 
@@ -26,6 +24,8 @@ namespace front::irGenerator
     using mir::types::ArrayTy;
     using mir::types::PtrTy;
     using mir::types::FunctionTy;
+    using mir::types::RestParamTy;
+    using mir::types::TyKind;
 
     using mir::inst::Variable;
     using mir::inst::VarId;
@@ -63,19 +63,26 @@ namespace front::irGenerator
 
     typedef std::variant<shared_ptr<mir::inst::Inst>, shared_ptr<mir::inst::JumpInstruction>, shared_ptr<JumpLabelId>> Instruction;
 
+    extern std::vector<string> externalFuncName;
+
     class irGenerator
     {
     public:
         irGenerator();
 
-        LabelId getNewLabelId();
-        // as of now, the tmp for global scope is inserted into global_values of _package
-        LabelId getNewTmpValueId();
+        void outputInstructions(std::ostream& out);
 
-        void ir_declare_value(string name, symbol::SymbolKind kind, int len = 0);
+        LabelId getNewLabelId();
+        // as of now, the tmp for global scope is inserted into global init function.variables
+        string getNewTmpValueName(TyKind kind);
+
+        void ir_declare_value(string name, symbol::SymbolKind kind, int id, int len = 0);
+        void ir_declare_string(string str);
+        void ir_declare_const(string name, std::uint32_t value, int id);
+        void ir_declare_const(string name, std::vector<std::uint32_t> values, int id);
         void ir_declare_function(string name, symbol::SymbolKind kind);
         void ir_leave_function();
-        void ir_declare_param(string name, symbol::SymbolKind kind);
+        void ir_declare_param(string name, symbol::SymbolKind kind, int id);
 
         /* src type mean (src.index())
          * 0: jumplabel
@@ -96,29 +103,45 @@ namespace front::irGenerator
         WhileLabels checkWhile();
         void popWhile();
 
+        string getStringName(string str);
+        string getConstName(string name, int id);
+        string getTmpName(std::uint32_t id);
+        string getVarName(string name, std::uint32_t id);
+
+        std::map<string, std::vector<Instruction>>& getfuncNameToInstructions()
+        {
+            return _funcNameToInstructions;
+        }
+
     private:
         mir::inst::MirPackage _package;
-        std::map<LabelId, std::vector<Instruction>> _funcIdToInstructions;
+        std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
-        const LabelId _GlobalInitFuncId = 0;
         const LabelId _VoidVarId = (1 << 20);
 
-        LabelId _nowFuncId;
-        LabelId _nowLabelId;
-        LabelId _nowGlobalValueId;
-        LabelId _nowLocalValueId;
+        const string _GlobalInitFuncName = "@@__Compiler__GlobalInitFunc__Auto__Generated__@@";
+        const string _stringNamePrefix = "@@0";
+        const string _tmpNamePrefix = "@@1";
+        const string _constNamePrefix = "@@2";
+        const string _varNamePrefix = "@@3";
 
-        std::map<string, LabelId> _globalValueNameToId;
-        std::map<string, LabelId> _funcNameToId;
         std::map<string, LabelId> _localValueNameToId;
 
+        LabelId _nowLabelId;
+        std::uint32_t _nowtmpId;
+        std::uint32_t _nowLocalValueId;
+
         std::vector<WhileLabels> _whileStack;
-        std::vector<LabelId> _funcStack;
+        std::vector<string> _funcStack;
 
         // name of {local value, global value}
         LabelId nameToLabelId(string name);
         LabelId LeftValueToLabelId(LeftVal leftVal);
+        // insure the rightvalue is {number, local value}
         shared_ptr<Value> rightValueToValue(RightVal& rightValue);
+
+        void insertFunc(shared_ptr<mir::inst::MirFunction> func);
+        void insertLocalValue(string name, std::uint32_t id, Variable& variable);
     };
 }
 
