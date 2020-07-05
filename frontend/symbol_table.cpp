@@ -2,6 +2,11 @@
 
 using namespace front::symbolTable;
 
+SymbolTable::SymbolTable() 
+{
+    holder_symbol = SharedSyPtr(new symbol::VoidSymbol());
+}
+
 /*
  * del symbol_table or pop this input symbol all with del input symbol
  *
