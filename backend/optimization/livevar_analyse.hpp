@@ -153,7 +153,8 @@ class Livevar_Analyse {
   bool dfs_build(mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
                  std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks,
                  std::map<uint32_t, mir::inst::Variable>& vartable) {
-    bool modify = livevars[start.id]->build(basic_blks[start.id], vartable);
+    auto& id = start.id;
+    bool modify = livevars.at(id)->build(basic_blks.at(id), vartable);
     for (auto pre : start.preceding) {
       modify |= livevars[pre]->build(basic_blks.find(pre)->second, vartable);
     }
