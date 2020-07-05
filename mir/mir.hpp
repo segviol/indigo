@@ -383,19 +383,22 @@ class RefInst final : public Inst {
 
 /// Dereference instruction. `$dest = load $val`
 class LoadInst final : public Inst {
- public:
-  LoadInst(VarId src, VarId dest) : src(src), Inst(dest) {}
-  VarId src;
+public:
+    LoadInst(Value src, VarId dest) : src(src), Inst(dest) {}
+    Value src;
 
-  virtual InstKind inst_kind() { return InstKind::Load; }
-  virtual void display(std::ostream& o) const;
-  virtual ~LoadInst() {}
-  std::set<VarId> useVars() const {
-    auto s = std::set<VarId>();
-    s.insert(src);
-    return s;
-  }
+    virtual InstKind inst_kind() { return InstKind::Load; }
+    virtual void display(std::ostream& o) const;
+    virtual ~LoadInst() {}
+    std::set<VarId> useVars() const {
+        auto s = std::set<VarId>();
+        if (src.index() == 1) {
+            s.insert(std::get<VarId>(src));
+        }
+        return s;
+    }
 };
+
 
 /// Store instruction. `store $val to $dest`
 class StoreInst final : public Inst {
