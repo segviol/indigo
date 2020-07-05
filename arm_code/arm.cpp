@@ -44,26 +44,33 @@ uint32_t register_num(Reg r) {
 }
 
 void display_reg_name(std::ostream &o, Reg r) {
-  switch (register_type(r)) {
-    case RegisterKind::GeneralPurpose:
-      o << "r" << register_num(r);
-      break;
-    case RegisterKind::DoubleVector:
-      o << "d" << register_num(r);
-      break;
-    case RegisterKind::QuadVector:
-      o << "q" << register_num(r);
-      break;
-    case RegisterKind::VirtualGeneralPurpose:
-      o << "v" << register_num(r);
-      break;
-    case RegisterKind::VirtualDoubleVector:
-      o << "vd" << register_num(r);
-      break;
-    case RegisterKind::VirtualQuadVector:
-      o << "vq" << register_num(r);
-      break;
-  }
+  if (r == REG_SP)
+    o << "sp";
+  else if (r == REG_LR)
+    o << "lr";
+  else if (r == REG_PC)
+    o << "pc";
+  else
+    switch (register_type(r)) {
+      case RegisterKind::GeneralPurpose:
+        o << "r" << register_num(r);
+        break;
+      case RegisterKind::DoubleVector:
+        o << "d" << register_num(r);
+        break;
+      case RegisterKind::QuadVector:
+        o << "q" << register_num(r);
+        break;
+      case RegisterKind::VirtualGeneralPurpose:
+        o << "v" << register_num(r);
+        break;
+      case RegisterKind::VirtualDoubleVector:
+        o << "vd" << register_num(r);
+        break;
+      case RegisterKind::VirtualQuadVector:
+        o << "vq" << register_num(r);
+        break;
+    }
 }
 
 void display_shift(std::ostream &o, RegisterShiftKind shift) {
@@ -357,7 +364,7 @@ void MemoryOperand::display(std::ostream &o) const {
       if (neg_rm) o << "-";
       o << *x;
     } else if (auto x = std::get_if<int16_t>(&offset)) {
-      o << *x;
+      o << "#" << *x;
     }
   };
   o << "[";
@@ -388,13 +395,19 @@ void PureInst::display(std::ostream &o) const {
 void Arith2Inst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  o << " " << r1 << ", " << r2;
+  o << " ";
+  display_reg_name(o, r1);
+  o << ", " << r2;
 }
 
 void Arith3Inst::display(std::ostream &o) const {
   display_op(op, o);
   display_cond(cond, o);
-  o << " " << rd << ", " << r1 << ", " << r2;
+  o << " ";
+  display_reg_name(o, rd);
+  o << ", ";
+  display_reg_name(o, r1);
+  o << ", " << r2;
 }
 
 void BrInst::display(std::ostream &o) const {
@@ -408,7 +421,12 @@ void LoadStoreInst::display(std::ostream &o) const {
   display_cond(cond, o);
   o << " ";
   display_reg_name(o, rd);
-  o << ", " << mem;
+  o << ", ";
+  if (auto m = std::get_if<std::string>(&mem)) {
+    o << *m;
+  } else if (auto m = std::get_if<MemoryOperand>(&mem)) {
+    o << *m;
+  }
 }
 
 void MultLoadStoreInst::display(std::ostream &o) const {
