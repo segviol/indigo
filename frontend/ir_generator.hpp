@@ -107,7 +107,6 @@ namespace front::irGenerator
         string getConstName(string name, int id);
         string getTmpName(std::uint32_t id);
         string getVarName(string name, std::uint32_t id);
-        std::uint32_t tmpNameToId(string name);
 
         std::map<string, std::vector<Instruction>>& getfuncNameToInstructions()
         {
