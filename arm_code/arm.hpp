@@ -326,8 +326,11 @@ struct LoadStoreInst final : public Inst {
 ///
 /// Valid opcode: LdM, StM
 struct MultLoadStoreInst final : public Inst {
+  MultLoadStoreInst(OpCode op, Reg rn, std::vector<Reg> rd,
+                    ConditionCode cond = ConditionCode::Always)
+      : rd(std::move(rd)), rn(rn), Inst(op, cond) {}
   std::vector<Reg> rd;
-  MemoryOperand mem;
+  Reg rn;
 
   virtual void display(std::ostream& o) const;
   virtual ~MultLoadStoreInst() {}
