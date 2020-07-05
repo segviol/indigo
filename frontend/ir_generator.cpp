@@ -14,6 +14,49 @@ std::vector<string> externalFuncName = {
     "stoptime"
 };
 
+void irGenerator::outputInstructions(std::ostream& out)
+{
+    out << (string)">====== global_var ======<" << std::endl;
+    for (auto i : _package.global_values)
+    {
+        i.second.display(out);
+        out << std::endl;
+    }
+
+
+    for (auto i : _funcNameToInstructions)
+    {
+        out << ">====== function name : " + i.first + "======<" << std::endl;
+        out << ">====== vars : ======<" << std::endl;
+        for (auto j : _package.functions.at(i.first).variables)
+        {
+            j.second.display(out);
+            out << std::endl;
+        }
+
+        out << ">====== instructions : ======<" << std::endl;
+
+        for (auto j : i.second)
+        {
+            out << "  ";
+            if (j.index() == 0)
+            {
+                get<0>(j)->display(out);
+            }
+            else if (j.index() == 1)
+            {
+                get<1>(j)->display(out);
+            }
+            else
+            {
+                out << "label " << get<2>(j);
+            }
+            out << std::endl;
+        }
+        out << std::endl;
+    }
+}
+
 string irGenerator::getStringName(string str)
 {
     return _stringNamePrefix + "_" + str;
@@ -32,6 +75,12 @@ string irGenerator::getTmpName(std::uint32_t id)
 std::uint32_t irGenerator::tmpNameToId(string name)
 {
     return std::stoi(name.substr(3));
+}
+
+void irGenerator::insertLocalValue(string name, std::uint32_t id, Variable& variable)
+{
+    _package.functions.find(_funcStack.back())->second.variables.insert(std::pair(id, variable));
+    _localValueNameToId[name] = id;
 }
 
 void irGenerator::insertFunc(shared_ptr<mir::inst::MirFunction> func)
@@ -171,6 +220,7 @@ string irGenerator::getNewTmpValueName(TyKind kind)
 {
     SharedTyPtr ty;
     string name;
+    Variable variable;
 
     switch (kind)
     {
@@ -183,9 +233,10 @@ string irGenerator::getNewTmpValueName(TyKind kind)
     default:
         break;
     }
-
+    
     name = getTmpName(_nowLocalValueId);
-    _package.functions.find(_funcStack.back())->second.variables.insert(std::pair(_nowLocalValueId, Variable(ty, false, true)));
+    variable = Variable(ty, false, true);
+    insertLocalValue(name, _nowLocalValueId, variable);
     _nowLocalValueId++;;
     return name;
 }
@@ -246,7 +297,20 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
 {
     if (_funcStack.back() == _GlobalInitFuncName)
     {
-        GlobalValue globalValue = GlobalValue(0);
+        GlobalValue globalValue;
+        if (len == 0)
+        {
+            globalValue = GlobalValue(0);
+        }
+        else
+        {
+            std::vector<std::uint32_t> inits;
+            for (int i = 0; i < len; i++)
+            {
+                inits.push_back(0);
+            }
+            globalValue = GlobalValue(inits);
+        }
         _package.global_values[name] = globalValue;
     }
     else
@@ -267,8 +331,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int len
             break;
         }
         Variable variable(ty, true, false);
-        _package.functions.find(_funcStack.back())->second.variables.insert(std::pair(_nowLocalValueId, variable));
-        _localValueNameToId[name] = _nowLocalValueId;
+        insertLocalValue(name, _nowLocalValueId, variable);
         _nowLocalValueId++;
     }
 }
@@ -375,6 +438,8 @@ void irGenerator::ir_assign(LeftVal dest, RightVal src)
     srcValue = rightValueToValue(src);
 
     assginInst = shared_ptr<mir::inst::AssignInst>(new mir::inst::AssignInst(*destVarId, *srcValue));
+
+    _funcNameToInstructions[_funcStack.back()].push_back(assginInst);
 }
 
 void irGenerator::ir_load(LeftVal dest, RightVal src)

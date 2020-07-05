@@ -141,6 +141,7 @@ namespace front::irGenerator
         shared_ptr<Value> rightValueToValue(RightVal& rightValue);
 
         void insertFunc(shared_ptr<mir::inst::MirFunction> func);
+        void insertLocalValue(string name, std::uint32_t id, Variable& variable);
     };
 }
 

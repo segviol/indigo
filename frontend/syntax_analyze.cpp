@@ -18,7 +18,6 @@ SyntaxAnalyze::~SyntaxAnalyze()
 
 void SyntaxAnalyze::gm_comp_unit()
 {
-    in_layer();
     while (matched_index + 1 < word_list.size())
     {
         if (try_word(1, Token::INTTK, Token::VOIDTK) && try_word(2, Token::IDENFR) && try_word(3, Token::LPARENT))
@@ -34,7 +33,6 @@ void SyntaxAnalyze::gm_comp_unit()
             gm_var_decl();
         }
     }
-    out_layer();
 }
 
 void SyntaxAnalyze::gm_const_decl()
@@ -165,6 +163,7 @@ void SyntaxAnalyze::gm_var_def()
         {
             match_one_word(Token::LBRACK);
             dimension = gm_const_exp(ValueMode::right);
+            dimensions.push_back(dimension);
             match_one_word(Token::RBRACK);
         }
     }
@@ -1485,6 +1484,7 @@ bool SyntaxAnalyze::match_one_word(Token tk)
     {
         if (word_list[matched_index + 1].match_token(tk))
         {
+            std::cout << word_list[matched_index + 1].get_self() << std::endl;
             matched_index++;
             return_value = true;
         }
