@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -356,19 +357,28 @@ struct LabelInst final : public Inst {
   virtual ~LabelInst() {}
 };
 
-struct Function {
+struct Function final : public prelude::Displayable {
+  Function(std::string& name, std::vector<std::unique_ptr<Inst>>&& inst,
+           std::map<std::string, ConstValue>&& local_const, uint32_t stack_size)
+      : name(name),
+        inst(std::move(inst)),
+        local_const(std::move(local_const)),
+        stack_size(stack_size) {}
   std::string name;
   std::vector<std::unique_ptr<Inst>> inst;
   std::map<std::string, ConstValue> local_const;
   uint32_t stack_size;
 
+  void display(std::ostream& o) const override;
   Function(Function&&) = default;
   Function(const Function&) = delete;
 };
 
-struct ArmCode {
+struct ArmCode final : public prelude::Displayable {
   std::vector<std::unique_ptr<Function>> functions;
   std::map<std::string, ConstValue> consts;
+
+  void display(std::ostream& o) const override;
 };
 
 }  // namespace arm
