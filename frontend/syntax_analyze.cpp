@@ -4,6 +4,54 @@ using namespace front::syntax;
 
 vector<Word> tmp_vect_word;
 
+void SyntaxAnalyze::hp_init_external_function()
+{
+    static bool inited = false;
+    if (inited == false)
+    {
+        for (string funcName : irGenerator::externalFuncName)
+        {
+            if (funcName == "getint")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "getch")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "getarray")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "putint")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putch")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putarray")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putf")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "starttime")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "stoptime")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+        }
+        inited = true;
+    }
+}
+
 SyntaxAnalyze::SyntaxAnalyze()
     : matched_index(-1), word_list(tmp_vect_word)
 {}
@@ -18,7 +66,8 @@ SyntaxAnalyze::~SyntaxAnalyze()
 
 void SyntaxAnalyze::gm_comp_unit()
 {
-    in_layer();
+    hp_init_external_function();
+
     while (matched_index + 1 < word_list.size())
     {
         if (try_word(1, Token::INTTK, Token::VOIDTK) && try_word(2, Token::IDENFR) && try_word(3, Token::LPARENT))
@@ -34,7 +83,6 @@ void SyntaxAnalyze::gm_comp_unit()
             gm_var_decl();
         }
     }
-    out_layer();
 }
 
 void SyntaxAnalyze::gm_const_decl()
@@ -58,6 +106,7 @@ void SyntaxAnalyze::gm_const_def()
     SharedExNdPtr dimension;
     vector<SharedExNdPtr> init_values;
     vector<SharedExNdPtr> dimensions;
+    vector<std::uint32_t> inits;
 
     match_one_word(Token::IDENFR);
     name = get_least_matched_word().get_self();
@@ -83,11 +132,18 @@ void SyntaxAnalyze::gm_const_def()
 
     gm_const_init_val(init_values);
 
+    if (init_values.size() > 0)
+    {
+        for (auto i : init_values)
+        {
+            inits.push_back(i->_value);
+        }
+    }
+
     if (kind == SymbolKind::INT)
     {
         symbol.reset(new IntSymbol(name, layer_num, true, init_values.front()->_value));
-        irGenerator.ir_declare_value(name, kind);
-
+        irGenerator.ir_declare_const(name, inits.front(), symbol->getId());
     }
     else
     {
@@ -96,33 +152,7 @@ void SyntaxAnalyze::gm_const_def()
         {
             std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
         }
-
-        irGenerator.ir_declare_value(name, kind, std::static_pointer_cast<ArraySymbol>(symbol)->getLen());
-    }
-
-    if (init_values.size() > 0)
-    {
-        LabelId initPtr;
-        RightVal rightVal;
-        int offset = 0;
-
-        initPtr = irGenerator.getNewTmpValueId();
-        irGenerator.ir_ref(initPtr, name);
-
-        for (auto var : init_values)
-        {
-            if (offset > 0)
-            {
-                rightVal.emplace<0>(1);
-                irGenerator.ir_offset(initPtr, initPtr, rightVal);
-            }
-
-            std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
-
-            rightVal.emplace<0>(var->_value);
-            irGenerator.ir_store(initPtr, rightVal);
-            offset++;
-        }
+        irGenerator.ir_declare_const(name, inits, symbol->getId());
     }
 
     symbolTable.push_symbol(symbol);
@@ -183,6 +213,7 @@ void SyntaxAnalyze::gm_var_def()
         {
             match_one_word(Token::LBRACK);
             dimension = gm_const_exp();
+            dimensions.push_back(dimension);
             match_one_word(Token::RBRACK);
         }
     }
@@ -199,9 +230,8 @@ void SyntaxAnalyze::gm_var_def()
 
     if (kind == SymbolKind::INT)
     {
-        // TODO: mir to init var
         symbol.reset(new IntSymbol(name, layer_num, false));
-        irGenerator.ir_declare_value(name, kind);
+        irGenerator.ir_declare_value(name, kind, symbol->getId());
     }
     else
     {
@@ -211,32 +241,50 @@ void SyntaxAnalyze::gm_var_def()
             std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
         }
 
-        irGenerator.ir_declare_value(name, kind, std::static_pointer_cast<ArraySymbol>(symbol)->getLen());
+        irGenerator.ir_declare_value(name, kind, symbol->getId(), std::static_pointer_cast<ArraySymbol>(symbol)->getLen());
     }
 
     if (init_values.size() > 0)
     {
-        LabelId initPtr;
-        int offset = 0;
+        string valueName = irGenerator.getVarName(name, symbol->getId());
         irGenerator::RightVal rightVal;
 
-        initPtr = irGenerator.getNewTmpValueId();
-        irGenerator.ir_ref(initPtr, name);
-
-        for (auto var : init_values)
+        if (symbol->kind() == SymbolKind::Array)
         {
-            if (offset > 0)
-            {
-                rightVal.emplace<0>(1);
-                irGenerator.ir_offset(initPtr, initPtr, rightVal);
-            }
-            else
-            {
-                initPtr = irGenerator.getNewTmpValueId();
-                irGenerator.ir_ref(initPtr, name);
-            }
+            string initPtr;
+            int offset = 0;
 
-            std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
+            initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
+            irGenerator.ir_ref(initPtr, valueName);
+
+            for (auto var : init_values)
+            {
+                if (offset > 0)
+                {
+                    rightVal.emplace<0>(1);
+                    irGenerator.ir_offset(initPtr, initPtr, rightVal);
+                }
+
+                if (symbol->kind() == SymbolKind::Array)
+                {
+                    std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
+                }
+
+                if (var->_type == NodeType::CONST)
+                {
+                    rightVal.emplace<0>(var->_value);
+                }
+                else
+                {
+                    rightVal.emplace<2>(var->_name);
+                }
+                irGenerator.ir_store(initPtr, rightVal);
+                offset++;
+            }
+        }
+        else
+        {
+            SharedExNdPtr var = init_values.front();
 
             if (var->_type == NodeType::CONST)
             {
@@ -246,8 +294,19 @@ void SyntaxAnalyze::gm_var_def()
             {
                 rightVal.emplace<2>(var->_name);
             }
-            irGenerator.ir_store(initPtr, rightVal);
-            offset++;
+
+            if (inGlobalLayer())
+            {
+                string addrTmp;
+                
+                addrTmp = irGenerator.getNewTmpValueName(TyKind::Ptr);
+                irGenerator.ir_ref(addrTmp, valueName);
+                irGenerator.ir_store(addrTmp, rightVal);
+            }
+            else
+            {
+                irGenerator.ir_assign(valueName, rightVal);
+            }
         }
     }
     symbolTable.push_symbol(symbol);
@@ -277,7 +336,7 @@ void SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr>& init_values)
     }
 }
 
-void SyntaxAnalyze::hp_gn_binary_mir(LabelId tmpId ,SharedExNdPtr first, SharedExNdPtr second, Op op)
+void SyntaxAnalyze::hp_gn_binary_mir(string tmpName ,SharedExNdPtr first, SharedExNdPtr second, Op op)
 {
     RightVal op1;
     RightVal op2;
@@ -292,13 +351,13 @@ void SyntaxAnalyze::hp_gn_binary_mir(LabelId tmpId ,SharedExNdPtr first, SharedE
     }
     if (second->_type == NodeType::CONST)
     {
-        op1.emplace<0>(second->_value);
+        op2.emplace<0>(second->_value);
     }
     else
     {
-        op1 = second->_name;
+        op2 = second->_name;
     }
-    irGenerator.ir_op(tmpId, op1, op2, op);
+    irGenerator.ir_op(tmpName, op1, op2, op);
 }
 
 
@@ -351,13 +410,13 @@ SharedExNdPtr SyntaxAnalyze::gm_exp()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
         father->addChild(first);
         father->addChild(second);
@@ -420,13 +479,13 @@ SharedExNdPtr SyntaxAnalyze::gm_mul_exp()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
         father->addChild(first);
         father->addChild(second);
@@ -455,7 +514,7 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
         }
         else
         {
-            node = gm_l_val();
+            node = gm_l_val(ValueMode::right);
         }
     }
     else if (try_word(1, Token::INTCON))
@@ -463,13 +522,14 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
         string num;
         match_one_word(Token::INTCON);
         num = get_least_matched_word().get_self();
-        node.reset(new ExpressNode());
+        node = SharedExNdPtr(new ExpressNode());
         node->_value = front::word::stringToInt(num);
         node->_type = NodeType::CONST;
         node->_operation = OperationType::NUMBER;
     }
     else
     {
+        node = SharedExNdPtr(new ExpressNode());
         if (try_word(1, Token::PLUS, Token::MINU, Token::NOT))
         {
             if (try_word(1, Token::PLUS))
@@ -495,7 +555,6 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
         }
         else
         {
-            node.reset(new ExpressNode());
             SharedExNdPtr child = gm_unary_exp();
 
             if (child->_type == NodeType::CONST)
@@ -516,12 +575,13 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
             else
             {
                 SharedExNdPtr tmp;
-                LabelId nodeId;
+                string nodeId;
 
-                nodeId = irGenerator.getNewTmpValueId();
+                nodeId = irGenerator.getNewTmpValueName(TyKind::Int);
                 node->_type = NodeType::VAR;
-                node->_name = to_string(nodeId);
+                node->_name = nodeId;
 
+                tmp = SharedExNdPtr(new ExpressNode());
                 tmp->_type = NodeType::CONST;
                 tmp->_operation = OperationType::NUMBER;
                 tmp->_value = 0;
@@ -544,30 +604,33 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
 SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
 {
     vector<SharedExNdPtr>& dimesions = std::static_pointer_cast<ArraySymbol>(arr)->_dimensions;
-    LabelId tmpPtr;
-    LabelId tmpOff;
+    string tmpPtr;
+    string tmpOff;
     RightVal rightvalue1;
     RightVal rightvalue2;
     SharedExNdPtr index = node->_children.front();
     size_t i;
 
-    tmpPtr = irGenerator.getNewTmpValueId();
-    irGenerator.ir_load(tmpPtr, std::static_pointer_cast<ArraySymbol>(arr)->getName());
+    tmpPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
+    irGenerator.ir_ref(tmpPtr, node->_name);
 
-    tmpOff = irGenerator.getNewTmpValueId();
-    if (index->_type == NodeType::CONST)
-    {
-        rightvalue1.emplace<0>(index->_value);
-        irGenerator.ir_assign(tmpOff, rightvalue1);
-    }
-    else
-    {
-        irGenerator.ir_assign(tmpOff, index->_name);
-    }
-
-    // int function, there should be a virtual d in dimensions.at(0)
+    // in function, there should be a virtual d in dimensions.at(0)
     for (i = 1; i < dimesions.size(); i++)
     {
+        if (i == 1)
+        {
+            tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+            if (index->_type == NodeType::CONST)
+            {
+                rightvalue1.emplace<0>(index->_value);
+                irGenerator.ir_assign(tmpOff, rightvalue1);
+            }
+            else
+            {
+                irGenerator.ir_assign(tmpOff, index->_name);
+            }
+        }
+
         SharedExNdPtr d = dimesions.at(i);
 
         SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
@@ -583,8 +646,8 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
         else
         {
             mulNode->_type = NodeType::VAR;
-            mulNode->_name = to_string(tmpOff);
-            rightvalue1.emplace<2>(to_string(tmpOff));
+            mulNode->_name = tmpOff;
+            rightvalue1.emplace<2>(tmpOff);
             if (d->_type == NodeType::CONST)
             {
                 rightvalue2.emplace<0>(d->_value);
@@ -607,9 +670,9 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
         }
         else
         {
-            mulNode->_type = NodeType::VAR;
-            mulNode->_name = to_string(tmpOff);
-            rightvalue1.emplace<2>(to_string(tmpOff));
+            addNode->_type = NodeType::VAR;
+            addNode->_name = tmpOff;
+            rightvalue1.emplace<2>(tmpOff);
             if (index2->_type == NodeType::CONST)
             {
                 rightvalue2.emplace<0>(index2->_value);
@@ -627,12 +690,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
     }
 
     SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
-    LabelId tmpValue;
 
-    tmpValue = irGenerator.getNewLabelId();
     addr->_type = NodeType::VAR;
-    addr->_operation = OperationType::VAR;
-    addr->_name = to_string(tmpValue);
+    addr->_operation = OperationType::PTR;
+    addr->_name = tmpPtr;
     addr->addChild(node);
     addr->addChild(index);
 
@@ -645,12 +706,11 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
         rightvalue1 = index->_name;
     }
     irGenerator.ir_offset(tmpPtr, tmpPtr, rightvalue1);
-    irGenerator.ir_load(tmpValue, to_string(tmpPtr));
 
     return addr;
 }
 
-SharedExNdPtr SyntaxAnalyze::gm_l_val()
+SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode)
 {
     SharedExNdPtr node(new ExpressNode());
     string name;
@@ -663,10 +723,12 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val()
         SharedSyPtr arr = symbolTable.find_least_layer_symbol(name);
         SharedExNdPtr index;
         SharedExNdPtr child;
-
+        SharedExNdPtr addr;
         node->_type = NodeType::VAR;
         node->_operation = OperationType::ARR;
-        node->_name = name;
+        node->_name = (std::static_pointer_cast<ArraySymbol>(arr)->isConst()? 
+            irGenerator.getConstName(arr->getName(), arr->getId()) : 
+            irGenerator.getVarName(arr->getName(), arr->getId()));
         while (try_word(1, Token::LBRACK))
         {
             match_one_word(Token::LBRACK);
@@ -675,8 +737,28 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val()
             match_one_word(Token::RBRACK);
         }
 
-        // TODO: deal with the bug for assign to specify array element
-        node = computeIndex(arr, node);
+        addr = computeIndex(arr, node);
+
+        if (mode == ValueMode::left)
+        {
+            node = addr;
+        }
+        else
+        {
+            SharedExNdPtr loadValue;
+            string value;
+
+            value = irGenerator.getNewTmpValueName(TyKind::Int);
+            loadValue = SharedExNdPtr(new ExpressNode);
+            loadValue->_type = NodeType::VAR;
+            loadValue->_operation = OperationType::LOAD;
+            loadValue->_name = value;
+            loadValue->addChild(addr);
+            node = loadValue;
+
+            irGenerator.ir_load(value, addr->_name);
+        }
+
     }
     else
     {
@@ -694,14 +776,58 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val()
             {
                 node->_type = NodeType::VAR;
                 node->_operation = OperationType::VAR;
+                node->_name = irGenerator.getVarName(var->getName(), var->getId());
+                if (var->getLayerNum() == _initLayerNum)
+                {
+                    SharedExNdPtr addr;
+                    string addrTmp;
+
+                    addrTmp = irGenerator.getNewTmpValueName(TyKind::Ptr);
+                    addr = SharedExNdPtr(new ExpressNode());
+                    addr->_type = NodeType::VAR;
+                    addr->_operation = OperationType::PTR;
+                    addr->_name = addrTmp;
+                    addr->addChild(node);
+
+                    irGenerator.ir_ref(addrTmp, node->_name);
+
+                    if (mode == ValueMode::left)
+                    {
+                        node = addr;
+                    }
+                    else
+                    {
+                        SharedExNdPtr value;
+                        string valueTmp;
+
+                        valueTmp = irGenerator.getNewTmpValueName(TyKind::Int);
+                        value = SharedExNdPtr(new ExpressNode());
+                        value->_type = NodeType::VAR;
+                        value->_operation = OperationType::LOAD;
+                        value->_name = valueTmp;
+                        value->addChild(addr);
+
+                        irGenerator.ir_load(value->_name, addr->_name);
+                        node = value;
+                    }
+                    
+                }
             }
         }
         else if (var->kind() == SymbolKind::Array)
         {
+            string arrPtr;
+            
             // The existing of arr name alone which must be the param to func
+            arrPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
             node->_type = NodeType::VAR;
-            node->_operation = OperationType::ARR_NAME;
-            node->_name = name;
+            node->_operation = OperationType::PTR;
+            node->_name = arrPtr;
+            
+            irGenerator.ir_ref(arrPtr, (std::static_pointer_cast<ArraySymbol>(var)->isConst() ?
+                irGenerator.getConstName(var->getName(), var->getId()) :
+                irGenerator.getVarName(var->getName(), var->getId()))
+            );
         }
     }
 
@@ -720,14 +846,29 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call()
 
     match_one_word(Token::IDENFR);
     name = get_least_matched_word().get_self();
+    
     func = symbolTable.find_least_layer_symbol(name);
 
-    // TODO: deal IO function
     match_one_word(Token::LPARENT);
     if (!try_word(1, Token::RPARENT))
     {
-        param = gm_exp();
-        params.push_back(param);
+        if (name == "putf")
+        {
+            match_one_word(Token::STRCON);
+
+            irGenerator.ir_declare_string(get_least_matched_word().get_self());
+
+            param = SharedExNdPtr(new ExpressNode());
+            param->_type = NodeType::VAR;
+            param->_operation = OperationType::STRING;
+            param->_name = irGenerator.getStringName(get_least_matched_word().get_self());
+        }
+        else
+        {
+            param = gm_exp();
+            params.push_back(param);
+
+        }
 
         while (try_word(1, Token::COMMA))
         {
@@ -740,10 +881,10 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call()
 
     if (std::static_pointer_cast<FunctionSymbol>(func)->getRet() == SymbolKind::INT)
     {
-        LabelId retValue = irGenerator.getNewTmpValueId();
+        string retValue = irGenerator.getNewTmpValueName(TyKind::Int);
         node->_type = NodeType::VAR;
         node->_operation = OperationType::RETURN_FUNC_CALL;
-        node->_name = to_string(retValue);
+        node->_name = retValue;
     }
     else
     {
@@ -780,7 +921,7 @@ void SyntaxAnalyze::gm_func_def()
     SymbolKind ret;
     int funcLayerNum;
     vector<SharedSyPtr> params;
-    vector<std::pair<SharedSyPtr, string>> gemValues;
+    vector<std::pair<SharedSyPtr, string>> genValues;
     SharedSyPtr func;
 
     if (try_word(1, Token::INTTK))
@@ -806,15 +947,15 @@ void SyntaxAnalyze::gm_func_def()
     match_one_word(Token::LPARENT);
     if (!try_word(1, Token::RPARENT))
     {
-        gm_func_param(params, funcLayerNum, gemValues);
+        gm_func_param(params, funcLayerNum, genValues);
         while (try_word(1, Token::COMMA))
         {
             match_one_word(Token::COMMA);
-            gm_func_param(params, funcLayerNum, gemValues);
+            gm_func_param(params, funcLayerNum, genValues);
         }
     }
 
-    /* keep the arrane to deal with declaring and initualizing
+    /* keep the arrage to deal with declaring and initualizing
      * 1. declare params in source code
      * 2. declare and initualize generateed values one by one 
      */
@@ -824,9 +965,9 @@ void SyntaxAnalyze::gm_func_def()
         std::static_pointer_cast<FunctionSymbol>(func)->getParams().push_back(var);
     }
 
-    for (auto var : gemValues)
+    for (auto var : genValues)
     {
-        irGenerator.ir_declare_value(var.first->getName(), var.first->kind());
+        irGenerator.ir_declare_value(var.first->getName(), var.first->kind(), var.first->getId());
         irGenerator.ir_assign(var.first->getName(), var.second);
     }
 
@@ -886,7 +1027,17 @@ void SyntaxAnalyze::gm_func_param(vector<SharedSyPtr>& params, int funcLayerNum,
     params.push_back(symbol);
 
     symbolTable.push_symbol(symbol);
-    irGenerator.ir_declare_param(symbol->getName(), symbol->kind());
+    switch (symbol->kind())
+    {
+    case SymbolKind::Array:
+        irGenerator.ir_declare_param(symbol->getName(), SymbolKind::Ptr, symbol->getId());
+        break;
+    case SymbolKind::INT:
+        irGenerator.ir_declare_param(symbol->getName(), SymbolKind::INT, symbol->getId());
+        break;
+    default:
+        break;
+    }
 }
 
 string SyntaxAnalyze::hp_gen_save_value()
@@ -1002,11 +1153,11 @@ void SyntaxAnalyze::gm_if_stmt()
 
     if (cond->_type == NodeType::CONST)
     {
-        LabelId tmpId = irGenerator.getNewTmpValueId();
+        string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
         RightVal right;
         right.emplace<0>(cond->_value);
-        irGenerator.ir_assign(to_string(tmpId), right);
-        condStr = to_string(tmpId);
+        irGenerator.ir_assign(tmpName, right);
+        condStr = tmpName;
     }
     else
     {
@@ -1065,11 +1216,11 @@ void SyntaxAnalyze::gm_while_stmt()
 
     if (cond->_type == NodeType::CONST)
     {
-        LabelId tmpId = irGenerator.getNewTmpValueId();
+        string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
         RightVal right;
         right.emplace<0>(cond->_value);
-        irGenerator.ir_assign(to_string(tmpId), right);
-        condStr = to_string(tmpId);
+        irGenerator.ir_assign(tmpName, right);
+        condStr = tmpName;
     }
     else
     {
@@ -1111,11 +1262,11 @@ void SyntaxAnalyze::gm_return_stmt()
 
         if (retValue->_type == NodeType::CONST)
         {
-            LabelId tmpId = irGenerator.getNewTmpValueId();
+            string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             RightVal right;
             right.emplace<0>(retValue->_value);
-            irGenerator.ir_assign(to_string(tmpId), right);
-            retStr = to_string(tmpId);
+            irGenerator.ir_assign(tmpName, right);
+            retStr = tmpName;
         }
         else
         {
@@ -1139,7 +1290,7 @@ void SyntaxAnalyze::gm_assign_stmt()
     SharedExNdPtr rVal;
     RightVal rightValue;
 
-    lVal = gm_l_val();
+    lVal = gm_l_val(ValueMode::left);
     match_one_word(Token::ASSIGN);
     rVal = gm_exp();
     match_one_word(Token::SEMICN);
@@ -1152,7 +1303,14 @@ void SyntaxAnalyze::gm_assign_stmt()
     {
         rightValue = rVal->_name;
     }
-    irGenerator.ir_assign(lVal->_name, rightValue);
+    if (lVal->_operation == OperationType::PTR)
+    {
+        irGenerator.ir_store(lVal->_name, rightValue);
+    }
+    else
+    {
+        irGenerator.ir_assign(lVal->_name, rightValue);
+    }
 }
 
 SharedExNdPtr SyntaxAnalyze::gm_cond()
@@ -1180,13 +1338,13 @@ SharedExNdPtr SyntaxAnalyze::gm_cond()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
         father->addChild(first);
         father->addChild(second);
@@ -1221,13 +1379,13 @@ SharedExNdPtr SyntaxAnalyze::gm_and_exp()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
         father->addChild(first);
         father->addChild(second);
@@ -1279,13 +1437,13 @@ SharedExNdPtr SyntaxAnalyze::gm_eq_exp()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
 
         father->addChild(first);
@@ -1332,6 +1490,7 @@ SharedExNdPtr SyntaxAnalyze::gm_rel_exp()
         }
 
         second = gm_exp();
+
         if (first->_type == NodeType::CONST && second->_type == NodeType::CONST)
         {
             father->_type = NodeType::CONST;
@@ -1355,13 +1514,13 @@ SharedExNdPtr SyntaxAnalyze::gm_rel_exp()
         }
         else
         {
-            LabelId tmpId;
+            string tmpName;
 
-            tmpId = irGenerator.getNewLabelId();
+            tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
             father->_type = NodeType::VAR;
-            father->_name = to_string(tmpId);
+            father->_name = tmpName;
 
-            hp_gn_binary_mir(tmpId, first, second, op);
+            hp_gn_binary_mir(tmpName, first, second, op);
         }
 
         father->addChild(first);
@@ -1427,6 +1586,7 @@ bool SyntaxAnalyze::match_one_word(Token tk)
     {
         if (word_list[matched_index + 1].match_token(tk))
         {
+            std::cout << word_list[matched_index + 1].get_self() << std::endl;
             matched_index++;
             return_value = true;
         }
@@ -1443,6 +1603,11 @@ void SyntaxAnalyze::out_layer()
 {
     symbolTable.pop_layer_symbols(layer_num);
     layer_num--;
+}
+
+bool SyntaxAnalyze::inGlobalLayer()
+{
+    return layer_num == _initLayerNum;
 }
 
 const Word& SyntaxAnalyze::get_least_matched_word()
