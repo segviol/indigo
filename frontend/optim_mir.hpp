@@ -56,11 +56,6 @@ namespace front::optim_mir {
 
 }
 
-//extern std::vector<mir::inst::VarId> V;
-//extern int num;
-//extern std::vector<int> order;
-//extern int global_id;
-
 std::map<std::string, std::vector<front::irGenerator::Instruction>> gen_ssa(std::map<std::string, std::vector<front::irGenerator::Instruction>> f);
 
 #endif
