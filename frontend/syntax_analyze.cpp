@@ -4,6 +4,54 @@ using namespace front::syntax;
 
 vector<Word> tmp_vect_word;
 
+void SyntaxAnalyze::hp_init_external_function()
+{
+    static bool inited = false;
+    if (inited == false)
+    {
+        for (string funcName : irGenerator::externalFuncName)
+        {
+            if (funcName == "getint")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "getch")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "getarray")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
+            }
+            else if (funcName == "putint")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putch")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putarray")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "putf")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "starttime")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+            else if (funcName == "stoptime")
+            {
+                symbolTable.push_symbol(SharedSyPtr(new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            }
+        }
+        inited = true;
+    }
+}
+
 SyntaxAnalyze::SyntaxAnalyze()
     : matched_index(-1), word_list(tmp_vect_word)
 {}
@@ -18,6 +66,8 @@ SyntaxAnalyze::~SyntaxAnalyze()
 
 void SyntaxAnalyze::gm_comp_unit()
 {
+    hp_init_external_function();
+
     while (matched_index + 1 < word_list.size())
     {
         if (try_word(1, Token::INTTK, Token::VOIDTK) && try_word(2, Token::IDENFR) && try_word(3, Token::LPARENT))
@@ -472,13 +522,14 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
         string num;
         match_one_word(Token::INTCON);
         num = get_least_matched_word().get_self();
-        node.reset(new ExpressNode());
+        node = SharedExNdPtr(new ExpressNode());
         node->_value = front::word::stringToInt(num);
         node->_type = NodeType::CONST;
         node->_operation = OperationType::NUMBER;
     }
     else
     {
+        node = SharedExNdPtr(new ExpressNode());
         if (try_word(1, Token::PLUS, Token::MINU, Token::NOT))
         {
             if (try_word(1, Token::PLUS))
@@ -504,7 +555,6 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
         }
         else
         {
-            node.reset(new ExpressNode());
             SharedExNdPtr child = gm_unary_exp();
 
             if (child->_type == NodeType::CONST)
@@ -531,6 +581,7 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp()
                 node->_type = NodeType::VAR;
                 node->_name = nodeId;
 
+                tmp = SharedExNdPtr(new ExpressNode());
                 tmp->_type = NodeType::CONST;
                 tmp->_operation = OperationType::NUMBER;
                 tmp->_value = 0;
@@ -563,20 +614,23 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node)
     tmpPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
     irGenerator.ir_ref(tmpPtr, node->_name);
 
-    tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
-    if (index->_type == NodeType::CONST)
-    {
-        rightvalue1.emplace<0>(index->_value);
-        irGenerator.ir_assign(tmpOff, rightvalue1);
-    }
-    else
-    {
-        irGenerator.ir_assign(tmpOff, index->_name);
-    }
-
     // in function, there should be a virtual d in dimensions.at(0)
     for (i = 1; i < dimesions.size(); i++)
     {
+        if (i == 1)
+        {
+            tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+            if (index->_type == NodeType::CONST)
+            {
+                rightvalue1.emplace<0>(index->_value);
+                irGenerator.ir_assign(tmpOff, rightvalue1);
+            }
+            else
+            {
+                irGenerator.ir_assign(tmpOff, index->_name);
+            }
+        }
+
         SharedExNdPtr d = dimesions.at(i);
 
         SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
@@ -792,16 +846,8 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call()
 
     match_one_word(Token::IDENFR);
     name = get_least_matched_word().get_self();
-
-    if (std::find(irGenerator::externalFuncName.begin(), irGenerator::externalFuncName.end(), name) 
-        != irGenerator::externalFuncName.end())
-    {
-        
-    }
-    else
-    {
-        func = symbolTable.find_least_layer_symbol(name);
-    }
+    
+    func = symbolTable.find_least_layer_symbol(name);
 
     match_one_word(Token::LPARENT);
     if (!try_word(1, Token::RPARENT))

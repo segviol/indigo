@@ -2,7 +2,7 @@
 
 using namespace front::irGenerator;
 
-std::vector<string> externalFuncName = {
+std::vector<string> front::irGenerator::externalFuncName = {
     "getint",
     "getch",
     "getarray",
@@ -79,10 +79,6 @@ string irGenerator::getVarName(string name, std::uint32_t id)
     return _varNamePrefix + "_" + std::to_string(id);
 }
 
-std::uint32_t irGenerator::tmpNameToId(string name)
-{
-    return std::stoi(name.substr(3));
-}
 
 void irGenerator::insertLocalValue(string name, std::uint32_t id, Variable& variable)
 {

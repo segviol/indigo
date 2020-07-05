@@ -111,6 +111,7 @@ namespace front::syntax {
         SharedExNdPtr computeIndex(SharedSyPtr arr, SharedExNdPtr node);
         void hp_gn_binary_mir(string tmpName, SharedExNdPtr first, SharedExNdPtr second, Op op);
         string hp_gen_save_value();
+        void hp_init_external_function();
 
         SharedExNdPtr gm_cond();
         SharedExNdPtr gm_and_exp();
