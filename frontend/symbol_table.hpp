@@ -19,7 +19,7 @@ namespace front::symbolTable
     class SymbolTable
     {
     public:
-        SymbolTable() {}
+        SymbolTable();
         ~SymbolTable() {}
         void push_symbol(SharedSyPtr symbol);
         void pop_symbol();
