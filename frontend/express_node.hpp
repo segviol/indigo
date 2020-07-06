@@ -1,74 +1,67 @@
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #ifndef COMPILER_FRONT_EXPRESS_NODE_H_
 #define COMPILER_FRONT_EXPRESS_NODE_H_
 
-namespace front::express
-{
-    using std::string;
-    using std::vector;
-    using std::shared_ptr;
+namespace front::express {
+using std::shared_ptr;
+using std::string;
+using std::vector;
 
-    enum class NodeType
-    {
-        CONST,
-        VAR
-    };
+enum class NodeType { CONST, VAR };
 
-    enum class OperationType
-    {
-        RETURN_FUNC_CALL,
-        VOID_FUNC_CALL,
+enum class OperationType {
+  RETURN_FUNC_CALL,
+  VOID_FUNC_CALL,
 
-        VAR,
-        ARR,
-        ARR_NAME,
-        NUMBER,
-        STRING,
-        PTR,
+  VAR,
+  ARR,
+  ARR_NAME,
+  NUMBER,
+  STRING,
+  PTR,
 
-        PLUS,
-        MINU,
-        MUL,
-        DIV,
-        MOD,
-        OR,
-        AND,
-        EQL,
-        NEQ,
-        LSS,
-        LEQ,
-        GEQ,
-        GRE,
+  PLUS,
+  MINU,
+  MUL,
+  DIV,
+  MOD,
+  OR,
+  AND,
+  EQL,
+  NEQ,
+  LSS,
+  LEQ,
+  GEQ,
+  GRE,
 
-        UN_PLUS,
-        UN_MINU,
-        UN_NOT,
+  UN_PLUS,
+  UN_MINU,
+  UN_NOT,
 
-        ASSIGN,
-        LOAD
-    };
+  ASSIGN,
+  LOAD
+};
 
-    class ExpressNode
-    {
-    public:
-        NodeType _type;
-        OperationType _operation;
-        int _value;
-        string _name;
-        vector<shared_ptr<ExpressNode>> _children;
+class ExpressNode {
+public:
+  NodeType _type;
+  OperationType _operation;
+  int _value;
+  string _name;
+  vector<shared_ptr<ExpressNode>> _children;
 
-        ExpressNode();
+  ExpressNode();
 
-        bool isBinaryOperation();
-        bool isUnaryOperation();
+  bool isBinaryOperation();
+  bool isUnaryOperation();
 
-        void addChild(shared_ptr<ExpressNode> child);
-    };
+  void addChild(shared_ptr<ExpressNode> child);
+};
 
-    typedef shared_ptr<ExpressNode> SharedExNdPtr;
-}
+typedef shared_ptr<ExpressNode> SharedExNdPtr;
+} // namespace front::express
 
 #endif // !COMPILER_FRONT_EXPRESS_NODE_H_
