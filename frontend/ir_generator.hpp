@@ -95,7 +95,7 @@ namespace front::irGenerator
         void ir_op(LeftVal dest, RightVal op1, RightVal op2, mir::inst::Op op);
         void ir_assign(LeftVal dest, RightVal src);
         void ir_function_call(string retName, symbol::SymbolKind kind, string funcName, std::vector<RightVal> params);
-        void ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, LabelId bbFalse, 
+        void ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue, LabelId bbFalse,
             std::optional<string> condRetName, mir::inst::JumpKind jumpKind);
         void ir_label(LabelId label);
 
@@ -111,6 +111,11 @@ namespace front::irGenerator
         std::map<string, std::vector<Instruction>>& getfuncNameToInstructions()
         {
             return _funcNameToInstructions;
+        }
+
+        mir::inst::MirPackage& getPackage()
+        {
+            return _package;
         }
 
     private:
