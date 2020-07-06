@@ -56,6 +56,7 @@ namespace front::optim_mir {
 
 }
 
-std::map<std::string, std::vector<front::irGenerator::Instruction>> gen_ssa(std::map<std::string, std::vector<front::irGenerator::Instruction>> f);
+void gen_ssa(std::map<std::string, std::vector<front::irGenerator::Instruction>> f,
+    mir::inst::MirPackage& p, front::irGenerator::irGenerator& irgenerator);
 
 #endif

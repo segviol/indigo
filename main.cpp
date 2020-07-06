@@ -25,13 +25,10 @@ using std::string;
 const bool debug = false;
 
 string& read_input();
-
 Options parse_options(int argc, const char** argv);
 
 int main(int argc, const char** argv) {
-  // Argument parser
   auto options = parse_options(argc, argv);
-
   // frontend
   std::vector<front::word::Word> word_arr(VECTOR_SIZE);
   word_arr.clear();
@@ -50,32 +47,9 @@ int main(int argc, const char** argv) {
       syntax_analyze.getIrGenerator();
   std::map<string, std::vector<front::irGenerator::Instruction>> inst =
       irgenerator.getfuncNameToInstructions();
-
-  std::map<string, std::vector<front::irGenerator::Instruction>> ssa_inst =
-      gen_ssa(inst);
-
   mir::inst::MirPackage& package = irgenerator.getPackage();
-  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
 
-  for (auto i : ssa_inst) {
-    std::cout << ">====== function name : " + i.first + "======<" << std::endl;
-    std::cout << ">====== vars : ======<" << std::endl;
-
-    std::cout << ">====== instructions : ======<" << std::endl;
-
-    for (auto j : i.second) {
-      std::cout << "  ";
-      if (j.index() == 0) {
-        std::get<0>(j)->display(std::cout);
-      } else if (j.index() == 1) {
-        std::get<1>(j)->display(std::cout);
-      } else {
-        std::cout << "label " << std::get<2>(j)->_jumpLabelId;
-      }
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
-  }
+  gen_ssa(inst, package, irgenerator);
 
   std::cout << "Mir" << std::endl << package << std::endl;
   backend::Backend backend(package);
