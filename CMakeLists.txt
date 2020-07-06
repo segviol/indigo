@@ -48,6 +48,8 @@ add_library(frontend ${frontend_files})
 add_library(mir ${mir_files})
 add_library(arm ${arm_files})
 
+add_subdirectory(include/spdlog)
+
 add_executable(compiler main.cpp)
 
 if(STATIC_LINK_ARTIFACTS)
@@ -60,6 +62,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 target_link_libraries(
     compiler
+    spdlog::spdlog
     frontend 
     backend 
     mir
