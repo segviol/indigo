@@ -36,9 +36,15 @@ map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instr
         order.push_back(preid);
         // br is the ending, JumpLableId is the beginning.
         // The next sentence of br must be JumpLableId.
+        bool add_ins = true;
         while (i < instructions.size() && instructions[i].index() != 2) {
-            block->inst.push_back(instructions[i]);
+            if (add_ins) {
+                block->inst.push_back(instructions[i]);
+            }
             i++;
+            if (instructions[i - 1].index() == 1) {
+                add_ins = false;
+            }
         }
         nodes.insert(map<int, BasicBlock*>::value_type(preid, block));
     }
@@ -59,8 +65,8 @@ map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instr
                     BasicBlock* b = it->second;
                     shared_ptr<mir::inst::JumpInstruction> ins = get<1>(b->inst[b->inst.size() - 1]);
                     if (ins->kind == mir::inst::JumpInstructionKind::Return) {
-                        iter->second->preBlock.push_back(it->second);
-                        it->second->nextBlock.push_back(iter->second);
+                        exit->preBlock.push_back(it->second);
+                        it->second->nextBlock.push_back(exit);
                     }
                     else {
                         int l1 = get<1>(b->inst[b->inst.size() - 1])->bb_true;
@@ -88,7 +94,31 @@ map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instr
             }
         }
     }
-    /*for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+    //delete node which do not have preBlock expect entry
+    vector<int> del;
+    for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+        if (iter->first != -1 && iter->second->preBlock.size() == 0) {
+            del.push_back(iter->first);
+            for (int i = 0; i < iter->second->nextBlock.size(); i++) {
+                iter->second->nextBlock[i]->preBlock.erase(std::remove(iter->second->nextBlock[i]->preBlock.begin(), iter->second->nextBlock[i]->preBlock.end(), iter->second), iter->second->nextBlock[i]->preBlock.end());
+            }
+        }
+    }
+    for (int i = 0; i < del.size(); i++) {
+        iter = nodes.find(del[i]);
+        if (iter != nodes.end()) {
+            nodes.erase(iter);
+        }
+        vector<int>::iterator j;
+        for (j = order.begin(); j != order.end(); j++) {
+            if (*j == del[i]) {
+                order.erase(j);
+                break;
+            }
+        }
+    }
+    cout << endl << "*** desplay CFG ***" << endl;
+    for (iter = nodes.begin(); iter != nodes.end(); iter++) {
         cout << iter->first;
         for (int i = 0; i < iter->second->nextBlock.size(); i++) {
             cout << " " << iter->second->nextBlock[i]->id;
@@ -98,7 +128,7 @@ map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instr
             cout << " " << iter->second->preBlock[i]->id;
         }
         cout << endl;
-    }*/
+    }
     return nodes;
 }
 
@@ -421,13 +451,14 @@ map<int, vector<mir::inst::VarId>> active_var(map<int, BasicBlock*> nodes) {
             it->first, vectors_intersection(it->second, iter->second)));
     }
     //output for test
-    /*for (it = global.begin(); it != global.end(); it++) {
+    cout << endl << "*** desplay global var ***" << endl;
+    for (it = global.begin(); it != global.end(); it++) {
         cout << it->first;
         for (int i = 0; i < it->second.size(); i++) {
             cout << " " << it->second[i];
         }
         cout << endl;
-    }*/
+    }
     return global;
 }
 
@@ -484,13 +515,6 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
         dom.insert(map<int, vector<int>>::value_type(it->first, pre));
     }
     map<int, vector<int>>::iterator iter;
-    /*for (iter = dom.begin(); iter != dom.end(); iter++) {
-        cout << iter->first;
-        for (int i = 0; i < iter->second.size(); i++) {
-            cout << " " << iter->second[i];
-        }
-        cout << endl;
-    }*/
     // step1.2: Loop until dom does not change
     bool flag = true;
     while (flag) {
@@ -528,14 +552,23 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
                 }
             }
         }
+        cout << endl << "*** desplay dom ***" << endl;
+        for (iter = dom.begin(); iter != dom.end(); iter++) {
+            cout << iter->first;
+            for (int i = 0; i < iter->second.size(); i++) {
+                cout << " " << iter->second[i];
+            }
+            cout << endl;
+        }
     }
-    /*for (iter = dom.begin(); iter != dom.end(); iter++) {
+    cout << endl << "*** desplay dom ***" << endl;
+    for (iter = dom.begin(); iter != dom.end(); iter++) {
         cout << iter->first;
         for (int i = 0; i < iter->second.size(); i++) {
             cout << " " << iter->second[i];
         }
         cout << endl;
-    }*/
+    }
     // step2: Calculate the immediate domin nodes of each block
     // step2.1: delete node itself;
     for (iter = dom.begin(); iter != dom.end(); iter++) {
@@ -606,9 +639,11 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
         }
     }
     map<int, int>::iterator i;
-    /*for (i = dom1.begin(); i != dom1.end(); i++) {
+    cout << endl << "*** desplay idom ***" << endl;
+    dom1.insert(map<int, int>::value_type(2, -3));
+    for (i = dom1.begin(); i != dom1.end(); i++) {
         cout << i->first << " " << i->second << endl;
-    }*/
+    }
     return dom1;
 }
 
@@ -643,6 +678,7 @@ map<int, vector<int>> dominac_frontier(map<int, int> dom,
         }
     }
     map<int, vector<int>>::iterator i;
+    cout << endl << "*** desplay dominac frontier ***" << endl;
     for (i = dom_f.begin(); i != dom_f.end(); i++) {
         cout << i->first;
         for (int j = 0; j < i->second.size(); j++) {
@@ -1083,7 +1119,11 @@ map<string, vector<front::irGenerator::Instruction>> gen_ssa(map<string, vector<
         vector<front::irGenerator::Instruction> insts;
         for (int i = 0; i < order.size(); i++) {
             map<int, BasicBlock*>::iterator it = nodes.find(order[i]);
-            for (int j = 0; j < it->second->inst.size(); j++) {
+            int j = 0;
+            if (it->first < 0) {
+                j = 1;
+            }
+            for (; j < it->second->inst.size(); j++) {
                 insts.push_back(it->second->inst[j]);
             }
         }
