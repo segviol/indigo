@@ -38,6 +38,7 @@ int main()
 
     front::irGenerator::irGenerator& irgenerator = syntax_analyze.getIrGenerator();
     std::map<string, std::vector<front::irGenerator::Instruction>> inst = irgenerator.getfuncNameToInstructions();
+    mir::inst::MirPackage& package = irgenerator.getPackage();
 
     std::map<string, std::vector<front::irGenerator::Instruction>> ssa_inst = gen_ssa(inst);
 
@@ -87,6 +88,5 @@ string& read_input()
     ifstream input;
     input.open("testfile.txt");
     string* input_str_p = new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
-    std::cout << *input_str_p << std::endl;
     return *input_str_p;
 }
