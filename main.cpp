@@ -40,36 +40,9 @@ int main()
     std::map<string, std::vector<front::irGenerator::Instruction>> inst = irgenerator.getfuncNameToInstructions();
     mir::inst::MirPackage& package = irgenerator.getPackage();
 
-    std::map<string, std::vector<front::irGenerator::Instruction>> ssa_inst = gen_ssa(inst);
+    gen_ssa(inst, package, irgenerator);
 
-    std::cout << "%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-
-    for (auto i : ssa_inst)
-    {
-        std::cout << ">====== function name : " + i.first + "======<" << std::endl;
-        std::cout << ">====== vars : ======<" << std::endl;
-
-        std::cout << ">====== instructions : ======<" << std::endl;
-
-        for (auto j : i.second)
-        {
-            std::cout << "  ";
-            if (j.index() == 0)
-            {
-                std::get<0>(j)->display(std::cout);
-            }
-            else if (j.index() == 1)
-            {
-                std::get<1>(j)->display(std::cout);
-            }
-            else
-            {
-                std::cout << "label " << std::get<2>(j)->_jumpLabelId;
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
-    }
+    package.display(std::cout);
 
     //backend
     front::fake::FakeGenerator x;
