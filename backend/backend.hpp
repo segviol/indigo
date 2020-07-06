@@ -12,8 +12,8 @@ class ArmOptimizePass;
 
 class Backend {
  public:
-  Backend(mir::inst::MirPackage package)
-      : package(std::move(package)),
+  Backend(mir::inst::MirPackage& package)
+      : package(package),
         arm_code(),
         mir_passes(),
         arm_passes(),
@@ -40,7 +40,7 @@ class Backend {
   arm::ArmCode generate_code();
 
  private:
-  mir::inst::MirPackage package;
+  mir::inst::MirPackage& package;
   std::optional<arm::ArmCode> arm_code;
 
   std::vector<std::unique_ptr<MirOptimizePass>> mir_passes;
