@@ -27,6 +27,7 @@ set(frontend_files
     frontend/optim_mir.hpp
     frontend/optim_mir.cpp
     frontend/symbol.hpp
+    frontend/symbol.cpp
     frontend/symbol_table.hpp
     frontend/symbol_table.cpp
     frontend/syntax_analyze.hpp
@@ -43,7 +44,7 @@ set(arm_files
     arm_code/arm.hpp)
 
 add_library(backend ${backend_files})
-# add_library(frontend ${frontend_files})
+add_library(frontend ${frontend_files})
 add_library(mir ${mir_files})
 add_library(arm ${arm_files})
 
@@ -59,7 +60,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 target_link_libraries(
     compiler
-    # frontend 
+    frontend 
     backend 
     mir
     arm)
