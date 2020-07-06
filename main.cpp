@@ -1,92 +1,128 @@
 #include <fstream>
 #include <iostream>
-#include "frontend/syntax_analyze.hpp"
-#include "frontend/ir_generator.hpp"
-#include "frontend/optim_mir.hpp"
+
 #include "backend/backend.hpp"
 #include "backend/codegen/codegen.hpp"
 #include "backend/optimization/graph_color.hpp"
+#include "frontend/ir_generator.hpp"
+#include "frontend/optim_mir.hpp"
+#include "frontend/syntax_analyze.hpp"
+#include "include/argparse/argparse.h"
+#include "include/spdlog/include/spdlog/spdlog.h"
 #include "mir/mir.hpp"
+#include "opt.hpp"
 #include "prelude/fake_mir_generate.hpp"
+#include "spdlog/common.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
-using std::ifstream;
-using std::ofstream;
-using std::istreambuf_iterator;
 using std::cout;
 using std::endl;
+using std::ifstream;
+using std::istreambuf_iterator;
+using std::ofstream;
 using std::string;
 
 const bool debug = false;
 
 string& read_input();
 
-int main()
-{
-    //frontend
-    std::vector<front::word::Word> word_arr(VECTOR_SIZE);
-    word_arr.clear();
+Options parse_options(int argc, const char** argv);
 
-    string& input_str = read_input();
+int main(int argc, const char** argv) {
+  // Argument parser
+  auto options = parse_options(argc, argv);
 
-    word_analyse(input_str, word_arr);
-    delete& input_str;
+  // frontend
+  std::vector<front::word::Word> word_arr(VECTOR_SIZE);
+  word_arr.clear();
 
-    front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
-    syntax_analyze.gm_comp_unit();
+  string& input_str = read_input();
 
-    syntax_analyze.outputInstructions(std::cout);
+  word_analyse(input_str, word_arr);
+  delete &input_str;
 
-    front::irGenerator::irGenerator& irgenerator = syntax_analyze.getIrGenerator();
-    std::map<string, std::vector<front::irGenerator::Instruction>> inst = irgenerator.getfuncNameToInstructions();
-    mir::inst::MirPackage& package = irgenerator.getPackage();
+  front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
+  syntax_analyze.gm_comp_unit();
 
-    std::map<string, std::vector<front::irGenerator::Instruction>> ssa_inst = gen_ssa(inst);
+  syntax_analyze.outputInstructions(std::cout);
 
-    std::cout << "%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+  front::irGenerator::irGenerator& irgenerator =
+      syntax_analyze.getIrGenerator();
+  std::map<string, std::vector<front::irGenerator::Instruction>> inst =
+      irgenerator.getfuncNameToInstructions();
 
-    for (auto i : ssa_inst)
-    {
-        std::cout << ">====== function name : " + i.first + "======<" << std::endl;
-        std::cout << ">====== vars : ======<" << std::endl;
+  std::map<string, std::vector<front::irGenerator::Instruction>> ssa_inst =
+      gen_ssa(inst);
 
-        std::cout << ">====== instructions : ======<" << std::endl;
+  mir::inst::MirPackage& package = irgenerator.getPackage();
+  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
 
-        for (auto j : i.second)
-        {
-            std::cout << "  ";
-            if (j.index() == 0)
-            {
-                std::get<0>(j)->display(std::cout);
-            }
-            else if (j.index() == 1)
-            {
-                std::get<1>(j)->display(std::cout);
-            }
-            else
-            {
-                std::cout << "label " << std::get<2>(j)->_jumpLabelId;
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
+  for (auto i : ssa_inst) {
+    std::cout << ">====== function name : " + i.first + "======<" << std::endl;
+    std::cout << ">====== vars : ======<" << std::endl;
+
+    std::cout << ">====== instructions : ======<" << std::endl;
+
+    for (auto j : i.second) {
+      std::cout << "  ";
+      if (j.index() == 0) {
+        std::get<0>(j)->display(std::cout);
+      } else if (j.index() == 1) {
+        std::get<1>(j)->display(std::cout);
+      } else {
+        std::cout << "label " << std::get<2>(j)->_jumpLabelId;
+      }
+      std::cout << std::endl;
     }
+    std::cout << std::endl;
+  }
 
-    //backend
-    front::fake::FakeGenerator x;
-    x.fakeMirGenerator1();
-    auto mir = x._package;
-    std::cout << "MIR:" << std::endl << *mir << std::endl;
-    backend::Backend backend(std::move(*mir));
-    auto code = backend.generate_code();
-    std::cout << "CODE:" << std::endl << code;
-    return 0;
-
+  std::cout << "Mir" << std::endl << package << std::endl;
+  backend::Backend backend(package);
+  auto code = backend.generate_code();
+  std::cout << "CODE:" << std::endl << code;
+  return 0;
 }
 
-string& read_input()
-{
-    ifstream input;
-    input.open("testfile.txt");
-    string* input_str_p = new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
-    return *input_str_p;
+string& read_input() {
+  ifstream input;
+  input.open("testfile.txt");
+  string* input_str_p =
+      new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
+  return *input_str_p;
+}
+
+Options parse_options(int argc, const char** argv) {
+  argparse::ArgumentParser parser(
+      "compiler", "Compiler for SysY language, by SEGVIOL team.");
+
+  parser.add_argument("-o", "--output", "Output file", false);
+  parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
+  parser.enable_help();
+
+  parser.parse(argc, argv);
+
+  if (parser.exists("help")) {
+    parser.print_help();
+    exit(0);
+  }
+
+  Options options;
+  if (parser.exists("output")) {
+    auto out = parser.get<std::string>("output");
+    options.out_file = out;
+  } else {
+    options.out_file = "out.s";
+  }
+
+  if (parser.exists("verbosity")) {
+  } else {
+    spdlog::set_level(spdlog::level::warn);
+  }
+  spdlog::set_level(spdlog::level::trace);
+  spdlog::set_default_logger(spdlog::stderr_color_st("console"));
+
+  spdlog::info("output file is {}", options.out_file);
+
+  return std::move(options);
 }
