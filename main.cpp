@@ -81,6 +81,9 @@ int main(int argc, const char** argv) {
   backend::Backend backend(package);
   auto code = backend.generate_code();
   std::cout << "CODE:" << std::endl << code;
+
+  ofstream output_file(options.out_file);
+  output_file << code << std::endl;
   return 0;
 }
 
