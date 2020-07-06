@@ -49,12 +49,19 @@ int main(int argc, const char** argv) {
       irgenerator.getfuncNameToInstructions();
   mir::inst::MirPackage& package = irgenerator.getPackage();
 
+  spdlog::info("generating SSA");
+
   gen_ssa(inst, package, irgenerator);
 
   std::cout << "Mir" << std::endl << package << std::endl;
+
+  spdlog::info("generating ARM code");
+
   backend::Backend backend(package);
   auto code = backend.generate_code();
   std::cout << "CODE:" << std::endl << code;
+
+  spdlog::info("writing to output file: {}", options.out_file);
 
   ofstream output_file(options.out_file);
   output_file << code << std::endl;
