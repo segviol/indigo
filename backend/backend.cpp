@@ -6,23 +6,27 @@
 #include <memory>
 #include <vector>
 
+#include "../include/spdlog/include/spdlog/spdlog.h"
 #include "codegen/codegen.hpp"
 
 namespace backend {
 
 void Backend::do_mir_optimization() {
   for (auto& pass : mir_passes) {
+    spdlog::info("Running MIR pass: {}", pass->pass_name());
     pass->optimize_mir(package, extra_data);
   }
 }
 
 void Backend::do_arm_optimization() {
   for (auto& pass : arm_passes) {
+    spdlog::info("Running ARM pass: {}", pass->pass_name());
     pass->optimize_arm(arm_code.value(), extra_data);
   }
 }
 
 void Backend::do_mir_to_arm_transform() {
+  spdlog::info("Doing  mir->arm  transform");
   auto code = arm::ArmCode();
   for (auto& f : package.functions) {
     if (f.second.type->is_extern) continue;

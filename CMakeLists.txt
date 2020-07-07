@@ -16,6 +16,8 @@ set(backend_files
     backend/optimization/remove_dead_code.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
+    backend/codegen/reg_alloc.cpp
+    backend/codegen/math_opt.cpp
     backend/codegen/err.hpp
     backend/optimization/graph_color.hpp)
 
