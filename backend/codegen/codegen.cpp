@@ -6,6 +6,7 @@
 #include <optional>
 #include <typeinfo>
 
+#include "../../include/spdlog/include/spdlog/spdlog.h"
 #include "err.hpp"
 
 namespace backend::codegen {
@@ -229,8 +230,8 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
       inst.push_back(
           std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
       if (imm_u > 0xffff) {
-        inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg,
-                                                    imm_u & 0xffff0000));
+        inst.push_back(
+            std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
       }
       return Operand2(RegisterOperand(reg));
     }
@@ -249,8 +250,8 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
     inst.push_back(
         std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
     if (imm_u > 0xffff) {
-      inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg,
-                                                  imm_u & 0xffff0000));
+      inst.push_back(
+          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
     }
     return reg;
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
@@ -269,6 +270,33 @@ arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
   return r;
 }
 
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
+  // If it's param, load before use
+  if (v >= 4 && v <= param_size) {
+    auto reg = alloc_vgp();
+    return MemoryOperand(REG_FP, (v - 4) * 4);
+  } else {
+    auto x = stack_space_allocation.find(v);
+    if (x != stack_space_allocation.end()) {
+      auto reg = alloc_vgp();
+      return MemoryOperand(REG_SP, x->second);
+    } else {
+      // If this is just an ordinary pointer type
+      auto found = reg_map.find(v);
+      if (found != reg_map.end()) {
+        assert(arm::register_type(found->second) ==
+               arm::RegisterKind::VirtualGeneralPurpose);
+        return found->second;
+      } else {
+        auto reg = alloc_vgp();
+        reg_map.insert({v, reg});
+        return reg;
+      }
+    }
+  }
+}
+
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
   if (i.src.is_immediate()) {
     auto imm = *i.src.get_if<int32_t>();
@@ -277,7 +305,7 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
         arm::OpCode::Mov, translate_var_reg(i.dest), imm_u & 0xffff));
     if (imm_u > 0xffff) {
       inst.push_back(std::make_unique<Arith2Inst>(
-          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u & 0xffff0000));
+          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u >> 16));
     }
   } else {
     inst.push_back(std::make_unique<Arith2Inst>(
@@ -347,16 +375,16 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::StoreInst& i) {
-  auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::StR,
-                                             translate_value_to_reg(i.val),
-                                             translate_var_reg(i.dest));
+  auto ins = std::make_unique<LoadStoreInst>(
+      arm::OpCode::StR, translate_value_to_reg(i.val),
+      translate_var_to_memory_arg(i.dest));
   inst.push_back(std::move(ins));
 }
 
 void Codegen::translate_inst(mir::inst::LoadInst& i) {
-  auto ins = std::make_unique<LoadStoreInst>(arm::OpCode::LdR,
-                                             translate_value_to_reg(i.src),
-                                             translate_var_reg(i.dest));
+  auto ins = std::make_unique<LoadStoreInst>(
+      arm::OpCode::LdR, translate_value_to_reg(i.src),
+      translate_var_to_memory_arg(i.dest));
   inst.push_back(std::move(ins));
 }
 
