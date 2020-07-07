@@ -57,6 +57,8 @@ endif(STATIC_LINK_ARTIFACTS)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
+target_include_directories(src PRIVATE include/spdlog/include)
+
 target_link_libraries(
     compiler
     spdlog::spdlog

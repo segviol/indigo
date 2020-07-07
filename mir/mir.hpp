@@ -257,7 +257,7 @@ class Variable : public prelude::Displayable {
   bool is_memory_var;
   bool is_temp_var;
 
-  types::SharedTyPtr type() {
+  types::SharedTyPtr type() const {
     if (is_memory_var) {
       return types::new_ptr_ty(ty);
     } else {
@@ -383,22 +383,21 @@ class RefInst final : public Inst {
 
 /// Dereference instruction. `$dest = load $val`
 class LoadInst final : public Inst {
-public:
-    LoadInst(Value src, VarId dest) : src(src), Inst(dest) {}
-    Value src;
+ public:
+  LoadInst(Value src, VarId dest) : src(src), Inst(dest) {}
+  Value src;
 
-    virtual InstKind inst_kind() { return InstKind::Load; }
-    virtual void display(std::ostream& o) const;
-    virtual ~LoadInst() {}
-    std::set<VarId> useVars() const {
-        auto s = std::set<VarId>();
-        if (src.index() == 1) {
-            s.insert(std::get<VarId>(src));
-        }
-        return s;
+  virtual InstKind inst_kind() { return InstKind::Load; }
+  virtual void display(std::ostream& o) const;
+  virtual ~LoadInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (src.index() == 1) {
+      s.insert(std::get<VarId>(src));
     }
+    return s;
+  }
 };
-
 
 /// Store instruction. `store $val to $dest`
 class StoreInst final : public Inst {
@@ -442,7 +441,8 @@ class PtrOffsetInst final : public Inst {
 /// Phi instruction. `$dest = phi(...$vars)`
 class PhiInst final : public Inst {
  public:
-  PhiInst(VarId _dest, std::vector<VarId> _vars) :Inst(_dest), vars(_vars) ,ori_var(_dest){};
+  PhiInst(VarId _dest, std::vector<VarId> _vars)
+      : Inst(_dest), vars(_vars), ori_var(_dest){};
   VarId ori_var;
   std::vector<VarId> vars;
 
