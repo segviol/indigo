@@ -24,7 +24,7 @@ using std::string;
 
 const bool debug = false;
 
-string& read_input();
+string& read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
 int main(int argc, const char** argv) {
@@ -33,7 +33,7 @@ int main(int argc, const char** argv) {
   std::vector<front::word::Word> word_arr(VECTOR_SIZE);
   word_arr.clear();
 
-  string& input_str = read_input();
+  string& input_str = read_input(options.in_file);
 
   word_analyse(input_str, word_arr);
   delete &input_str;
@@ -68,9 +68,9 @@ int main(int argc, const char** argv) {
   return 0;
 }
 
-string& read_input() {
+string& read_input(std::string& input_filename) {
   ifstream input;
-  input.open("testfile.txt");
+  input.open(input_filename);
   string* input_str_p =
       new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
   return *input_str_p;
@@ -80,11 +80,21 @@ Options parse_options(int argc, const char** argv) {
   argparse::ArgumentParser parser(
       "compiler", "Compiler for SysY language, by SEGVIOL team.");
 
+  parser.add_argument()
+      .name("input")
+      .description("Input file")
+      .position(0)
+      .required(true);
   parser.add_argument("-o", "--output", "Output file", false);
   parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
   parser.enable_help();
 
-  parser.parse(argc, argv);
+  auto err = parser.parse(argc, argv);
+
+  if (err) {
+    std::cout << err << endl;
+    exit(1);
+  }
 
   if (parser.exists("help")) {
     parser.print_help();
@@ -92,6 +102,9 @@ Options parse_options(int argc, const char** argv) {
   }
 
   Options options;
+
+  options.in_file = parser.get<std::string>("input");
+
   if (parser.exists("output")) {
     auto out = parser.get<std::string>("output");
     options.out_file = out;
@@ -106,6 +119,7 @@ Options parse_options(int argc, const char** argv) {
   spdlog::set_level(spdlog::level::trace);
   spdlog::set_default_logger(spdlog::stderr_color_st("console"));
 
+  spdlog::info("input file is {}", options.in_file);
   spdlog::info("output file is {}", options.out_file);
 
   return std::move(options);
