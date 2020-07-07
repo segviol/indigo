@@ -3,7 +3,9 @@
 
 #include "backend/backend.hpp"
 #include "backend/codegen/codegen.hpp"
+#include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
+#include "backend/optimization/remove_dead_code.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
@@ -14,7 +16,6 @@
 #include "prelude/fake_mir_generate.hpp"
 #include "spdlog/common.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
-
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -24,7 +25,7 @@ using std::string;
 
 const bool debug = false;
 
-string& read_input();
+string& read_input(string file = "testfile.txt");
 Options parse_options(int argc, const char** argv);
 
 int main(int argc, const char** argv) {
@@ -32,8 +33,8 @@ int main(int argc, const char** argv) {
   // frontend
   std::vector<front::word::Word> word_arr(VECTOR_SIZE);
   word_arr.clear();
-
-  string& input_str = read_input();
+  string file = argc > 1 ? argv[1] : "testfile.txt";
+  string& input_str = read_input(file);
 
   word_analyse(input_str, word_arr);
   delete &input_str;
@@ -53,8 +54,16 @@ int main(int argc, const char** argv) {
 
   gen_ssa(inst, package, irgenerator);
 
-  std::cout << "Mir" << std::endl << package << std::endl;
-
+  // std::cout << "Mir" << std::endl << package << std::endl;
+  spdlog::info("Mir_Before");
+  std::cout << package << std::endl;
+  optimization::remove_dead_code::Remove_Dead_Code rdc;
+  std::map<string, std::any> extra_data;
+  // rdc.optimize_mir(package, extra_data);
+  optimization::common_expr_del::Common_Expr_Del cel;
+  cel.optimize_mir(package, extra_data);
+  spdlog::info("Mir_After");
+  std::cout << package << std::endl;
   spdlog::info("generating ARM code");
 
   backend::Backend backend(package);
@@ -68,9 +77,9 @@ int main(int argc, const char** argv) {
   return 0;
 }
 
-string& read_input() {
+string& read_input(string file) {
   ifstream input;
-  input.open("testfile.txt");
+  input.open(file);
   string* input_str_p =
       new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
   return *input_str_p;
