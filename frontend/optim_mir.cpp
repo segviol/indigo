@@ -1137,7 +1137,9 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 mir::types::LabelId id = iit->first;
                 mir::inst::BasicBlk bb(id);
                 for (int j = 0; j < iit->second->preBlock.size(); j++) {
-                    bb.preceding.insert(iit->second->preBlock[j]->id);
+                    if (iit->second->preBlock[j]->id >= 0) {
+                        bb.preceding.insert(iit->second->preBlock[j]->id);
+                    }
                 }
                 for (int j = 1; j < iit->second->inst.size() - 1; j++) {
                     shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
