@@ -1126,28 +1126,30 @@ void generate_SSA(map<int, BasicBlock*> nodes,
             if (itt != dom_f.end()) {
                 for (int i = 0; i < itt->second.size(); i++) {
                     map<int, set<mir::inst::VarId>>::iterator iter = phi.find(itt->second[i]);
-                    if (iter == phi.end()) {
-                        map<int, BasicBlock*>::iterator itera = nodes.find(itt->second[i]);
-                        shared_ptr<mir::inst::PhiInst> irphi = ir_phi(it->first, 0);
-                        (*irphi).display(cout);
-                        itera->second->inst.insert(itera->second->inst.begin()+1, irphi);
-                        set<mir::inst::VarId> varset;
-                        varset.insert(it->first);
-                        phi.insert(map<int, set<mir::inst::VarId>>::value_type(itt->second[i], varset));
-                        q.push(itt->second[i]);
-                    }
-                    else {
-                        set<mir::inst::VarId>::iterator ss;
-                        ss = iter->second.find(it->first);
-                        if (ss == iter->second.end()) {
+                    if (itt->second[i] >= 0) {
+                        if (iter == phi.end()) {
                             map<int, BasicBlock*>::iterator itera = nodes.find(itt->second[i]);
                             shared_ptr<mir::inst::PhiInst> irphi = ir_phi(it->first, 0);
-                            (*irphi).display(cout);
-                            itera->second->inst.insert(itera->second->inst.begin()+1, irphi);
-                            set<mir::inst::VarId> varset = iter->second;
+                            //(*irphi).display(cout);
+                            itera->second->inst.insert(itera->second->inst.begin() + 1, irphi);
+                            set<mir::inst::VarId> varset;
                             varset.insert(it->first);
-                            phi[itt->second[i]] = varset;
+                            phi.insert(map<int, set<mir::inst::VarId>>::value_type(itt->second[i], varset));
                             q.push(itt->second[i]);
+                        }
+                        else {
+                            set<mir::inst::VarId>::iterator ss;
+                            ss = iter->second.find(it->first);
+                            if (ss == iter->second.end()) {
+                                map<int, BasicBlock*>::iterator itera = nodes.find(itt->second[i]);
+                                shared_ptr<mir::inst::PhiInst> irphi = ir_phi(it->first, 0);
+                                (*irphi).display(cout);
+                                itera->second->inst.insert(itera->second->inst.begin() + 1, irphi);
+                                set<mir::inst::VarId> varset = iter->second;
+                                varset.insert(it->first);
+                                phi[itt->second[i]] = varset;
+                                q.push(itt->second[i]);
+                            }
                         }
                     }
                 }
