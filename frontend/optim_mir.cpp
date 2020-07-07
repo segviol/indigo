@@ -98,6 +98,14 @@ map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instr
                 }
             }
             else {//no instruction 
+                std::optional<mir::inst::VarId> v;
+                shared_ptr<mir::inst::JumpInstruction> ir_br =
+                    shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
+                        mir::inst::JumpInstructionKind::Br,
+                        iter->second->id, -1, v, mir::inst::JumpKind::Branch));
+                front::irGenerator::Instruction instr;
+                instr.emplace<1>(ir_br);
+                it->second->inst.push_back(instr);
                 iter->second->preBlock.push_back(it->second);
                 it->second->nextBlock.push_back(iter->second);
             }
@@ -1295,6 +1303,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             map<int, int> dom = find_idom(nodes);
             map<int, vector<int>> df = dominac_frontier(dom, nodes);
             generate_SSA(nodes, global, df, iter->second, dom);
+            mir::types::LabelId exitid = irgenerator.getNewLabelId();
             for (int i = 0; i < order.size(); i++) {
                 map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
                 mir::types::LabelId id = iit->first;
@@ -1303,16 +1312,26 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                     if (iit->second->preBlock[j]->id >= 0) {
                         bb.preceding.insert(iit->second->preBlock[j]->id);
                     }
+                    if (iit->second->preBlock[j]->id == -2) {
+                        bb.preceding.insert(exitid);
+                    }
                 }
                 for (int j = 1; j < iit->second->inst.size() - 1; j++) {
                     shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
                     bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
                 }
+                //cout << order[i] << "#" << iit->second->inst[iit->second->inst.size() - 1].index() << endl;
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
                 bb.jump = move(*jump);
                 it->second.basic_blks.insert({ id, std::move(bb) });
                 //insertinsert({ id, std::move(bb) })
             }
+            mir::inst::BasicBlk bb(exitid);
+            BasicBlock* b = find_exit(nodes);
+            for (int i = 0; i < b->preBlock.size(); i++) {
+                bb.preceding.insert(b->preBlock[i]->id);
+            }
+            it->second.basic_blks.insert({ exitid, std::move(bb) });
             map<uint32_t, mir::inst::Variable>::iterator itt;
             for (itt = it->second.variables.begin(); itt != it->second.variables.end(); itt++) {
                 map<mir::inst::VarId, vector< mir::inst::VarId>>::iterator ite = name_map.find(itt->first);
