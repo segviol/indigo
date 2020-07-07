@@ -108,6 +108,8 @@ class Codegen final {
   arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
+  arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v);
+
   void scan();
   void scan_stack();
   void init_reg_map();

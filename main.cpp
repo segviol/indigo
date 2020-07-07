@@ -118,6 +118,7 @@ Options parse_options(int argc, const char** argv) {
   }
   spdlog::set_level(spdlog::level::trace);
   spdlog::set_default_logger(spdlog::stderr_color_st("console"));
+  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
 
   spdlog::info("input file is {}", options.in_file);
   spdlog::info("output file is {}", options.out_file);

@@ -167,6 +167,9 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::Mov:
       o << "mov";
       break;
+    case OpCode::MovT:
+      o << "movt";
+      break;
     case OpCode::Add:
       o << "add";
       break;
@@ -229,6 +232,7 @@ void display_op(OpCode op, std::ostream &o) {
 
       break;
     default:
+      o << "?" << (int)op;
       break;
   }
 }
