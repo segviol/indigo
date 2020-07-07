@@ -1322,6 +1322,9 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 }
                 //cout << order[i] << "#" << iit->second->inst[iit->second->inst.size() - 1].index() << endl;
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
+                if (jump->bb_true < 0) {
+                    jump->bb_true = exitid;
+                }
                 bb.jump = move(*jump);
                 it->second.basic_blks.insert({ id, std::move(bb) });
                 //insertinsert({ id, std::move(bb) })
