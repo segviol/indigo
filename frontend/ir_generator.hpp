@@ -82,6 +82,7 @@ public:
   void ir_declare_function(string name, symbol::SymbolKind kind);
   void ir_leave_function();
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
+  void ir_end_of_program();
 
   /* src type mean (src.index())
    * 0: jumplabel
@@ -120,13 +121,18 @@ private:
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
   const LabelId _VoidVarId = (1 << 20);
+  const LabelId _ReturnBlockLabelId = (1 << 20);
+  const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName =
       "@@__Compiler__GlobalInitFunc__Auto__Generated__@@";
-  const string _stringNamePrefix = "@@0";
-  const string _tmpNamePrefix = "@@1";
-  const string _constNamePrefix = "@@2";
-  const string _varNamePrefix = "@@3";
+  const string _MainFunctionName = "main";
+  const string _VoidVarName = "@@_Compiler_Void_Var_Name_@@";
+  const string _ReturnVarName = "@@_Compiler_Retuen_Var_Name_@@";
+  const string _StringNamePrefix = "@@0";
+  const string _TmpNamePrefix = "@@1";
+  const string _ConstNamePrefix = "@@2";
+  const string _VarNamePrefix = "@@3";
 
   std::map<string, LabelId> _localValueNameToId;
 
