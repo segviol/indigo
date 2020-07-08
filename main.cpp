@@ -58,7 +58,6 @@ int main(int argc, const char** argv) {
 
   // std::cout << "Mir" << std::endl << package << std::endl;
   spdlog::info("Mir_Before");
-  spdlog::info("Mir_After");
   std::cout << package << std::endl;
   spdlog::info("generating ARM code");
 
