@@ -46,7 +46,6 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
   for (auto& inst : blk.inst) {
     auto& i = *inst;
-    std::cout << "translate: " << i << std::endl;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
@@ -243,7 +242,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
-    return RegisterOperand(get_or_alloc_vgp(*x));
+    return RegisterOperand(Reg(get_or_alloc_vgp(*x)));
   } else {
     throw new prelude::UnreachableException();
   }
@@ -269,11 +268,7 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
 }
 
 arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
-  std::cout << "v" << v;
   auto r = get_or_alloc_vgp(v);
-  std::cout << " r ";
-  display_reg_name(std::cout, r);
-  std::cout << std::endl;
   return r;
 }
 
