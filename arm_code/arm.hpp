@@ -72,7 +72,7 @@ Reg make_register(RegisterKind ty, uint32_t num);
 struct RegisterOperand : public prelude::Displayable {
   RegisterOperand() : RegisterOperand(0) {}
 
-  RegisterOperand(Reg reg) : RegisterOperand(0, RegisterShiftKind::Lsl, 0) {}
+  RegisterOperand(Reg reg) : RegisterOperand(reg, RegisterShiftKind::Lsl, 0) {}
 
   RegisterOperand(Reg reg, RegisterShiftKind shift, uint8_t shift_amount)
       : reg(reg), shift(shift), shift_amount(shift_amount) {}
