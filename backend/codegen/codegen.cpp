@@ -24,6 +24,18 @@ arm::Function Codegen::translate_function() {
   generate_return_and_cleanup();
 
   {
+#pragma region passShow
+    std::cout << "VariableToReg: " << std::endl;
+    for (auto& v : reg_map) {
+      std::cout << v.first << " -> ";
+      display_reg_name(std::cout, v.second);
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+#pragma endregion
+  }
+
+  {
     // Put variable to vreg map in extra data
     auto data =
         extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
@@ -181,6 +193,14 @@ void Codegen::scan() {
       }
     }
   }
+
+#pragma region CollapseShow
+  std::cout << "collapsing: " << std::endl;
+  for (auto& v : var_collapse) {
+    std::cout << v.first << " -> " << v.second << std::endl;
+  }
+  std::cout << std::endl;
+#pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
@@ -549,9 +569,11 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
     case mir::inst::JumpInstructionKind::Return:
       if (j.cond_or_ret.has_value()) {
         // Move return value to its register
-        inst.push_back(std::make_unique<Arith2Inst>(
-            OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
-            translate_var_reg(j.cond_or_ret.value())));
+        if (j.cond_or_ret.value().id != 0) {
+          inst.push_back(std::make_unique<Arith2Inst>(
+              OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
+              Reg(translate_var_reg(j.cond_or_ret.value()))));
+        }
       }
       inst.push_back(
           std::make_unique<BrInst>(OpCode::B, format_fn_end_label(func.name)));
