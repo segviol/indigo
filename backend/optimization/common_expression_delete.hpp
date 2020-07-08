@@ -354,7 +354,7 @@ class BlockNodes {
       }
     }
     auto& jump = block.jump;
-    if (!jump.cond_or_ret.has_value()) {
+    if (!jump.cond_or_ret.has_value() || jump.cond_or_ret.value().id == 0) {
       return;
     }
     auto varId = jump.cond_or_ret.value();
@@ -414,12 +414,15 @@ class Common_Expr_Del : backend::MirOptimizePass {
       switch (kind) {
         case mir::inst::InstKind::Ref: {
           auto refInst = dynamic_cast<mir::inst::RefInst*>(&i);
-          auto operand = refInst->val;
+          auto val = refInst->val;
           std::vector<Operand> operands;
-          if (operand.index() == 0) {
-            operands.push_back(std::get<mir::inst::VarId>(operand));
+          if (val.index() == 0) {
+            std::vector<mir::inst::Value> vals;
+            vals.push_back(std::get<mir::inst::VarId>(val));
+            auto val_operands = blnd.cast_operands(vals);
+            operands.push_back(val_operands.front());
           } else {
-            operands.push_back(std::get<std ::string>(operand));
+            operands.push_back(std::get<std ::string>(val));
           }
           auto op = ExtraNormOp::Ref;
           if (!blnd.query_node(op, operands)) {
