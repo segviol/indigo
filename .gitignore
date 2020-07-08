@@ -4,6 +4,8 @@ compile_commands.json
 cmake_install.cmake
 .clangd
 .vscode
+*.txt
+*.s
 .vs
 Makefile
 CMakeCache.txt

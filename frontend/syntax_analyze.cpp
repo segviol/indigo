@@ -61,6 +61,8 @@ void SyntaxAnalyze::gm_comp_unit() {
       gm_var_decl();
     }
   }
+
+  irGenerator.ir_end_of_program();
 }
 
 void SyntaxAnalyze::gm_const_decl() {
