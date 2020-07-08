@@ -408,8 +408,10 @@ class StoreInst final : public Inst {
   virtual InstKind inst_kind() { return InstKind::Store; }
   virtual void display(std::ostream& o) const;
   virtual ~StoreInst() {}
-  std::set<VarId> useVars() const {
+  std::set<VarId> useVars()
+      const {  // for storeInst,dest is also use(not defined)
     auto s = std::set<VarId>();
+    s.insert(dest);
     if (val.index() == 1) {
       s.insert(std::get<VarId>(val));
     }

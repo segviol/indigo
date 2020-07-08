@@ -22,7 +22,7 @@ class Node;
 
 typedef mir::inst::Op NormOp;
 enum class ExtraNormOp { Ref, Ptroffset };
-enum class InNormOp { Load, Store, Call };
+enum class InNormOp { Load, Store, Call, Phi };
 typedef std::shared_ptr<Node> sharedNode;
 typedef std::variant<NormOp, ExtraNormOp, InNormOp> Op;
 // typedef std::variant<int, mir::inst::VarId, std::string> Value;
@@ -47,7 +47,9 @@ class Node {
   std::vector<Operand> operands;
   Op op;
   NodeId nodeId;
-  mir::inst::Value mainVar = 0;
+  mir::inst::Value mainVar =
+      0;  // mainVar is an imm only when the node starts with a cosnt
+          // assignInst.In other cases,the mainVar must be varId
   std::vector<mir::inst::VarId> live_vars;
   std::vector<mir::inst::VarId> local_vars;
   std::optional<mir::inst::Value> value;  // int Imm
@@ -73,7 +75,7 @@ class Node {
     }
   }
 
-  bool operator<(const Node& other) {
+  bool operator<(const Node& other) const {
     if (is_leaf != other.is_leaf) {
       return is_leaf < other.is_leaf;
     }
@@ -96,7 +98,8 @@ class Node {
       if (std::get<NormOp>(op) == NormOp::Add ||
           std::get<NormOp>(op) == NormOp::Mul) {
         std::vector<Operand> reverse_operands;
-        std::reverse_copy(operands.begin(), operands.end(), reverse_operands);
+        std::reverse_copy(operands.begin(), operands.end(),
+                          reverse_operands.begin());
         if (operands == other.operands || reverse_operands == other.operands) {
           return false;
         }
@@ -125,7 +128,7 @@ class BlockNodes {
   NodeId add_leaf_node(mir::inst::VarId var) {
     auto id = nodes.size();
     NodeId nodeId(id);
-    auto node = std::make_shared<Node>(true);
+    auto node = std::make_shared<Node>();
     nodes.push_back(node);
     var_map[var] = nodeId;
     node_map[*node] = id;
@@ -136,7 +139,7 @@ class BlockNodes {
   NodeId add_leaf_node(int imm, mir::inst::VarId var) {
     auto id = nodes.size();
     NodeId nodeId(id);
-    auto node = std::make_shared<Node>(true);
+    auto node = std::make_shared<Node>();
     node->value = imm;
     nodes.push_back(node);
     var_map[var] = nodeId;
@@ -146,9 +149,7 @@ class BlockNodes {
   }
 
   NodeId add_node(Op op, std::vector<Operand> operands) {
-    auto node = std::make_shared<Node>(false);
-    node->op = op;
-    node->operands = operands;
+    auto node = std::make_shared<Node>(op, operands);
     auto id = nodes.size();
     NodeId nodeId(id);
     nodes.push_back(node);
@@ -238,7 +239,8 @@ class BlockNodes {
     }
   }
 
-  void export_insts(std::vector<std::unique_ptr<mir::inst::Inst>> inst) {
+  void export_insts(mir::inst::BasicBlk& block) {
+    auto& inst = block.inst;
     for (auto iter = nodes.begin(); iter != nodes.end(); ++iter) {
       iter->get()->init_main_var();
     }
@@ -251,13 +253,17 @@ class BlockNodes {
     std::reverse(exportQueue.begin(), exportQueue.end());
     for (auto idx : exportQueue) {
       auto& node = nodes[idx];
+      if (node->is_leaf) {
+        continue;
+      }
       auto opKind = node->op.index();
       switch (opKind) {
         case 0: {
           auto lhs = convert_operand_to_value(node->operands[0]);
           auto rhs = convert_operand_to_value(node->operands[1]);
           auto opInst = std::make_unique<mir::inst::OpInst>(
-              node->mainVar, lhs, rhs, std::get<NormOp>(node->op));
+              std::get<mir::inst::VarId>(node->mainVar), lhs, rhs,
+              std::get<NormOp>(node->op));
           inst.push_back(std::move(opInst));
           break;
         }
@@ -269,18 +275,18 @@ class BlockNodes {
               val = std::get<mir::inst::VarId>(
                   nodes[std::get<NodeId>(node->operands[0]).id]->mainVar);
               //这里可能的VarId是局部数组，理论上不会出现int成为mainVar的情况
+
             } else {
               val = std::get<std::string>(node->operands[0]);
             }
-            auto refInst =
-                std::make_unique<mir::inst::RefInst>(node->mainVar, val);
-            inst.push_back(std::move(refInst));
+            inst.push_back(std::make_unique<mir::inst::RefInst>(
+                std::get<mir::inst::VarId>(node->mainVar), val));
           } else {
             auto ptr = std::get<mir::inst::VarId>(
                 nodes[std::get<NodeId>(node->operands[0]).id]->mainVar);
             auto offset = convert_operand_to_value(node->operands[1]);
             auto ptrInst = std::make_unique<mir::inst::PtrOffsetInst>(
-                node->mainVar, ptr, offset);
+                std::get<mir::inst::VarId>(node->mainVar), ptr, offset);
             inst.push_back(std::move(ptrInst));
           }
 
@@ -296,29 +302,77 @@ class BlockNodes {
             for (auto operand : node->operands) {
               params.push_back(convert_operand_to_value(operand));
             }
-            auto callInst = std::make_unique<mir::inst::CallInst>(node->mainVar,
-                                                                  func, params);
+            auto callInst = std::make_unique<mir::inst::CallInst>(
+                std::get<mir::inst::VarId>(node->mainVar), func, params);
             inst.push_back(std::move(callInst));
+          }
+          if (std::get<InNormOp>(node->op) == InNormOp::Phi) {
+            std::vector<mir::inst::VarId> vars;
+            for (auto operand : node->operands) {
+              auto oper_node = nodes[std::get<NodeId>(operand).id];
+              mir::inst::VarId var;
+              if (oper_node->mainVar.index() == 0) {
+                // imm
+
+                if (oper_node->live_vars.size()) {
+                  var = oper_node->live_vars.front();
+                } else {
+                  var = oper_node->local_vars.front();
+                  auto assignInst = std::make_unique<mir::inst::AssignInst>(
+                      var, node->mainVar);
+                  inst.push_back(std::move(assignInst));
+                }
+              } else {
+                var = std::get<mir::inst::VarId>(oper_node->mainVar);
+              }
+              vars.push_back(var);
+            }
+            auto phiInst = std::make_unique<mir::inst::PhiInst>(
+                std::get<mir::inst::VarId>(node->mainVar), vars);
+            inst.push_back(std::move(phiInst));
           } else if (std::get<InNormOp>(node->op) == InNormOp::Load) {
             auto src = nodes[std::get<NodeId>(node->operands[0]).id]->mainVar;
-
-            auto loadInst =
-                std::make_unique<mir::inst::LoadInst>(node->mainVar, src);
+            auto loadInst = std::make_unique<mir::inst::LoadInst>(
+                src, std::get<mir::inst::VarId>(node->mainVar));
             inst.push_back(std::move(loadInst));
           } else if (std::get<InNormOp>(node->op) == InNormOp::Store) {
             auto val = convert_operand_to_value(node->operands[0]);
-
-            auto storeInst =
-                std::make_unique<mir::inst::StoreInst>(node->mainVar, val);
+            auto storeInst = std::make_unique<mir::inst::StoreInst>(
+                val, std::get<mir::inst::VarId>(node->mainVar));
             inst.push_back(std::move(storeInst));
           }
           break;
         }
-
         default:;
+      }
+      if (node->live_vars.size()) {
+        for (auto var : node->live_vars) {
+          auto assignInst =
+              std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
+          inst.push_back(std::move(assignInst));
+        }
+      }
+    }
+    auto& jump = block.jump;
+    if (!jump.cond_or_ret.has_value()) {
+      return;
+    }
+    auto varId = jump.cond_or_ret.value();
+    auto& node = nodes[var_map[varId].id];
+    if (node->mainVar.index() == 0) {
+      mir::inst::VarId var;
+      if (node->live_vars.size()) {
+        var = node->live_vars.front();
+      } else {
+        var = node->local_vars.front();
+        auto assignInst =
+            std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
+        inst.push_back(std::move(assignInst));
       }
     }
   }
+
+  void adjustJumpInst(mir::inst::JumpInstruction& jump) {}
 
   std::vector<Operand> cast_operands(std::vector<mir::inst::Value> value) {
     std::vector<Operand> operands;
@@ -346,8 +400,9 @@ class BlockNodes {
 };
 
 class Common_Expr_Del : public backend::MirOptimizePass {
+ public:
   const std::string name = "Common expression delete";
-  std::string pass_name() { return name; }
+  std::string pass_name() const { return name; }
 
   void optimize_block(mir::inst::BasicBlk& block,
                       std::shared_ptr<livevar_analyse::Block_Live_Var>& blv,
@@ -447,12 +502,23 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           }
           break;
         }
+        case mir::inst::InstKind::Phi: {
+          auto phiInst = dynamic_cast<mir::inst::PhiInst*>(&i);
+          auto op = InNormOp::Phi;
+          std::vector<mir::inst::Value> values;
+          for (auto var : phiInst->vars) {
+            values.push_back(var);
+          }
+          auto operands = blnd.cast_operands(values);
+          blnd.add_node(op, operands, phiInst->dest);
+          break;
+        }
 
         default:
           std::cout << "error!" << std::endl;
       }
     }
-    blnd.export_insts(block.inst);
+    blnd.export_insts(block);
   }
   void optimize_func(mir::inst::MirFunction& func) {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
