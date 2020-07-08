@@ -16,6 +16,7 @@ set(backend_files
     backend/optimization/remove_dead_code.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
+    backend/codegen/bb_rearrange.cpp
     backend/codegen/reg_alloc.cpp
     backend/codegen/math_opt.cpp
     backend/codegen/err.hpp
