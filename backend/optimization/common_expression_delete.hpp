@@ -58,7 +58,11 @@ class Node {
   bool is_leaf;
   Node() : is_leaf(true) {}
   Node(Op op, std::vector<Operand> operands)
-      : op(op), operands(operands), is_leaf(false) {}
+      : op(op), operands(operands), is_leaf(false) {
+    // if (op.index() == 1 && std::get<ExtraNormOp>(op) == ExtraNormOp::Ref) {
+    //   assert(operands.size() == 1);
+    // }
+  }
   void add_live_var(mir::inst::VarId var) { live_vars.push_back(var); }
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
@@ -112,6 +116,7 @@ class Node {
         }
       }
     }
+
     return operands < other.operands;
   }
 };
@@ -235,13 +240,13 @@ class BlockNodes {
     }
     exportQueue.push_back(idx);
     added[idx] = true;
-    for (auto operand : nodes[idx]->operands) {
-      if (operand.index() == 1) {
-        auto nodeId = std::get<NodeId>(operand);
-        exportNode(nodeId.id);
-        break;
-      }
-    }
+    // for (auto operand : nodes[idx]->operands) {
+    //   if (operand.index() == 1) {
+    //     auto nodeId = std::get<NodeId>(operand);
+    //     exportNode(nodeId.id);
+    //     break;
+    //   }
+    // }
     return true;
   }
 
@@ -407,9 +412,9 @@ class BlockNodes {
   }
 
   bool query_var(mir::inst::VarId var) {
-    if (variables[var].is_memory_var) {
-      return false;
-    }
+    // if (variables[var].is_memory_var) {
+    //   return false;
+    // }
     return var_map.count(var);
   }
 };
@@ -440,6 +445,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
             auto str = std::get<std::string>(val);
             operands.push_back(std::get<std ::string>(val));
           }
+          assert(operands.size() == 1);
           auto op = ExtraNormOp::Ref;
           if (!blnd.query_node(op, operands)) {
             blnd.add_node(op, operands, refInst->dest);
@@ -493,6 +499,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           auto op = InNormOp::Store;
           std::vector<mir::inst::Value> values;
           values.push_back(storeInst->val);
+          values.push_back(storeInst->dest);
           auto operands = blnd.cast_operands(values);
           blnd.add_node(op, operands, storeInst->dest);
           break;
