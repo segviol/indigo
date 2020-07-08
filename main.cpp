@@ -58,23 +58,17 @@ int main(int argc, const char** argv) {
 
   // std::cout << "Mir" << std::endl << package << std::endl;
   spdlog::info("Mir_Before");
-  std::cout << package << std::endl;
-  optimization::remove_dead_code::Remove_Dead_Code rdc;
-  std::map<string, std::any> extra_data;
-  // rdc.optimize_mir(package, extra_data);
-  optimization::common_expr_del::Common_Expr_Del cel;
-  cel.optimize_mir(package, extra_data);
   spdlog::info("Mir_After");
   std::cout << package << std::endl;
   spdlog::info("generating ARM code");
 
-  backend::Backend backend(package);
+  backend::Backend backend(package, options);
 
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
 
   auto code = backend.generate_code();
@@ -90,8 +84,9 @@ int main(int argc, const char** argv) {
 string read_input(std::string& input_filename) {
   ifstream input;
   input.open(input_filename);
-  string input_str_p(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
-  return std::move(input_str_p);
+  auto in = std::string(istreambuf_iterator<char>(input),
+                        istreambuf_iterator<char>());
+  return std::move(in);
 }
 
 Options parse_options(int argc, const char** argv) {
@@ -105,6 +100,9 @@ Options parse_options(int argc, const char** argv) {
       .required(true);
   parser.add_argument("-o", "--output", "Output file", false);
   parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
+  parser.add_argument()
+      .names({"-d", "--pass-diff"})
+      .description("Show code difference after each pass");
   parser.enable_help();
 
   auto err = parser.parse(argc, argv);
@@ -129,6 +127,8 @@ Options parse_options(int argc, const char** argv) {
   } else {
     options.out_file = "out.s";
   }
+
+  options.show_code_after_each_pass = parser.exists("pass-diff");
 
   if (parser.exists("verbosity")) {
   } else {
