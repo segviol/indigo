@@ -510,6 +510,13 @@ map<mir::inst::VarId, set<int>> active_var(map<int, BasicBlock*> nodes) {
     cout << endl << "*** desplay blocks ***" << endl;
     map<mir::inst::VarId, set<int>>::iterator t;
     for (t = blocks.begin(); t != blocks.end(); t++) {
+        mir::inst::VarId s0(0);
+        if (t->first == s0) {
+            blocks.erase(t);
+            break;
+        }
+    }
+    for (t = blocks.begin(); t != blocks.end(); t++) {
         cout << t->first;
         set<int>::iterator setit;
         for (setit = t->second.begin(); setit != t->second.end(); setit++) {
@@ -1282,11 +1289,19 @@ void generate_SSA(map<int, BasicBlock*> nodes,
         cout << vars[i] << endl;
     }*/
     //step3.2: rename
+    vector<mir::inst::VarId>::iterator itvar;
+    for (itvar = vars.begin(); itvar != vars.end(); itvar++) {
+        mir::inst::VarId s0(0);
+        if (*itvar == s0) {
+            vars.erase(itvar);
+            break;
+        }
+    }
     for (int i = 0; i < vars.size(); i++) {
         V.clear();
         num = 1;
         push(rename(vars[i]));
-        cout << "$" << vars[i] << endl;
+        //cout << "$" << vars[i] << endl;
         rename_var(vars[i], find_entry(nodes), dom_f, nodes, dom);
     }
 }
@@ -1304,9 +1319,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             generate_SSA(nodes, global, df, iter->second, dom);
             mir::types::LabelId exitid = irgenerator.getNewLabelId();
             for (int i = 0; i < order.size(); i++) {
+                //cout << "order" << order[i];
                 map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
                 mir::types::LabelId id = iit->first;
                 mir::inst::BasicBlk bb(id);
+                //cout << " " << iit->second->preBlock.size();
                 for (int j = 0; j < iit->second->preBlock.size(); j++) {
                     if (iit->second->preBlock[j]->id >= 0) {
                         bb.preceding.insert(iit->second->preBlock[j]->id);
@@ -1321,19 +1338,12 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 }
                 //cout << order[i] << "#" << iit->second->inst[iit->second->inst.size() - 1].index() << endl;
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
-                if (jump->bb_true < 0) {
-                    jump->bb_true = exitid;
+                if (jump->bb_true != -2) {
+                    bb.jump = move(*jump);
                 }
-                bb.jump = move(*jump);
                 it->second.basic_blks.insert({ id, std::move(bb) });
                 //insertinsert({ id, std::move(bb) })
             }
-            mir::inst::BasicBlk bb(exitid);
-            BasicBlock* b = find_exit(nodes);
-            for (int i = 0; i < b->preBlock.size(); i++) {
-                bb.preceding.insert(b->preBlock[i]->id);
-            }
-            it->second.basic_blks.insert({ exitid, std::move(bb) });
             map<uint32_t, mir::inst::Variable>::iterator itt;
             for (itt = it->second.variables.begin(); itt != it->second.variables.end(); itt++) {
                 map<mir::inst::VarId, vector< mir::inst::VarId>>::iterator ite = name_map.find(itt->first);
