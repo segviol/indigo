@@ -88,6 +88,7 @@ irGenerator::irGenerator() {
       ->second.variables.insert(std::pair(
           _ReturnVarId, Variable(SharedTyPtr(new IntTy()), false, false)));
   _localValueNameToId[_ReturnVarName] = _ReturnVarId;
+  _funcNameToInstructions[_funcStack.back()].push_back(shared_ptr<JumpLabelId>(new JumpLabelId(_nowLabelId++)));
 
   for (string funcName : externalFuncName) {
     shared_ptr<mir::inst::MirFunction> func;
@@ -330,6 +331,7 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind) {
             _ReturnVarId, Variable(SharedTyPtr(new IntTy()), false, false)));
     _localValueNameToId[_ReturnVarName] = _ReturnVarId;
   }
+  _funcNameToInstructions[_funcStack.back()].push_back(shared_ptr<JumpLabelId>(new JumpLabelId(getNewLabelId())));
 }
 
 void irGenerator::ir_leave_function() {
@@ -446,12 +448,15 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   shared_ptr<mir::inst::CallInst> callInst;
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT:
+  case front::symbol::SymbolKind::INT: {
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(retName)));
     break;
-  case front::symbol::SymbolKind::VOID:
+  }
+
+  case front::symbol::SymbolKind::VOID: {
     destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
     break;
+  }
   default:
     break;
   }
