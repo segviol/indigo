@@ -24,6 +24,18 @@ arm::Function Codegen::translate_function() {
   generate_return_and_cleanup();
 
   {
+#pragma region passShow
+    std::cout << "VariableToReg: " << std::endl;
+    for (auto& v : reg_map) {
+      std::cout << v.first << " -> ";
+      display_reg_name(std::cout, v.second);
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+#pragma endregion
+  }
+
+  {
     // Put variable to vreg map in extra data
     auto data =
         extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
@@ -46,7 +58,6 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
   for (auto& inst : blk.inst) {
     auto& i = *inst;
-    std::cout << "translate: " << i << std::endl;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
@@ -153,11 +164,18 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
 
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
   auto res = this->var_collapse.find(i);
+  auto min = res->second;
   if (res != var_collapse.end()) {
     while (true) {
       auto res_ = this->var_collapse.find(res->second);
       if (res_ == var_collapse.end() || res == res_) {
         return res->second;
+      } else if (res_->second == min) {
+        // Avoid loops: always return the smallest value in loop
+        return min;
+      } else {
+        if (res_->second < min) min = res->second;
+        res = res_;
       }
     }
   } else {
@@ -175,6 +193,14 @@ void Codegen::scan() {
       }
     }
   }
+
+#pragma region CollapseShow
+  std::cout << "collapsing: " << std::endl;
+  for (auto& v : var_collapse) {
+    std::cout << v.first << " -> " << v.second << std::endl;
+  }
+  std::cout << std::endl;
+#pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
@@ -236,7 +262,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
-    return RegisterOperand(get_or_alloc_vgp(*x));
+    return RegisterOperand(Reg(get_or_alloc_vgp(*x)));
   } else {
     throw new prelude::UnreachableException();
   }
@@ -262,11 +288,7 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
 }
 
 arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
-  std::cout << "v" << v;
   auto r = get_or_alloc_vgp(v);
-  std::cout << " r ";
-  display_reg_name(std::cout, r);
-  std::cout << std::endl;
   return r;
 }
 
@@ -370,8 +392,6 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
     inst.push_back(std::make_unique<Arith2Inst>(
         OpCode::Mov, translate_var_reg(i.dest), Reg(0)));
-
-  // throw new prelude::NotImplementedException();
 }
 
 void Codegen::translate_inst(mir::inst::StoreInst& i) {
@@ -549,9 +569,11 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
     case mir::inst::JumpInstructionKind::Return:
       if (j.cond_or_ret.has_value()) {
         // Move return value to its register
-        inst.push_back(std::make_unique<Arith2Inst>(
-            OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
-            translate_var_reg(j.cond_or_ret.value())));
+        if (j.cond_or_ret.value().id != 0) {
+          inst.push_back(std::make_unique<Arith2Inst>(
+              OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
+              Reg(translate_var_reg(j.cond_or_ret.value()))));
+        }
       }
       inst.push_back(
           std::make_unique<BrInst>(OpCode::B, format_fn_end_label(func.name)));
