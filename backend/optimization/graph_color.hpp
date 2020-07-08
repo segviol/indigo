@@ -176,7 +176,7 @@ class Conflict_Map {
   }
 };
 
-class Graph_Color : backend::MirOptimizePass {
+class Graph_Color : public backend::MirOptimizePass {
  public:
   u_int color_num = 8;
   const std::string name = "graph_color";

@@ -399,7 +399,7 @@ class BlockNodes {
   }
 };
 
-class Common_Expr_Del : backend::MirOptimizePass {
+class Common_Expr_Del : public backend::MirOptimizePass {
  public:
   const std::string name = "Common expression delete";
   std::string pass_name() const { return name; }
