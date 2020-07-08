@@ -175,13 +175,11 @@ class Livevar_Analyse {
     }
   }
   ~Livevar_Analyse(){};
-  bool dfs_build(mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
-                 std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks,
-                 std::map<uint32_t, mir::inst::Variable>& vartable) {
+  bool dfs_build(mir::inst::BasicBlk& start) {
     auto& id = start.id;
     bool modify = livevars.at(id)->build();
     for (auto pre : start.preceding) {
-      modify |= livevars[pre]->build();
+      modify |= dfs_build(livevars[pre]->block);
     }
     return modify;
   }
@@ -193,7 +191,7 @@ class Livevar_Analyse {
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
-    while (dfs_build(end->second, empty, func.basic_blks, func.variables))
+    while (dfs_build(end->second))
       ;
   }
 };
