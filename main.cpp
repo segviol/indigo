@@ -1,8 +1,10 @@
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 #include "backend/backend.hpp"
 #include "backend/codegen/codegen.hpp"
+#include "backend/codegen/math_opt.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
@@ -25,7 +27,8 @@ using std::string;
 
 const bool debug = false;
 
-string& read_input(string file = "testfile.txt");
+string read_input(std::string&);
+
 Options parse_options(int argc, const char** argv);
 
 int main(int argc, const char** argv) {
@@ -33,11 +36,10 @@ int main(int argc, const char** argv) {
   // frontend
   std::vector<front::word::Word> word_arr(VECTOR_SIZE);
   word_arr.clear();
-  string file = argc > 1 ? argv[1] : "testfile.txt";
-  string& input_str = read_input(file);
+
+  string input_str = read_input(options.in_file);
 
   word_analyse(input_str, word_arr);
-  delete &input_str;
 
   front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
   syntax_analyze.gm_comp_unit();
@@ -56,17 +58,19 @@ int main(int argc, const char** argv) {
 
   // std::cout << "Mir" << std::endl << package << std::endl;
   spdlog::info("Mir_Before");
-  std::cout << package << std::endl;
-  optimization::remove_dead_code::Remove_Dead_Code rdc;
-  std::map<string, std::any> extra_data;
-  // rdc.optimize_mir(package, extra_data);
-  optimization::common_expr_del::Common_Expr_Del cel;
-  cel.optimize_mir(package, extra_data);
   spdlog::info("Mir_After");
   std::cout << package << std::endl;
   spdlog::info("generating ARM code");
 
-  backend::Backend backend(package);
+  backend::Backend backend(package, options);
+
+  // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
+
   auto code = backend.generate_code();
   std::cout << "CODE:" << std::endl << code;
 
@@ -77,23 +81,36 @@ int main(int argc, const char** argv) {
   return 0;
 }
 
-string& read_input(string file) {
+string read_input(std::string& input_filename) {
   ifstream input;
-  input.open(file);
-  string* input_str_p =
-      new string(istreambuf_iterator<char>(input), istreambuf_iterator<char>());
-  return *input_str_p;
+  input.open(input_filename);
+  auto in = std::string(istreambuf_iterator<char>(input),
+                        istreambuf_iterator<char>());
+  return std::move(in);
 }
 
 Options parse_options(int argc, const char** argv) {
   argparse::ArgumentParser parser(
       "compiler", "Compiler for SysY language, by SEGVIOL team.");
 
+  parser.add_argument()
+      .name("input")
+      .description("Input file")
+      .position(0)
+      .required(true);
   parser.add_argument("-o", "--output", "Output file", false);
   parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
+  parser.add_argument()
+      .names({"-d", "--pass-diff"})
+      .description("Show code difference after each pass");
   parser.enable_help();
 
-  parser.parse(argc, argv);
+  auto err = parser.parse(argc, argv);
+
+  if (err) {
+    std::cout << err << endl;
+    exit(1);
+  }
 
   if (parser.exists("help")) {
     parser.print_help();
@@ -101,6 +118,9 @@ Options parse_options(int argc, const char** argv) {
   }
 
   Options options;
+
+  options.in_file = parser.get<std::string>("input");
+
   if (parser.exists("output")) {
     auto out = parser.get<std::string>("output");
     options.out_file = out;
@@ -108,13 +128,17 @@ Options parse_options(int argc, const char** argv) {
     options.out_file = "out.s";
   }
 
+  options.show_code_after_each_pass = parser.exists("pass-diff");
+
   if (parser.exists("verbosity")) {
   } else {
     spdlog::set_level(spdlog::level::warn);
   }
   spdlog::set_level(spdlog::level::trace);
   spdlog::set_default_logger(spdlog::stderr_color_st("console"));
+  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
 
+  spdlog::info("input file is {}", options.in_file);
   spdlog::info("output file is {}", options.out_file);
 
   return std::move(options);

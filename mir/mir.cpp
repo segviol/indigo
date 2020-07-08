@@ -54,7 +54,7 @@ void display_op(std::ostream& o, Op val) {
 void Variable::display(std::ostream& o) const {
   o << *ty;
   if (is_memory_var) {
-    o << " memory";
+    o << " memory (" << *(type()) << ")";
   }
   if (is_temp_var) {
     o << " temp";
