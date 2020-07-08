@@ -1,6 +1,7 @@
 #include "backend.hpp"
 
 #include <climits>
+#include <iostream>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -15,6 +16,10 @@ void Backend::do_mir_optimization() {
   for (auto& pass : mir_passes) {
     spdlog::info("Running MIR pass: {}", pass->pass_name());
     pass->optimize_mir(package, extra_data);
+    if (options.show_code_after_each_pass) {
+      spdlog::info("Code after pass: {}", pass->pass_name());
+      std::cerr << package << std::endl;
+    }
   }
 }
 
@@ -22,6 +27,10 @@ void Backend::do_arm_optimization() {
   for (auto& pass : arm_passes) {
     spdlog::info("Running ARM pass: {}", pass->pass_name());
     pass->optimize_arm(arm_code.value(), extra_data);
+    if (options.show_code_after_each_pass) {
+      spdlog::info("Code after pass: {}", pass->pass_name());
+      std::cerr << arm_code.value() << std::endl;
+    }
   }
 }
 
@@ -38,6 +47,10 @@ void Backend::do_mir_to_arm_transform() {
     code.consts.insert({v.first, v.second});
   }
   arm_code.emplace(std::move(code));
+  if (options.show_code_after_each_pass) {
+    spdlog::info("Code after transformation");
+    std::cerr << arm_code.value() << std::endl;
+  }
 }
 
 arm::ArmCode Backend::generate_code() {
