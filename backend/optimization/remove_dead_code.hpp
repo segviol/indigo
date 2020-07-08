@@ -30,7 +30,8 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
       auto defvar = riter->get()->dest;
       auto defvariable = vartable[defvar.id];
       if (defvariable.ty->kind() == mir::types::TyKind::Void ||
-          riter->get()->inst_kind() == mir::inst::InstKind::Store) {
+          riter->get()->inst_kind() == mir::inst::InstKind::Store ||
+          riter->get()->inst_kind() == mir::inst::InstKind::Call) {
         riter++;
         continue;
       }
