@@ -4,6 +4,7 @@
 
 #include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"
+#include "../opt.hpp"
 
 namespace backend {
 
@@ -12,11 +13,12 @@ class ArmOptimizePass;
 
 class Backend {
  public:
-  Backend(mir::inst::MirPackage package)
-      : package(std::move(package)),
+  Backend(mir::inst::MirPackage& package, Options& options)
+      : package(package),
         arm_code(),
         mir_passes(),
         arm_passes(),
+        options(options),
         extra_data() {}
 
   void add_pass(std::unique_ptr<MirOptimizePass> pass) {
@@ -40,8 +42,9 @@ class Backend {
   arm::ArmCode generate_code();
 
  private:
-  mir::inst::MirPackage package;
+  mir::inst::MirPackage& package;
   std::optional<arm::ArmCode> arm_code;
+  Options& options;
 
   std::vector<std::unique_ptr<MirOptimizePass>> mir_passes;
   std::vector<std::unique_ptr<ArmOptimizePass>> arm_passes;

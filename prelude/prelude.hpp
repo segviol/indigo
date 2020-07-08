@@ -1,7 +1,11 @@
 #pragma once
+
 #include <climits>
 #include <exception>
 #include <iostream>
+#include <sstream>
+
+#include "../include/spdlog/include/spdlog/fmt/bundled/core.h"
 
 namespace prelude {
 

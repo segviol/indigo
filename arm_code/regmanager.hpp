@@ -9,43 +9,46 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "arm.hpp"
 namespace RegManager {
 using std::list;
 using std::vector;
 typedef u_int32_t Reg;
 typedef u_int32_t VirtualReg;
 
-const static vector<int> allRegs{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
-const static vector<int> allGlobalRegs{};
-const static vector<int> allLocalRegs{0, 1, 2, 3,  4,  5,  6,
-                                      7, 8, 9, 10, 11, 12, 13};
+// const static vector<int> allRegs{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+// 13}; const static vector<int> allGlobalRegs{}; const static vector<int>
+// allLocalRegs{0, 1, 2, 3,  4,  5,  6,
+//                                       7, 8, 9, 10, 11, 12, 13};
 
 class RegManager {
  public:
-  vector<int> globalRegs;
-  std::list<int> freeLocalRegs;
-  std::list<int> useLocalRegs;  // lru
+  // vector<Reg> globalRegs;
+  std::list<Reg> freeLocalRegs;
+  std::list<Reg> useLocalRegs;    // lru
+  std::vector<Reg> reversedRegs;  // helps to write back vars
   std::map<Reg, VirtualReg> reg_var_map;
   std::map<VirtualReg, Reg> var_reg_map;
+  RegManager(std::vector<Reg> freeregs, std::vector<Reg> reversedRegs)
+      : freeLocalRegs(std::list<Reg>(freeregs.begin(), freeregs.end())),
+        reversedRegs(reversedRegs) {}
 
   Reg allocReg(VirtualReg var) {
     Reg reg;
     if (var_reg_map.count(var)) {
       reg = var_reg_map.at(var);
-      useReg(reg);
-      return reg;
     } else if (!freeLocalRegs.empty()) {
       reg = freeLocalRegs.front();
       freeLocalRegs.pop_front();
       reg_var_map[reg] = var;
       var_reg_map[var] = reg;
-      useReg(reg);
-      return reg;
+    } else {
+      reg = useLocalRegs.back();
+      writeBack(reg);
+      reg_var_map[reg] = var;
+      var_reg_map[var] = reg;
     }
-    reg = useLocalRegs.back();
-    writeBack(reg);
-    reg_var_map[reg] = var;
-    var_reg_map[var] = reg;
     useReg(reg);
     return reg;
   }
@@ -70,5 +73,7 @@ class RegManager {
     useLocalRegs.erase(iter);
     freeLocalRegs.push_front(reg);
   }
+
+  bool full() { return freeLocalRegs.empty(); }
 };
 }  // namespace RegManager

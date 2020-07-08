@@ -1,9 +1,14 @@
+#pragma once
+// #ifndef Livevar_Analyse
+// #define Livevar_Analyse
 #include <assert.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <map>
 #include <memory>
 
+#include "../../mir/mir.hpp"
 #include "../backend.hpp"
 
 namespace optimization::livevar_analyse {
@@ -12,22 +17,21 @@ typedef uint32_t InstIdx;
 typedef std::set<mir::inst::VarId> VariableSet;
 typedef std::shared_ptr<VariableSet> sharedPtrVariableSet;
 typedef std::shared_ptr<Block_Live_Var> sharedPtrBlkLivevar;
-class Var_Point;
+// class Var_Point;
 
-class Define_Use_Chain;
-class Remove_Dead_Code;
+// class Define_Use_Chain;
+// class Remove_Dead_Code;
 
-typedef uint32_t InstIdx;
-class Var_Point {
-  mir::types::LabelId blk_id;
-  mir::inst::Variable var;
-  InstIdx instidx;
-};
-class Define_Use_Chain {
- public:
-  Var_Point define;
-  std::vector<Var_Point> uses;
-};
+// class Var_Point {
+//   mir::types::LabelId blk_id;
+//   mir::inst::Variable var;
+//   InstIdx instidx;
+// };
+// class Define_Use_Chain {
+//  public:
+//   Var_Point define;
+//   std::vector<Var_Point> uses;
+// };
 
 // The class will ignore global variables and array variables
 class Block_Live_Var {
@@ -37,8 +41,13 @@ class Block_Live_Var {
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
   std::set<sharedPtrVariableSet> subsequents;
-  bool ignore_global_and_array = true;
-  Block_Live_Var(int size = 0, bool ignore_global_and_array = true) {
+  bool first_build = true;
+  mir::inst::BasicBlk& block;
+  std::map<uint32_t, mir::inst::Variable>& vartable;
+  Block_Live_Var(mir::inst::BasicBlk& block,
+                 std::map<uint32_t, mir::inst::Variable>& vartable)
+      : block(block), vartable(vartable) {
+    auto size = block.inst.size();
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
@@ -47,7 +56,7 @@ class Block_Live_Var {
   }
 
   /*
-  The function should be only called once to build the prceding relation.
+  The function is called to build the prceding relation.
   After that, the pointer will update automatically when it's sub
   */
   void add_subsequent(sharedPtrVariableSet subsequent) {
@@ -55,22 +64,50 @@ class Block_Live_Var {
   }
 
   // TODO: remove global and ptr
-  std::set<mir::inst::VarId> filter_vars(
-      std::set<mir::inst::VarId> vars,
-      std::map<uint32_t, mir::inst::Variable> vartable) {  // remove global
-    auto res = std::set(vars);
-    for (auto iter = res.begin(); iter != res.end();) {
-      if (vartable[iter->id].is_memory_var) {
-        iter = res.erase(iter);
-      } else {
-        ++iter;
-      }
+  // std::set<mir::inst::VarId> filter_vars(
+  //     std::set<mir::inst::VarId> vars,
+  //     std::map<uint32_t, mir::inst::Variable> vartable) {  // remove global
+  //   auto res = std::set(vars);
+  //   for (auto iter = res.begin(); iter != res.end();) {
+  //     if (vartable[iter->id].is_memory_var) {
+  //       iter = res.erase(iter);
+  //     } else {
+  //       ++iter;
+  //     }
+  //   }
+  //   return vars;
+  // }
+
+  void update(int idx) {
+    if (idx < 0) {
+      return;
     }
-    return vars;
+    auto tmp = live_vars_out;
+    if (idx + 1 < instLiveVars.size()) {
+      tmp = instLiveVars[idx + 1];
+    }
+    int size_before = instLiveVars[idx]->size();
+    auto useVars = block.inst[idx]->useVars();
+    auto defvar = block.inst[idx]->dest;
+    // if (ignore_global_and_array) {
+    //   useVars = filter_vars(useVars, vartable);
+    // }
+    VariableSet defvars;
+    if (vartable[defvar].ty->kind() != mir::types::TyKind::Void &&
+        block.inst[idx]->inst_kind() != mir::inst::InstKind::Store) {
+      defvars.insert(defvar.id);
+    }
+    VariableSet diff_result;
+    instLiveVars[idx]->clear();
+    std::set_difference(tmp->begin(), tmp->end(), defvars.begin(),
+                        defvars.end(),
+                        std::inserter(diff_result, diff_result.begin()));
+    std::set_union(
+        useVars.begin(), useVars.end(), diff_result.begin(), diff_result.end(),
+        std::inserter(*instLiveVars[idx], instLiveVars[idx]->begin()));
   }
 
-  bool build(mir::inst::BasicBlk& block,
-             std::map<uint32_t, mir::inst::Variable>& vartable) {
+  bool build() {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
     auto live_vars_out_before = *live_vars_out;
     live_vars_out->clear();
@@ -88,37 +125,18 @@ class Block_Live_Var {
       auto iter = subsequents.begin();
       live_vars_out->insert(iter->get()->begin(), iter->get()->end());
     }
-    if (std::equal(
-            live_vars_out_before.begin(), live_vars_out_before.end(),
-            live_vars_out->begin(),
-            live_vars_out->end())) {  // if live_vars out dont't change, then
-                                      // the block will not be modified
+    // std::cout << live_vars_out_before.size() << "  " << live_vars_out->size()
+    //           << std::endl;
+    if (!first_build &&
+        *live_vars_out ==
+            live_vars_out_before) {  // if live_vars out dont't change, then
+                                     // the block will not be modified
       return false;
     }
+
     auto tmp = live_vars_out;
     for (int i = instLiveVars.size() - 1; i >= 0; --i) {
-      int size_before = instLiveVars[i]->size();
-      auto useVars = block.inst[i]->useVars();
-      auto defvar = block.inst[i]->dest;
-      if (ignore_global_and_array) {
-        useVars = filter_vars(useVars, vartable);
-      }
-      VariableSet defvars;
-      if (vartable[defvar].ty->kind() != mir::types::TyKind::Void) {
-        if (ignore_global_and_array && !vartable[defvar.id].is_memory_var ||
-            !ignore_global_and_array) {
-          defvars.insert(defvar.id);
-        }
-      }
-      VariableSet diff_result;
-      instLiveVars[i]->clear();
-      std::set_difference(tmp->begin(), tmp->end(), defvars.begin(),
-                          defvars.end(),
-                          std::inserter(diff_result, diff_result.begin()));
-      std::set_union(useVars.begin(), useVars.end(), diff_result.begin(),
-                     diff_result.end(),
-                     std::inserter(*instLiveVars[i], instLiveVars[i]->begin()));
-      tmp = instLiveVars[i];
+      update(i);
     }
     live_vars_in->clear();
     if (instLiveVars.size()) {
@@ -126,10 +144,11 @@ class Block_Live_Var {
     } else {  // Maybe the block's codes are all dead
       live_vars_in->insert(live_vars_out->begin(), live_vars_out->end());
     }
+    first_build = false;
     return true;
   }
 
-  ~Block_Live_Var();
+  ~Block_Live_Var(){};
 };
 
 class Livevar_Analyse {
@@ -137,36 +156,44 @@ class Livevar_Analyse {
   std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
   mir::inst::MirFunction& func;
   Livevar_Analyse(mir::inst::MirFunction& func) : func(func) {
+    auto& vartable = func.variables;
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      auto blv = std::make_shared<Block_Live_Var>(iter->second.inst.size());
+      auto& block = iter->second;
+      auto blv = std::make_shared<Block_Live_Var>(block, vartable);
       livevars[iter->second.id] = blv;
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {  // init subsequnt relation
       auto blv = livevars[iter->second.id];
       for (auto prec : iter->second.preceding) {
+        // if (!livevars.count(prec)) {
+        //   continue;
+        // }
         livevars[prec]->add_subsequent(blv->live_vars_in);
       }
     }
   }
-  bool dfs_build(mir::inst::BasicBlk& start, sharedPtrVariableSet live_vars_out,
-                 std::map<mir::types::LabelId, mir::inst::BasicBlk>& basic_blks,
-                 std::map<uint32_t, mir::inst::Variable>& vartable) {
+  ~Livevar_Analyse(){};
+  bool dfs_build(mir::inst::BasicBlk& start) {
     auto& id = start.id;
-    bool modify = livevars.at(id)->build(basic_blks.at(id), vartable);
+    bool modify = livevars.at(id)->build();
     for (auto pre : start.preceding) {
-      modify |= livevars[pre]->build(basic_blks.find(pre)->second, vartable);
+      modify |= dfs_build(livevars[pre]->block);
     }
     return modify;
   }
 
   void build() {
+    if (!func.basic_blks.size()) {
+      return;
+    }
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
-    while (dfs_build(end->second, empty, func.basic_blks, func.variables))
+    while (dfs_build(end->second))
       ;
   }
 };
 }  // namespace optimization::livevar_analyse
+// #endif

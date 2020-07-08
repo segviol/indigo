@@ -16,8 +16,8 @@ set(backend_files
     backend/optimization/remove_dead_code.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
-    backend/codegen/simple_reg_alloc.hpp
-    backend/codegen/simple_reg_alloc.cpp
+    backend/codegen/reg_alloc.cpp
+    backend/codegen/math_opt.cpp
     backend/codegen/err.hpp
     backend/optimization/graph_color.hpp)
 
@@ -26,7 +26,10 @@ set(frontend_files
     frontend/express_node.cpp
     frontend/ir_generator.hpp
     frontend/ir_generator.cpp
+    frontend/optim_mir.hpp
+    frontend/optim_mir.cpp
     frontend/symbol.hpp
+    frontend/symbol.cpp
     frontend/symbol_table.hpp
     frontend/symbol_table.cpp
     frontend/syntax_analyze.hpp
@@ -42,10 +45,9 @@ set(arm_files
     arm_code/arm.cpp
     arm_code/arm.hpp)
 
-add_library(backend ${backend_files})
-# add_library(frontend ${frontend_files})
-add_library(mir ${mir_files})
-add_library(arm ${arm_files})
+add_library(src ${backend_files} ${frontend_files} ${mir_files} ${arm_files})
+
+add_subdirectory(include/spdlog)
 
 add_executable(compiler main.cpp)
 
@@ -57,9 +59,9 @@ endif(STATIC_LINK_ARTIFACTS)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
+target_include_directories(src PRIVATE include/spdlog/include)
+
 target_link_libraries(
     compiler
-    # frontend 
-    backend 
-    mir
-    arm)
+    spdlog::spdlog
+    src)
