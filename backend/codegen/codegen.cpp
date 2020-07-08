@@ -153,11 +153,18 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
 
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
   auto res = this->var_collapse.find(i);
+  auto min = res->second;
   if (res != var_collapse.end()) {
     while (true) {
       auto res_ = this->var_collapse.find(res->second);
       if (res_ == var_collapse.end() || res == res_) {
         return res->second;
+      } else if (res_->second == min) {
+        // Avoid loops: always return the smallest value in loop
+        return min;
+      } else {
+        if (res_->second < min) min = res->second;
+        res = res_;
       }
     }
   } else {
@@ -370,8 +377,6 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
     inst.push_back(std::make_unique<Arith2Inst>(
         OpCode::Mov, translate_var_reg(i.dest), Reg(0)));
-
-  throw new prelude::NotImplementedException();
 }
 
 void Codegen::translate_inst(mir::inst::StoreInst& i) {
