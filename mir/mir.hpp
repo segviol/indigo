@@ -257,7 +257,7 @@ class Variable : public prelude::Displayable {
   bool is_memory_var;
   bool is_temp_var;
 
-  types::SharedTyPtr type() {
+  types::SharedTyPtr type() const {
     if (is_memory_var) {
       return types::new_ptr_ty(ty);
     } else {
