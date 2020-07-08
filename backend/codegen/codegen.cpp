@@ -113,8 +113,8 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
     } else {
       auto found = reg_map.find(v);
       if (found != reg_map.end()) {
-        assert(arm::register_type(found->second) ==
-               arm::RegisterKind::VirtualGeneralPurpose);
+        // assert(arm::register_type(found->second) ==
+        //        arm::RegisterKind::VirtualGeneralPurpose);
         return found->second;
       } else {
         auto reg = alloc_vgp();
@@ -292,8 +292,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
       // If this is just an ordinary pointer type
       auto found = reg_map.find(v);
       if (found != reg_map.end()) {
-        assert(arm::register_type(found->second) ==
-               arm::RegisterKind::VirtualGeneralPurpose);
+        // assert(arm::register_type(found->second) ==
+        //        arm::RegisterKind::VirtualGeneralPurpose);
         return found->second;
       } else {
         auto reg = alloc_vgp();
