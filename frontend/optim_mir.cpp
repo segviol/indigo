@@ -572,6 +572,7 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
         N.push_back(order[i]);
     }
     N.push_back(-2);
+    N.push_back(-1);
     for (it = nodes.begin(); it != nodes.end(); it++) {
         if (it->first == -1) {
             vector<int> pre;
@@ -606,8 +607,6 @@ map<int, int> find_idom(map<int, BasicBlock*> nodes) {
                 flag = true;
             }
         }
-
-
 
         // BFS
         /*vector<int> visit;
@@ -1287,7 +1286,7 @@ void generate_SSA(map<int, BasicBlock*> nodes,
         V.clear();
         num = 1;
         push(rename(vars[i]));
-        //cout << "$" << vars[i] << endl;
+        cout << "$" << vars[i] << endl;
         rename_var(vars[i], find_entry(nodes), dom_f, nodes, dom);
     }
 }
