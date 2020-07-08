@@ -14,28 +14,41 @@
 namespace optimization::remove_dead_code {
 
 class Remove_Dead_Code : public backend::MirOptimizePass {
+ public:
   std::string name = "RemoveDeadCode";
 
-  std::string pass_name() { return name; }
+  std::string pass_name() const { return name; }
 
-  std::map<mir::types::LabelId,
-           std::shared_ptr<livevar_analyse::Livevar_Analyse> >
+  std::map<std::string, std::shared_ptr<livevar_analyse::Livevar_Analyse>>
       func_livevar_analyse;
   bool remove_dead_code(std::shared_ptr<livevar_analyse::Block_Live_Var> blv,
                         mir::inst::BasicBlk& block,
                         std::map<uint32_t, mir::inst::Variable> vartable) {
     bool modify = false;
     auto tmp = blv->live_vars_out;
-    for (auto iter = block.inst.begin(); iter != block.inst.end();) {
-      auto defvar = iter->get()->dest;
-      if (vartable[defvar.id].ty->kind() == mir::types::TyKind::Void) {
+    for (auto riter = block.inst.rbegin(); riter != block.inst.rend();) {
+      auto defvar = riter->get()->dest;
+      auto defvariable = vartable[defvar.id];
+      if (defvariable.ty->kind() == mir::types::TyKind::Void ||
+          riter->get()->inst_kind() == mir::inst::InstKind::Store ||
+          riter->get()->inst_kind() == mir::inst::InstKind::Call) {
+        riter++;
         continue;
       }
-      int idx = iter - block.inst.begin();
+      int idx = block.inst.rend() - riter - 1;
       if (idx + 1 >= blv->instLiveVars.size()) {  // remove the last code
         tmp = blv->live_vars_out;
       } else {
         tmp = *(blv->instLiveVars.begin() + idx + 1);
+      }
+      if (!tmp->count(defvar)) {
+        riter = std::vector<std::unique_ptr<mir::inst::Inst>>::reverse_iterator(
+            block.inst.erase((++riter).base()));
+        blv->instLiveVars.erase(blv->instLiveVars.begin() + idx);
+        blv->update(idx - 1);
+        modify = true;
+      } else {
+        riter++;
       }
     }
     // if (modify) {
@@ -52,7 +65,13 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
     return modify;
   }
 
-  void optimize_func(mir::types::LabelId funcId, mir::inst::MirFunction& func) {
+  void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
+    if (funcId == "main") {
+      std::cout << 'a' << std::endl;
+    }
+    func_livevar_analyse[funcId] =
+        std::make_shared<livevar_analyse::Livevar_Analyse>(func);
+    func_livevar_analyse[funcId]->build();
     while (true) {  // delete death code for each block and build again util no
                     // death code to remove
       bool modify = false;
