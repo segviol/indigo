@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <list>
 #include <map>
 #include <memory>
 
@@ -175,12 +176,23 @@ class Livevar_Analyse {
     }
   }
   ~Livevar_Analyse(){};
-  bool dfs_build(mir::inst::BasicBlk& start) {
-    auto& id = start.id;
-    bool modify = livevars.at(id)->build();
-    for (auto pre : start.preceding) {
-      modify |= dfs_build(livevars[pre]->block);
+  bool bfs_build(mir::inst::BasicBlk& start) {
+    std::list<mir::types::LabelId> queue;
+    std::set<mir::types::LabelId> visited;
+    queue.push_back(start.id);
+    bool modify = false;
+    while (!queue.empty()) {
+      auto id = queue.front();
+      if (!visited.count(id)) {
+        modify |= livevars.at(id)->build();
+        visited.insert(id);
+        for (auto pre : livevars.at(id)->block.preceding) {
+          queue.push_back(pre);
+        }
+      }
+      queue.pop_front();
     }
+
     return modify;
   }
 
@@ -191,7 +203,7 @@ class Livevar_Analyse {
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
-    while (dfs_build(end->second))
+    while (bfs_build(end->second))
       ;
   }
 };
