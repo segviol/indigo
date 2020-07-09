@@ -18,8 +18,9 @@ arm::Function Codegen::translate_function() {
   scan_stack();
   scan();
   generate_startup();
-  for (auto& bb : func.basic_blks) {
-    translate_basic_block(bb.second);
+  for (auto bb_id : bb_ordering) {
+    auto& bb = func.basic_blks.at(bb_id);
+    translate_basic_block(bb);
   }
   generate_return_and_cleanup();
 

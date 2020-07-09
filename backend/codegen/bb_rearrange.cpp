@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../optimization/optimization.hpp"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace backend::codegen {
 
@@ -25,14 +26,16 @@ struct CycleSolver {
 };
 
 void CycleSolver::dfs(int id) {
-  if (visited.find(id) != visited.end()) {
-    return;
-  } else if (path.find(id) != path.end()) {
-    auto res = counter.try_emplace(id, 1);
-    if (!res.second) {
-      res.first->second++;
+  if (path.find(id) != path.end()) {
+    if (counter.find(id) == counter.end()) {
+      counter.insert({id, 1});
+    } else {
+      counter[id]++;
     }
+  } else if (visited.find(id) != visited.end()) {
+    return;
   } else {
+    path.insert(id);
     visited.insert(id);
     auto& bb = f.basic_blks.at(id);
     switch (bb.jump.kind) {
@@ -46,6 +49,7 @@ void CycleSolver::dfs(int id) {
       default:
         break;
     }
+    path.erase(id);
   }
 }
 
@@ -56,7 +60,14 @@ void BasicBlkRearrange::optimize_mir(
   for (auto& f : mir.functions) {
     if (f.second.type->is_extern) continue;
     auto res = optimize_func(f.second);
-    ordering_map.insert({f.first, std::move(res)});
+
+    std::cout << "bb arrangement for " << f.second.name << " is:" << std::endl;
+    for (auto i : res) {
+      std::cout << i << " ";
+    }
+    std::cout << std::endl;
+
+    ordering_map.insert({f.second.name, std::move(res)});
   }
   extra_data_repo.insert(
       {optimization::BASIC_BLOCK_ORDERING_DATA_NAME, std::move(ordering_map)});
@@ -72,29 +83,35 @@ std::vector<uint32_t> BasicBlkRearrange::optimize_func(
   std::vector<uint32_t> arrangement;
 
   for (auto& bb : f.basic_blks) {
-    for (auto id : bb.second.preceding) {
-      auto res = input_count.try_emplace(id, 1);
-      if (!res.second) res.first->second++;
-    }
+    input_count.insert({bb.first, bb.second.preceding.size()});
   }
-  input_count.insert({f.basic_blks.begin()->first, 1});
+  input_count.insert_or_assign(f.basic_blks.begin()->first, 1);
+
+  std::cout << "func: " << f.name << std::endl;
+  for (auto& x : input_count) {
+    std::cout << x.first << " " << x.second;
+    auto cycle = cycles.find(x.first);
+    if (cycle != cycles.end()) std::cout << " " << cycle->second;
+    std::cout << std::endl;
+  }
 
   bfs.push_back(f.basic_blks.begin()->first);
   while (bfs.size() > 0) {
     int id = bfs.front();
     bfs.pop_front();
-    int cnt = 0;
-    {
-      auto cnt__ = input_count.find(id);
-      if (cnt__ != input_count.end()) {
-        cnt__->second--;
-        cnt = cnt__->second;
-      }
-    }
+    int& cnt = input_count[id];
+    if (cnt > 0) cnt--;
+    fmt::print("cyclesolver {}: count {}", id, cnt);
+    auto x = cycles.find(id);
 
-    if (auto x = cycles.find(id); (x != cycles.end() && cnt > x->second) ||
-                                  (x == cycles.end() && cnt > 0))
+    if (x == cycles.end())
+      fmt::print("cycle {}\n", x->second);
+    else
+      fmt::print("cycle 0\n");
+    if ((x != cycles.end() && cnt > x->second) ||
+        (x == cycles.end() && cnt > 0))
       continue;
+
     if (visited.find(id) != visited.end())
       continue;
     else
