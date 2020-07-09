@@ -93,7 +93,8 @@ void Codegen::generate_return_and_cleanup() {
   inst.push_back(std::make_unique<LabelInst>(format_fn_end_label(func.name)));
   // NOTE: Register counting is done AFTER register allocation, so there's not
   // much cleanup here. Insert register counting after end label.
-  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_SP, REG_FP));
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_SP,
+                                              RegisterOperand(REG_FP)));
   inst.push_back(
       std::make_unique<PushPopInst>(OpCode::Pop, std::set{REG_FP, REG_PC}));
   // ^ this final pop sets PC and returns the function
@@ -103,7 +104,8 @@ void Codegen::generate_startup() {
   inst.push_back(
       std::make_unique<PushPopInst>(OpCode::Push, std::set{REG_FP, REG_LR}));
   // TODO: Push all used register to save them, probably after register alloc
-  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_FP, REG_SP));
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_FP,
+                                              RegisterOperand(REG_SP)));
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
