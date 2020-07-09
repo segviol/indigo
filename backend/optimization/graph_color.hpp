@@ -21,9 +21,9 @@ typedef u_int32_t color;  // 0 means illegal register
 typedef std::map<mir::inst::VarId, color> Color_Map;
 class Conflict_Map {
  public:
-  std::map<mir::inst::VarId, livevar_analyse::VariableSet> static_Map;
-  std::map<mir::inst::VarId, livevar_analyse::VariableSet> dynamic_Map;
-  std::map<u_int, livevar_analyse::VariableSet> edge_vars;
+  std::map<mir::inst::VarId, std::set<mir::inst::VarId>> static_Map;
+  std::map<mir::inst::VarId, std::set<mir::inst::VarId>> dynamic_Map;
+  std::map<u_int, std::set<mir::inst::VarId>> edge_vars;
   std::stack<mir::inst::VarId> remove_Nodes;
   std::shared_ptr<Color_Map> color_map;
   u_int color_num = 8;
@@ -60,28 +60,31 @@ class Conflict_Map {
   void delete_edge(mir::inst::VarId var) {
     assert(dynamic_Map.count(var));
     auto size = dynamic_Map[var].size();
-    if (!size) {
-      return;
-    }
     edge_vars[size].erase(var);
     if (!edge_vars[size].size()) {
       edge_vars.erase(size);
     }
-    if (!edge_vars.count(size - 1)) {
-      edge_vars[size - 1] = std::set<mir::inst::VarId>();
+    size--;
+    if (!size) {
+      return;
     }
-    edge_vars[size - 1].insert(var);
+    if (!edge_vars.count(size)) {
+      edge_vars[size] = std::set<mir::inst::VarId>();
+    }
+    edge_vars[size].insert(var);
   }
 
   void remove_node_tmper(mir::inst::VarId var) {
     if (!dynamic_Map.count(var)) {
       return;
     }
-    edge_vars[dynamic_Map[var].size()].erase(var);
+    if (dynamic_Map[var].size()) {
+      edge_vars[dynamic_Map[var].size()].erase(var);
+    }
     for (auto iter = dynamic_Map[var].begin(); iter != dynamic_Map[var].end();
          ++iter) {
-      dynamic_Map[*iter].erase(var);
       delete_edge(*iter);
+      dynamic_Map[*iter].erase(var);
     }
     dynamic_Map.erase(var);
     remove_Nodes.push(var);
@@ -183,8 +186,7 @@ class Graph_Color : public backend::MirOptimizePass {
   std::map<mir::types::LabelId,
            std::shared_ptr<livevar_analyse::Livevar_Analyse>>
       blk_livevar_analyse;
-  std::set<mir::inst::VarId> cross_blk_vars;
-  std::map<mir::inst::VarId, color> var_color_map;
+
   std::map<std::string, std::shared_ptr<Color_Map>> func_color_map;
   std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
   Graph_Color(u_int color_num) : color_num(color_num) {}
@@ -194,14 +196,16 @@ class Graph_Color : public backend::MirOptimizePass {
   // Here's a trick. In format SSA,if a var crosses blocks, there must be a
   // block which the var is in it's live_vars out. This is because only one
   // define point is allowed for each var
-  void init_cross_blk_vars(livevar_analyse::sharedPtrBlkLivevar blv) {
+  void init_cross_blk_vars(livevar_analyse::sharedPtrBlkLivevar blv,
+                           std::set<mir::inst::VarId>& cross_blk_vars) {
     cross_blk_vars.insert(blv->live_vars_out->begin(),
                           blv->live_vars_out->end());
   }
 
   void init_conflict_map(mir::inst::BasicBlk& blk,
-                         std::map<u_int, mir::inst::Variable> vartable,
-                         std::shared_ptr<Conflict_Map> conflict_map) {
+                         std::map<u_int, mir::inst::Variable>& vartable,
+                         std::shared_ptr<Conflict_Map>& conflict_map,
+                         std::set<mir::inst::VarId>& cross_blk_vars) {
     for (auto iter = blk.inst.begin(); iter != blk.inst.end(); ++iter) {
       auto defVar = iter->get()->dest;
       if (vartable[defVar.id].ty->kind() == mir::types::TyKind::Void ||
@@ -209,7 +213,7 @@ class Graph_Color : public backend::MirOptimizePass {
         continue;
       }
       auto useVars = iter->get()->useVars();
-      livevar_analyse::VariableSet cross_use_vars;
+      std::set<mir::inst::VarId> cross_use_vars;
       std::set_intersection(
           useVars.begin(), useVars.end(), cross_blk_vars.begin(),
           cross_blk_vars.end(),
@@ -219,6 +223,7 @@ class Graph_Color : public backend::MirOptimizePass {
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
+    std::set<mir::inst::VarId> cross_blk_vars;
     func_color_map[funcId] =
         std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
@@ -227,17 +232,24 @@ class Graph_Color : public backend::MirOptimizePass {
     livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
-      init_cross_blk_vars(iter->second);
+      init_cross_blk_vars(iter->second, cross_blk_vars);
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      init_conflict_map(iter->second, func.variables, conflict_map);
+      init_conflict_map(iter->second, func.variables, conflict_map,
+                        cross_blk_vars);
     }
+    conflict_map->init_edge_vars();
     while (!conflict_map->dynamic_Map.empty()) {
       conflict_map->remove_edge_less_colors();
       conflict_map->remove_edge_larger_colors();
     }
     conflict_map->rebuild();
+    for (auto iter = conflict_map->color_map->begin();
+         iter != conflict_map->color_map->end(); iter++) {
+      std::cout << "variable " << iter->first << " color: " << iter->second
+                << std::endl;
+    }
   }
 
   void optimize_mir(mir::inst::MirPackage& package,
