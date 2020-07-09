@@ -79,7 +79,7 @@ public:
   void ir_declare_string(string str);
   void ir_declare_const(string name, std::uint32_t value, int id);
   void ir_declare_const(string name, std::vector<std::uint32_t> values, int id);
-  void ir_declare_function(string name, symbol::SymbolKind kind);
+  void ir_declare_function(string _name, symbol::SymbolKind kind);
   void ir_leave_function();
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
   void ir_end_of_program();
@@ -124,8 +124,8 @@ private:
   const LabelId _ReturnBlockLabelId = (1 << 20);
   const LabelId _ReturnVarId = 0;
 
-  const string _GlobalInitFuncName =
-      "@@__Compiler__GlobalInitFunc__Auto__Generated__@@";
+  const string _GlobalInitFuncName = "main";
+  const string _MainFuncName = "__compiler_function_main__";
   const string _MainFunctionName = "main";
   const string _VoidVarName = "@@_Compiler_Void_Var_Name_@@";
   const string _ReturnVarName = "@@_Compiler_Retuen_Var_Name_@@";
