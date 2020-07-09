@@ -11,8 +11,6 @@
 
 namespace arm {
 
-inline bool is_virtual_register(Reg r) { return r >= 64; }
-
 RegisterKind register_type(Reg r) {
   if (r < 16)
     return RegisterKind::GeneralPurpose;

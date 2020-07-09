@@ -62,7 +62,7 @@ const uint32_t REG_V_GP_START = 64;
 const uint32_t REG_V_DOUBLE_START = 1 << 31;
 const uint32_t REG_V_QUAD_START = 3 << 30;
 
-inline bool is_virtual_register(Reg r);
+inline bool is_virtual_register(Reg r) { return r >= 64; }
 RegisterKind register_type(Reg r);
 uint32_t register_num(Reg r);
 void display_reg_name(std::ostream& o, Reg r);
@@ -81,6 +81,9 @@ struct RegisterOperand : public prelude::Displayable {
   RegisterShiftKind shift;
   uint8_t shift_amount;
 
+  void replace_reg_if_virtual(Reg reg) {
+    if (is_virtual_register(this->reg)) this->reg = reg;
+  }
   virtual void display(std::ostream& o) const;
   bool operator==(const RegisterOperand& other) const {
     return reg == other.reg && shift == other.shift &&
@@ -106,6 +109,21 @@ struct MemoryOperand : public prelude::Displayable {
   // is offset negative?
   bool neg_rm;
 
+  std::pair<Reg, std::optional<Reg>> is_virtual() {
+    auto x = std::get_if<RegisterOperand>(&offset);
+    if (x)
+      return {r1, x->reg};
+    else {
+      return {r1, {}};
+    }
+  }
+  void replace_reg_if_virtual(Reg r1_, Reg offset_) {
+    if (is_virtual_register(r1)) r1 = r1_;
+    auto x = std::get_if<RegisterOperand>(&offset);
+    if (x) {
+      x->replace_reg_if_virtual(offset_);
+    }
+  }
   virtual void display(std::ostream& o) const;
 };
 
@@ -122,6 +140,17 @@ class Operand2 : public std::variant<RegisterOperand, int32_t>,
   Operand2(RegisterOperand r) : std::variant<RegisterOperand, int32_t>(r) {}
   Operand2(int32_t i) : std::variant<RegisterOperand, int32_t>(i) {}
 
+  Reg get_reg() { return std::get_if<RegisterOperand>(this)->reg; }
+  bool is_reg() { return std::get_if<RegisterOperand>(this); }
+  bool is_virtual() {
+    auto ip = std::get_if<RegisterOperand>(this);
+    return ip && is_virtual_register(ip->reg);
+  }
+  void replace_reg_if_virtual(Reg reg) {
+    if (auto ip = std::get_if<RegisterOperand>(this)) {
+      ip->replace_reg_if_virtual(reg);
+    }
+  }
   virtual void display(std::ostream& o) const;
   bool operator==(const Operand2& other) const {
     auto this_ =
