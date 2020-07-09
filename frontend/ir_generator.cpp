@@ -88,7 +88,8 @@ irGenerator::irGenerator() {
       ->second.variables.insert(std::pair(
           _ReturnVarId, Variable(SharedTyPtr(new IntTy()), false, false)));
   _localValueNameToId[_ReturnVarName] = _ReturnVarId;
-  _funcNameToInstructions[_funcStack.back()].push_back(shared_ptr<JumpLabelId>(new JumpLabelId(_nowLabelId++)));
+  _funcNameToInstructions[_funcStack.back()].push_back(
+      shared_ptr<JumpLabelId>(new JumpLabelId(_nowLabelId++)));
 
   for (string funcName : externalFuncName) {
     shared_ptr<mir::inst::MirFunction> func;
@@ -295,7 +296,8 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind,
   _package.functions.find(_funcStack.back())->second.type->params.push_back(ty);
 }
 
-void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind) {
+void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
+  string name;
   shared_ptr<mir::inst::MirFunction> func;
   shared_ptr<FunctionTy> type;
   SharedTyPtr ret;
@@ -303,6 +305,12 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind) {
 
   _nowLocalValueId = 1;
   _localValueNameToId.clear();
+
+  if (_name == _GlobalInitFuncName) {
+    name = _MainFuncName;
+  } else {
+    name = _name;
+  }
 
   switch (kind) {
   case front::symbol::SymbolKind::INT:
@@ -331,13 +339,18 @@ void irGenerator::ir_declare_function(string name, symbol::SymbolKind kind) {
             _ReturnVarId, Variable(SharedTyPtr(new IntTy()), false, false)));
     _localValueNameToId[_ReturnVarName] = _ReturnVarId;
   }
-  _funcNameToInstructions[_funcStack.back()].push_back(shared_ptr<JumpLabelId>(new JumpLabelId(getNewLabelId())));
+  _funcNameToInstructions[_funcStack.back()].push_back(
+      shared_ptr<JumpLabelId>(new JumpLabelId(getNewLabelId())));
 }
 
 void irGenerator::ir_leave_function() {
   shared_ptr<mir::inst::JumpInstruction> jumpInst;
 
   ir_label(_ReturnBlockLabelId);
+  if (_funcStack.back() == _MainFuncName) {
+    ir_function_call("void", symbol::SymbolKind::VOID, "putint",
+                     {_ReturnVarName});
+  }
   switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
   case mir::types::TyKind::Int: {
     jumpInst =
