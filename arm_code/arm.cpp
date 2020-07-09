@@ -11,8 +11,6 @@
 
 namespace arm {
 
-inline bool is_virtual_register(Reg r) { return r >= 64; }
-
 RegisterKind register_type(Reg r) {
   if (r < 16)
     return RegisterKind::GeneralPurpose;
@@ -460,16 +458,32 @@ void PushPopInst::display(std::ostream &o) const {
 void LabelInst::display(std::ostream &o) const { o << label << ":"; }
 
 void Function::display(std::ostream &o) const {
+  for (auto &v : this->local_const) {
+    o << v.first << ":" << std::endl;
+    o << "\t" << v.second << std::endl;
+  }
+
+  o << "\t.globl " << name << std::endl;
   o << name << ":" << std::endl;
+  o << "\t.fnstart" << std::endl;
   for (auto &i : inst) {
     if (!dynamic_cast<LabelInst *>(&*i)) {
       o << "\t";
     }
     o << *i << std::endl;
   }
+  o << "\t.fnend" << std::endl;
 }
 
 void ArmCode::display(std::ostream &o) const {
+  o << ".data" << std::endl;
+  for (auto &v : this->consts) {
+    o << v.first << ":" << std::endl;
+    o << "\t" << v.second << std::endl;
+  }
+  o << std::endl;
+
+  o << ".text" << std::endl;
   for (auto &f : functions) {
     o << *f << std::endl;
   }
