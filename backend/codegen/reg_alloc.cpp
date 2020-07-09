@@ -159,6 +159,19 @@ void RegAllocator::alloc_regs() {
   //   generate_load_store_positions(std::move(intervals));
   perform_load_stores();
   f.inst = std::move(inst_sink);
+
+  {
+    // Add used reg stuff
+    auto first = f.inst.begin()->get();
+    auto first_ = static_cast<PushPopInst *>(first);
+    for (auto r : used_regs) first_->regs.push_back(r);
+    auto last = f.inst.back()->get();
+    auto last_ = static_cast<PushPopInst *>(last);
+    for (auto r : used_regs) last_->regs.push_back(r);
+    f.inst.insert(f.inst.begin() + 2,
+                  std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                                               Operand2(stack_size)));
+  }
 }
 
 void RegAllocator::calc_live_intervals() {
@@ -225,7 +238,7 @@ void RegAllocator::write_store(Reg r, Reg rs) {
     spill_positions.insert({r, pos});
   }
   inst_sink.push_back(std::make_unique<LoadStoreInst>(
-      OpCode::StR, r, MemoryOperand(REG_SP, pos)));
+      OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
 }
 
 Reg RegAllocator::make_space(Reg r, Interval i) {
@@ -308,9 +321,13 @@ void RegAllocator::perform_load_stores() {
       if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
       x->r2.replace_reg_if_virtual(5);
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT) {
+        Reg r1 = x->r1;
+        if (is_virtual_register(r1)) {
+          write_load(r1, 4);
+        }
         inst_sink.push_back(std::move(f.inst[i]));
-        if (is_virtual_register(x->r1)) {
-          write_store(x->r1, 4);
+        if (is_virtual_register(r1)) {
+          write_store(r1, 4);
           x->r1 = 4;
         }
       } else {
@@ -351,6 +368,7 @@ void RegAllocator::perform_load_stores() {
       }
       add_reg_read(x->rn, i);
     } else if (auto x = dynamic_cast<PushPopInst *>(inst_)) {
+      // push pop only use gpr
       inst_sink.push_back(std::move(f.inst[i]));
     } else
       inst_sink.push_back(std::move(f.inst[i]));
