@@ -18,7 +18,7 @@ void Backend::do_mir_optimization() {
     pass->optimize_mir(package, extra_data);
     if (options.show_code_after_each_pass) {
       spdlog::info("Code after pass: {}", pass->pass_name());
-      std::cerr << package << std::endl;
+      std::cout << package << std::endl;
     }
   }
 }
@@ -29,7 +29,7 @@ void Backend::do_arm_optimization() {
     pass->optimize_arm(arm_code.value(), extra_data);
     if (options.show_code_after_each_pass) {
       spdlog::info("Code after pass: {}", pass->pass_name());
-      std::cerr << arm_code.value() << std::endl;
+      std::cout << arm_code.value() << std::endl;
     }
   }
 }
@@ -49,7 +49,7 @@ void Backend::do_mir_to_arm_transform() {
   arm_code.emplace(std::move(code));
   if (options.show_code_after_each_pass) {
     spdlog::info("Code after transformation");
-    std::cerr << arm_code.value() << std::endl;
+    std::cout << arm_code.value() << std::endl;
   }
 }
 
