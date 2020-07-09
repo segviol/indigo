@@ -1,7 +1,5 @@
 #include "bb_rearrange.hpp"
 
-#include <bits/stdint-uintn.h>
-
 #include <deque>
 #include <vector>
 
