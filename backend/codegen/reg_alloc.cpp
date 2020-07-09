@@ -162,11 +162,11 @@ void RegAllocator::alloc_regs() {
 
   {
     // Add used reg stuff
-    auto first = f.inst.begin()->get();
-    auto first_ = static_cast<PushPopInst *>(first);
+    auto &first = f.inst.front();
+    auto first_ = static_cast<PushPopInst *>(&*first);
     for (auto r : used_regs) first_->regs.push_back(r);
-    auto last = f.inst.back()->get();
-    auto last_ = static_cast<PushPopInst *>(last);
+    auto &last = f.inst.back();
+    auto last_ = static_cast<PushPopInst *>(&*last);
     for (auto r : used_regs) last_->regs.push_back(r);
     f.inst.insert(f.inst.begin() + 2,
                   std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
