@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -355,10 +356,10 @@ struct LoadStoreInst final : public Inst {
 ///
 /// Valid opcode: LdM, StM
 struct MultLoadStoreInst final : public Inst {
-  MultLoadStoreInst(OpCode op, Reg rn, std::vector<Reg> rd,
+  MultLoadStoreInst(OpCode op, Reg rn, std::set<Reg> rd,
                     ConditionCode cond = ConditionCode::Always)
       : rd(std::move(rd)), rn(rn), Inst(op, cond) {}
-  std::vector<Reg> rd;
+  std::set<Reg> rd;
   Reg rn;
 
   virtual void display(std::ostream& o) const;
@@ -369,11 +370,11 @@ struct MultLoadStoreInst final : public Inst {
 ///
 /// Valid opcode: Push, Pop
 struct PushPopInst final : public Inst {
-  PushPopInst(OpCode op, std::vector<Reg> regs,
+  PushPopInst(OpCode op, std::set<Reg> regs,
               ConditionCode cond = ConditionCode::Always)
       : Inst(op, cond), regs(regs) {}
 
-  std::vector<Reg> regs;
+  std::set<Reg> regs;
 
   virtual void display(std::ostream& o) const;
   virtual ~PushPopInst() {}
