@@ -176,14 +176,14 @@ string irGenerator::getNewTmpValueName(TyKind kind) {
   Variable variable;
 
   switch (kind) {
-  case mir::types::TyKind::Int:
-    ty = shared_ptr<IntTy>(new IntTy());
-    break;
-  case mir::types::TyKind::Ptr:
-    ty = shared_ptr<PtrTy>(new PtrTy(shared_ptr<IntTy>(new IntTy())));
-    break;
-  default:
-    break;
+    case mir::types::TyKind::Int:
+      ty = shared_ptr<IntTy>(new IntTy());
+      break;
+    case mir::types::TyKind::Ptr:
+      ty = shared_ptr<PtrTy>(new PtrTy(shared_ptr<IntTy>(new IntTy())));
+      break;
+    default:
+      break;
   }
 
   name = getTmpName(_nowLocalValueId);
@@ -254,20 +254,20 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     bool is_memory;
 
     switch (kind) {
-    case front::symbol::SymbolKind::INT:
-      ty = SharedTyPtr(new IntTy());
-      is_memory = false;
-      break;
-    case front::symbol::SymbolKind::Array:
-      ty = SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy()), len));
-      is_memory = true;
-      break;
-    case front::symbol::SymbolKind::Ptr:
-      ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
-      is_memory = false;
-      break;
-    default:
-      break;
+      case front::symbol::SymbolKind::INT:
+        ty = SharedTyPtr(new IntTy());
+        is_memory = false;
+        break;
+      case front::symbol::SymbolKind::Array:
+        ty = SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy()), len));
+        is_memory = true;
+        break;
+      case front::symbol::SymbolKind::Ptr:
+        ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
+        is_memory = false;
+        break;
+      default:
+        break;
     }
     Variable variable(ty, is_memory, false);
     insertLocalValue(getVarName(name, id), _nowLocalValueId, variable);
@@ -280,18 +280,18 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind,
   SharedTyPtr ty;
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT: {
-    ir_declare_value(name, kind, id);
-    ty = SharedTyPtr(new IntTy());
-    break;
-  }
-  case front::symbol::SymbolKind::Ptr: {
-    ir_declare_value(name, kind, id);
-    ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
-    break;
-  }
-  default:
-    break;
+    case front::symbol::SymbolKind::INT: {
+      ir_declare_value(name, kind, id);
+      ty = SharedTyPtr(new IntTy());
+      break;
+    }
+    case front::symbol::SymbolKind::Ptr: {
+      ir_declare_value(name, kind, id);
+      ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
+      break;
+    }
+    default:
+      break;
   }
   _package.functions.find(_funcStack.back())->second.type->params.push_back(ty);
 }
@@ -313,14 +313,14 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
   }
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT:
-    ret = SharedTyPtr(new IntTy());
-    break;
-  case front::symbol::SymbolKind::VOID:
-    ret = SharedTyPtr(new VoidTy());
-    break;
-  default:
-    break;
+    case front::symbol::SymbolKind::INT:
+      ret = SharedTyPtr(new IntTy());
+      break;
+    case front::symbol::SymbolKind::VOID:
+      ret = SharedTyPtr(new VoidTy());
+      break;
+    default:
+      break;
   }
   type = shared_ptr<FunctionTy>(new FunctionTy(ret, params));
   func = shared_ptr<mir::inst::MirFunction>(
@@ -352,24 +352,24 @@ void irGenerator::ir_leave_function() {
                      {_ReturnVarName});
   }
   switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
-  case mir::types::TyKind::Int: {
-    jumpInst =
-        shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
-            mir::inst::JumpInstructionKind::Return, -1, -1, VarId(_ReturnVarId),
-            mir::inst::JumpKind::Undefined));
-    _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
-    break;
-  }
-  case mir::types::TyKind::Void: {
-    jumpInst =
-        shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
-            mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
-            mir::inst::JumpKind::Undefined));
-    _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
-    break;
-  }
-  default:
-    break;
+    case mir::types::TyKind::Int: {
+      jumpInst =
+          shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
+              mir::inst::JumpInstructionKind::Return, -1, -1,
+              VarId(_ReturnVarId), mir::inst::JumpKind::Undefined));
+      _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
+      break;
+    }
+    case mir::types::TyKind::Void: {
+      jumpInst =
+          shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
+              mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
+              mir::inst::JumpKind::Undefined));
+      _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
+      break;
+    }
+    default:
+      break;
   }
   _funcStack.pop_back();
 }
@@ -461,17 +461,17 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   shared_ptr<mir::inst::CallInst> callInst;
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT: {
-    destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(retName)));
-    break;
-  }
+    case front::symbol::SymbolKind::INT: {
+      destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(retName)));
+      break;
+    }
 
-  case front::symbol::SymbolKind::VOID: {
-    destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
-    break;
-  }
-  default:
-    break;
+    case front::symbol::SymbolKind::VOID: {
+      destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
+      break;
+    }
+    default:
+      break;
   }
 
   for (auto var : params) {
@@ -486,7 +486,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
 
 void irGenerator::ir_end_of_program() {
   ir_function_call(getNewTmpValueName(mir::types::TyKind::Int),
-                   front::symbol::SymbolKind::INT, _MainFunctionName, {});
+                   front::symbol::SymbolKind::INT, _MainFuncName, {});
   ir_leave_function();
 }
 
@@ -530,12 +530,12 @@ void irGenerator::ir_label(LabelId label) {
 LabelId irGenerator::LeftValueToLabelId(LeftVal leftVal) {
   LabelId id;
   switch (leftVal.index()) {
-  case 0:
-    id = get<LabelId>(leftVal);
-    break;
-  case 1:
-    id = nameToLabelId(get<string>(leftVal));
-    break;
+    case 0:
+      id = get<LabelId>(leftVal);
+      break;
+    case 1:
+      id = nameToLabelId(get<string>(leftVal));
+      break;
   }
   return id;
 }
@@ -544,15 +544,15 @@ shared_ptr<Value> irGenerator::rightValueToValue(RightVal &rightValue) {
   shared_ptr<Value> value;
 
   switch (rightValue.index()) {
-  case 0:
-    value = shared_ptr<Value>(new Value(get<0>(rightValue)));
-    break;
-  case 2: {
-    value =
-        shared_ptr<Value>(new Value(VarId(nameToLabelId(get<2>(rightValue)))));
-  } break;
-  default:
-    break;
+    case 0:
+      value = shared_ptr<Value>(new Value(get<0>(rightValue)));
+      break;
+    case 2: {
+      value = shared_ptr<Value>(
+          new Value(VarId(nameToLabelId(get<2>(rightValue)))));
+    } break;
+    default:
+      break;
   }
 
   return value;
