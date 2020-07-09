@@ -79,7 +79,11 @@ class Conflict_Map {
       return;
     }
     if (dynamic_Map[var].size()) {
-      edge_vars[dynamic_Map[var].size()].erase(var);
+      auto size = dynamic_Map[var].size();
+      edge_vars[size].erase(var);
+      if (!edge_vars[size].size()) {
+        edge_vars.erase(size);
+      }
     }
     for (auto iter = dynamic_Map[var].begin(); iter != dynamic_Map[var].end();
          ++iter) {
@@ -99,7 +103,13 @@ class Conflict_Map {
       static_Map[*iter].erase(var);
     }
     assert(dynamic_Map.count(var));
-    edge_vars[dynamic_Map[var].size()].erase(var);
+    if (dynamic_Map[var].size()) {
+      auto size = dynamic_Map[var].size();
+      edge_vars[size].erase(var);
+      if (!edge_vars[size].size()) {
+        edge_vars.erase(size);
+      }
+    }
     for (auto iter = dynamic_Map[var].begin(); iter != dynamic_Map[var].end();
          ++iter) {
       dynamic_Map[*iter].erase(var);
@@ -144,11 +154,11 @@ class Conflict_Map {
   color available_color(std::set<mir::inst::VarId>& neighbors) {
     std::vector<bool> colors(color_num, true);
     for (auto var : neighbors) {
-      colors[color_map.get()->at(var)] = false;
+      colors[color_map->at(var)] = false;
     }
     for (int i = 0; i < color_num; i++) {
       if (colors[i]) {
-        return i + 1;
+        return i;
       }
     }
     // errors
@@ -163,8 +173,9 @@ class Conflict_Map {
   }
 
   void add_node(mir::inst::VarId var) {
+    dynamic_Map[var] = std::set<mir::inst::VarId>();
     for (auto neighbor : static_Map[var]) {
-      if (dynamic_Map[var].count(neighbor)) {
+      if (dynamic_Map.count(neighbor)) {
         add_edge(var, neighbor);
       }
     }
