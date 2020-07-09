@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../../arm_code/regmanager.hpp"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace backend::codegen {
 using namespace arm;
@@ -169,7 +170,7 @@ void RegAllocator::alloc_regs() {
     auto last_ = static_cast<PushPopInst *>(&*last);
     for (auto r : used_regs) last_->regs.insert(r);
     f.inst.insert(f.inst.begin() + 2,
-                  std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                  std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                Operand2(stack_size)));
   }
 }
@@ -249,6 +250,7 @@ void RegAllocator::write_store(Reg r, Reg rs) {
     stack_size += 4;
     spill_positions.insert({r, pos});
   }
+  fmt::print("store {} to {}\n", r, pos);
   inst_sink.push_back(std::make_unique<LoadStoreInst>(
       OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
 }
@@ -326,8 +328,8 @@ void RegAllocator::perform_load_stores() {
       x->r2.replace_reg_if_virtual(5);
       inst_sink.push_back(std::move(f.inst[i]));
       if (is_virtual_register(x->rd)) {
-        x->rd = 6;
         write_store(x->rd, 6);
+        x->rd = 6;
       }
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
