@@ -224,8 +224,20 @@ void RegAllocator::calc_live_intervals() {
 }
 
 void RegAllocator::write_load(Reg r, Reg rd) {
-  inst_sink.push_back(std::make_unique<LoadStoreInst>(
-      OpCode::LdR, rd, MemoryOperand(REG_SP, spill_positions.at(r))));
+  bool del = false;
+  if (inst_sink.size() > 0) {
+    auto &x = inst_sink.back();
+    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+          *x__ == MemoryOperand(REG_SP, spill_positions.at(r)))
+        del = true;
+    }
+  }
+  if (del)
+    inst_sink.pop_back();
+  else
+    inst_sink.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::LdR, rd, MemoryOperand(REG_SP, spill_positions.at(r))));
 }
 
 void RegAllocator::write_store(Reg r, Reg rs) {

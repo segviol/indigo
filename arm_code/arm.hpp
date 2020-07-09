@@ -126,6 +126,10 @@ struct MemoryOperand : public prelude::Displayable {
     }
   }
   virtual void display(std::ostream& o) const;
+  bool operator==(const MemoryOperand& other) const {
+    return kind == other.kind && r1 == other.r1 && offset == other.offset &&
+           neg_rm == other.neg_rm;
+  }
 };
 
 struct NoOperand {};
