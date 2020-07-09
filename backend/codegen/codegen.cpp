@@ -18,8 +18,9 @@ arm::Function Codegen::translate_function() {
   scan_stack();
   scan();
   generate_startup();
-  for (auto& bb : func.basic_blks) {
-    translate_basic_block(bb.second);
+  for (auto bb_id : bb_ordering) {
+    auto& bb = func.basic_blks.at(bb_id);
+    translate_basic_block(bb);
   }
   generate_return_and_cleanup();
 
@@ -92,17 +93,19 @@ void Codegen::generate_return_and_cleanup() {
   inst.push_back(std::make_unique<LabelInst>(format_fn_end_label(func.name)));
   // NOTE: Register counting is done AFTER register allocation, so there's not
   // much cleanup here. Insert register counting after end label.
-  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_SP, REG_FP));
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_SP,
+                                              RegisterOperand(REG_FP)));
   inst.push_back(
-      std::make_unique<PushPopInst>(OpCode::Pop, std::vector{REG_FP, REG_PC}));
+      std::make_unique<PushPopInst>(OpCode::Pop, std::set{REG_FP, REG_PC}));
   // ^ this final pop sets PC and returns the function
 }
 
 void Codegen::generate_startup() {
   inst.push_back(
-      std::make_unique<PushPopInst>(OpCode::Push, std::vector{REG_FP, REG_LR}));
+      std::make_unique<PushPopInst>(OpCode::Push, std::set{REG_FP, REG_LR}));
   // TODO: Push all used register to save them, probably after register alloc
-  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_FP, REG_SP));
+  inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_FP,
+                                              RegisterOperand(REG_SP)));
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
@@ -540,7 +543,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         if (b1->op == arm::OpCode::Mov && b2->op == arm::OpCode::Mov) {
           auto b1m = dynamic_cast<Arith2Inst*>(b1);
           auto b2m = dynamic_cast<Arith2Inst*>(b2);
-          if (b1m->r1 == b2m->r1 && b1m->r2 == 1 && b2m->r2 == 0 &&
+          if (b1m->r1 == b2m->r1 && b1m->r2 == 0 && b2m->r2 == 1 &&
               b1m->cond == arm::ConditionCode::Always &&
               b2m->cond != arm::ConditionCode::Always) {
             cond = {b2m->cond};
@@ -550,6 +553,8 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
       // TODO: Omit the second jump argument if label is right after it
       // TODO: Move this^ to peephole optimization
       if (cond) {
+        inst.pop_back();
+        inst.pop_back();
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
             inverse_cond(cond.value())));

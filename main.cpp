@@ -3,8 +3,10 @@
 #include <memory>
 
 #include "backend/backend.hpp"
+#include "backend/codegen/bb_rearrange.hpp"
 #include "backend/codegen/codegen.hpp"
 #include "backend/codegen/math_opt.hpp"
+#include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
@@ -18,6 +20,7 @@
 #include "prelude/fake_mir_generate.hpp"
 #include "spdlog/common.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/stdout_sinks.h"
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -68,8 +71,10 @@ int main(int argc, const char** argv) {
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
+  backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
 
   auto code = backend.generate_code();
   std::cout << "CODE:" << std::endl << code;
@@ -135,7 +140,7 @@ Options parse_options(int argc, const char** argv) {
     spdlog::set_level(spdlog::level::warn);
   }
   spdlog::set_level(spdlog::level::trace);
-  spdlog::set_default_logger(spdlog::stderr_color_st("console"));
+  spdlog::set_default_logger(spdlog::stdout_logger_st("console"));
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
 
   spdlog::info("input file is {}", options.in_file);
