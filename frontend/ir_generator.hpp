@@ -125,14 +125,14 @@ private:
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _MainFuncName = "__compiler_function_main__";
+  const string _MainFuncName = "$$__compiler_function_main__$$";
   const string _MainFunctionName = "main";
-  const string _VoidVarName = "@@_Compiler_Void_Var_Name_@@";
-  const string _ReturnVarName = "@@_Compiler_Retuen_Var_Name_@@";
-  const string _StringNamePrefix = "@@0";
-  const string _TmpNamePrefix = "@@1";
-  const string _ConstNamePrefix = "@@2";
-  const string _VarNamePrefix = "@@3";
+  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "$$0";
+  const string _TmpNamePrefix = "$$1";
+  const string _ConstNamePrefix = "$$2";
+  const string _VarNamePrefix = "$$3";
 
   std::map<string, LabelId> _localValueNameToId;
 
