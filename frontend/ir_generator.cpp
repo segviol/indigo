@@ -311,7 +311,7 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind,
   _package.functions.find(_funcStack.back())->second.type->params.push_back(ty);
 }
 
-void irGenerator::ir_finish_param_declare() {
+void irGenerator::ir_finish_param_declare(std::vector<string>& paramsName) {
   std::vector<SharedTyPtr> &params =
       _package.functions.at(_funcStack.back()).type->params;
 
@@ -322,6 +322,7 @@ void irGenerator::ir_finish_param_declare() {
     insertLocalValue(getGenSaveParamVarName(i + 1), _nowLocalValueId++,
                      saveVar);
     ir_assign(getGenSaveParamVarName(i + 1), i + 1);
+    _localValueNameToId[paramsName.at(i)] = _localValueNameToId[getGenSaveParamVarName(i + 1)];
   }
 }
 

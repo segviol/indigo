@@ -752,6 +752,7 @@ void SyntaxAnalyze::gm_func_def() {
   SymbolKind ret;
   int funcLayerNum;
   vector<SharedSyPtr> params;
+  vector<string> paramsName;
   vector<std::pair<SharedSyPtr, string>> genValues;
   SharedSyPtr func;
 
@@ -788,9 +789,10 @@ void SyntaxAnalyze::gm_func_def() {
 
   for (auto var : params) {
     std::static_pointer_cast<FunctionSymbol>(func)->getParams().push_back(var);
+    paramsName.push_back(irGenerator.getVarName(var->getName(), var->getId()));
   }
 
-  irGenerator.ir_finish_param_declare();
+  irGenerator.ir_finish_param_declare(paramsName);
 
   for (auto var : genValues) {
     irGenerator.ir_declare_value(var.first->getName(), var.first->kind(),
