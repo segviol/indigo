@@ -65,7 +65,7 @@ class Conflict_Map {
       edge_vars.erase(size);
     }
     size--;
-    if (!size) {
+    if (!size && !dynamic_Map.count(var)) {
       return;
     }
     if (!edge_vars.count(size)) {
@@ -74,48 +74,32 @@ class Conflict_Map {
     edge_vars[size].insert(var);
   }
 
-  void remove_node_tmper(mir::inst::VarId var) {
+  void remove_node(mir::inst::VarId var, bool temporarily = true) {
     if (!dynamic_Map.count(var)) {
       return;
     }
-    if (dynamic_Map[var].size()) {
+    auto neighbors = dynamic_Map[var];
+    if (edge_vars.count(neighbors.size())) {
       auto size = dynamic_Map[var].size();
       edge_vars[size].erase(var);
       if (!edge_vars[size].size()) {
         edge_vars.erase(size);
       }
     }
-    for (auto iter = dynamic_Map[var].begin(); iter != dynamic_Map[var].end();
-         ++iter) {
+    dynamic_Map.erase(var);
+    for (auto iter = neighbors.begin(); iter != neighbors.end(); ++iter) {
       delete_edge(*iter);
       dynamic_Map[*iter].erase(var);
     }
-    dynamic_Map.erase(var);
-    remove_Nodes.push(var);
-  }
-
-  void remove_node_forever(mir::inst::VarId var) {
-    if (!static_Map.count(var)) {
-      return;
-    }
-    for (auto iter = static_Map[var].begin(); iter != static_Map[var].end();
-         ++iter) {
-      static_Map[*iter].erase(var);
-    }
-    assert(dynamic_Map.count(var));
-    if (dynamic_Map[var].size()) {
-      auto size = dynamic_Map[var].size();
-      edge_vars[size].erase(var);
-      if (!edge_vars[size].size()) {
-        edge_vars.erase(size);
+    if (temporarily) {
+      remove_Nodes.push(var);
+    } else {
+      for (auto iter = static_Map[var].begin(); iter != static_Map[var].end();
+           ++iter) {
+        static_Map[*iter].erase(var);
       }
+      static_Map.erase(var);
     }
-    for (auto iter = dynamic_Map[var].begin(); iter != dynamic_Map[var].end();
-         ++iter) {
-      dynamic_Map[*iter].erase(var);
-      delete_edge(*iter);
-    }
-    dynamic_Map.erase(var);
   }
 
   void remove_edge_less_colors() {
@@ -134,7 +118,7 @@ class Conflict_Map {
         vars_to_remove.insert(iter->second.begin(), iter->second.end());
       }
       for (auto var : vars_to_remove) {
-        remove_node_tmper(var);
+        remove_node(var);
       }
     }
   }
@@ -146,7 +130,7 @@ class Conflict_Map {
     auto min_edge = min_edge_iter->first;
     assert(min_edge >= color_num);
     auto iter = min_edge_iter->second.begin();
-    remove_node_forever(*iter);
+    remove_node(*iter, false);
   }
 
   bool empty() { return dynamic_Map.empty(); }
@@ -209,25 +193,25 @@ class Graph_Color : public backend::MirOptimizePass {
   // define point is allowed for each var
   void init_cross_blk_vars(livevar_analyse::sharedPtrBlkLivevar blv,
                            std::set<mir::inst::VarId>& cross_blk_vars) {
-    cross_blk_vars.insert(blv->live_vars_out->begin(),
-                          blv->live_vars_out->end());
+    cross_blk_vars.insert(blv->live_vars_out_ignoring_jump->begin(),
+                          blv->live_vars_out_ignoring_jump->end());
   }
 
-  void init_conflict_map(mir::inst::BasicBlk& blk,
-                         std::map<u_int, mir::inst::Variable>& vartable,
+  void init_conflict_map(std::shared_ptr<livevar_analyse::Block_Live_Var> blv,
                          std::shared_ptr<Conflict_Map>& conflict_map,
                          std::set<mir::inst::VarId>& cross_blk_vars) {
-    for (auto iter = blk.inst.begin(); iter != blk.inst.end(); ++iter) {
+    auto& block = blv->block;
+    for (auto iter = block.inst.begin(); iter != block.inst.end(); ++iter) {
       auto defVar = iter->get()->dest;
-      if (vartable[defVar.id].ty->kind() == mir::types::TyKind::Void ||
+      if (blv->queryTy(defVar) == mir::types::TyKind::Void ||
           !cross_blk_vars.count(defVar)) {
         continue;
       }
-      auto useVars = iter->get()->useVars();
+      int idx = iter - block.inst.begin();
       std::set<mir::inst::VarId> cross_use_vars;
       std::set_intersection(
-          useVars.begin(), useVars.end(), cross_blk_vars.begin(),
-          cross_blk_vars.end(),
+          blv->instLiveVars[idx]->begin(), blv->instLiveVars[idx]->end(),
+          cross_blk_vars.begin(), cross_blk_vars.end(),
           std::inserter(cross_use_vars, cross_use_vars.begin()));
       conflict_map->add_conflict(defVar, cross_use_vars);
     }
@@ -247,7 +231,7 @@ class Graph_Color : public backend::MirOptimizePass {
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      init_conflict_map(iter->second, func.variables, conflict_map,
+      init_conflict_map(lva.livevars[iter->first], conflict_map,
                         cross_blk_vars);
     }
     conflict_map->init_edge_vars();
