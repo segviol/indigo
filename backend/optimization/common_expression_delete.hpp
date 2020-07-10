@@ -356,8 +356,9 @@ class BlockNodes {
               inst.push_back(std::move(loadInst));
             } else if (std::get<InNormOp>(node->op) == InNormOp::Store) {
               auto val = convert_operand_to_value(node->operands[0]);
+              auto dest = convert_operand_to_value(node->operands[1]);
               auto storeInst = std::make_unique<mir::inst::StoreInst>(
-                  val, std::get<mir::inst::VarId>(node->mainVar));
+                  val, std::get<mir::inst::VarId>(dest));
               inst.push_back(std::move(storeInst));
             }
             break;
