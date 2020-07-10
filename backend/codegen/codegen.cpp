@@ -4,6 +4,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <string>
 #include <typeinfo>
 
 #include "../../include/spdlog/include/spdlog/spdlog.h"
@@ -295,6 +296,15 @@ arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
   return r;
 }
 
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::Value& v_) {
+  if (auto x = v_.get_if<int32_t>()) {
+    throw new prelude::NotImplementedException();
+  } else {
+    auto x_ = v_.get_if<mir::inst::VarId>();
+    return translate_var_to_memory_arg(*x_);
+  }
+}
+
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
   // If it's param, load before use
@@ -406,16 +416,44 @@ void Codegen::translate_inst(mir::inst::StoreInst& i) {
 
 void Codegen::translate_inst(mir::inst::LoadInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(
-      arm::OpCode::LdR, translate_value_to_reg(i.src),
-      translate_var_to_memory_arg(i.dest));
+      arm::OpCode::LdR, translate_var_reg(i.dest),
+      translate_var_to_memory_arg(i.src));
   inst.push_back(std::move(ins));
 }
 
 void Codegen::translate_inst(mir::inst::RefInst& i) {
   if (auto x = std::get_if<std::string>(&i.val)) {
     auto global = package.global_values.find(*x);
+
+    /*
+     *    ldr	r0, .LCPI0_0
+     *    add	r0, pc, r0
+     *  .LPC0_0:             <- load_pc_label
+     *  ...
+     *  .LCPI0_0:            <- offset_from_pc_label
+     *    .long	n-(.LPC0_0)
+     */
+
+    auto offset_from_pc_label = format_const_label(func.name, const_counter++);
+    auto load_pc_label = format_load_pc_label(func.name, const_counter++);
+    std::string local_const_definition;
+
+    local_const_definition.append(*x);
+    local_const_definition.append("-(");
+    local_const_definition.append(load_pc_label);
+    local_const_definition.append(")");
+
+    consts.insert(
+        {offset_from_pc_label,
+         std::move(ConstValue(local_const_definition, ConstType::Word))});
+
     auto reg = get_or_alloc_vgp(i.dest);
-    inst.push_back(std::make_unique<LoadStoreInst>(OpCode::LdR, reg, *x));
+    inst.push_back(std::make_unique<LoadStoreInst>(OpCode::LdR, reg,
+                                                   offset_from_pc_label));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, reg, REG_PC,
+                                                RegisterOperand(reg)));
+    inst.push_back(std::make_unique<LabelInst>(load_pc_label));
+
   } else if (auto x = std::get_if<mir::inst::VarId>(&i.val)) {
     auto reg = get_or_alloc_vgp(*x);
     auto reg1 = get_or_alloc_vgp(i.dest);
