@@ -9,6 +9,7 @@ BasicBlock::BasicBlock(int _id, int _pre_id) {
 }
 
 vector<int> order;
+vector<mir::inst::VarId> notRename;
 
 map<int, BasicBlock*> generate_CFG(vector<front::irGenerator::Instruction> instructions,
     front::irGenerator::irGenerator& irgenerator) {
@@ -1158,14 +1159,7 @@ void generate_SSA(map<int, BasicBlock*> nodes,
     }
 
     //step3: number the vars, don't rename the $0(return value)
-    vector<mir::inst::VarId>::iterator itvar;
-    for (itvar = vars.begin(); itvar != vars.end(); itvar++) {
-        mir::inst::VarId s0(0);
-        if (*itvar == s0) {
-            vars.erase(itvar);
-            break;
-        }
-    }
+    vars = vectors_difference(vars, notRename);
     map<int, vector<int>> dom_tree = build_dom_tree(dom);
     for (int i = 0; i < vars.size(); i++) {
         V.clear();
@@ -1180,6 +1174,12 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
     for (it = p.functions.begin(); it != p.functions.end(); it++) {
         map<string, vector<front::irGenerator::Instruction>>::iterator iter = f.find(it->first);
         if (iter != f.end()) {
+            shared_ptr<mir::types::FunctionTy> type = it->second.type;
+            int n = type->params.size();
+            for (int i = 0; i <= n; i++) {
+                mir::inst::VarId s(i);
+                notRename.push_back(s);
+            }
             map<int, BasicBlock*> nodes = generate_CFG(iter->second, irgenerator);
             map<mir::inst::VarId, set<int>> blocks = active_var(nodes);
             map<int, int> dom = find_idom(nodes);
