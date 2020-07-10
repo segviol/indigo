@@ -82,6 +82,7 @@ public:
   void ir_declare_function(string _name, symbol::SymbolKind kind);
   void ir_leave_function();
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
+  void ir_finish_param_declare();
   void ir_end_of_program();
 
   /* src type mean (src.index())
@@ -94,6 +95,7 @@ public:
   void ir_store(LeftVal dest, RightVal src);
   void ir_op(LeftVal dest, RightVal op1, RightVal op2, mir::inst::Op op);
   void ir_assign(LeftVal dest, RightVal src);
+  void ir_assign(LeftVal dest, uint32_t sourceId);
   void ir_function_call(string retName, symbol::SymbolKind kind,
                         string funcName, std::vector<RightVal> params);
   void ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue,
@@ -120,19 +122,22 @@ private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
+  const LabelId _InitLocalVarId = 1;
+  const LabelId _InitTmpVarId = (1 << 15);
   const LabelId _VoidVarId = (1 << 20);
   const LabelId _ReturnBlockLabelId = (1 << 20);
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _MainFuncName = "__compiler_function_main__";
+  const string _MainFuncName = "$$__compiler_function_main__$$";
   const string _MainFunctionName = "main";
-  const string _VoidVarName = "@@_Compiler_Void_Var_Name_@@";
-  const string _ReturnVarName = "@@_Compiler_Retuen_Var_Name_@@";
-  const string _StringNamePrefix = "@@0";
-  const string _TmpNamePrefix = "@@1";
-  const string _ConstNamePrefix = "@@2";
-  const string _VarNamePrefix = "@@3";
+  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "$$0";
+  const string _TmpNamePrefix = "$$1";
+  const string _ConstNamePrefix = "$$2";
+  const string _VarNamePrefix = "$$3";
+  const string _GenSaveParamVarNamePrefix = "$$4";
 
   std::map<string, LabelId> _localValueNameToId;
 
@@ -151,6 +156,9 @@ private:
 
   void insertFunc(string key, shared_ptr<mir::inst::MirFunction> func);
   void insertLocalValue(string name, std::uint32_t id, Variable &variable);
+  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId, string name);
+
+  string getGenSaveParamVarName(uint32_t id);
 };
 } // namespace front::irGenerator
 

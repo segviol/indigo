@@ -18,7 +18,6 @@ enum class OperationType {
 
   VAR,
   ARR,
-  ARR_NAME,
   NUMBER,
   STRING,
   PTR,
