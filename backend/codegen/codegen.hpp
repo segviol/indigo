@@ -122,6 +122,7 @@ class Codegen final {
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v);
+  arm::MemoryOperand translate_var_to_memory_arg(mir::inst::Value& v);
 
   void scan();
   void scan_stack();
