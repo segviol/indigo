@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <queue>
 #include <iostream>
+#include <iomanip>
 
 #include "../mir/mir.hpp"
 #include "ir_generator.hpp"
@@ -16,12 +17,6 @@
 #define COMPILER_FRONT_OPTIM_MIR_H_
 
 namespace front::optim_mir {
-
-    class JumpLableId {
-    public:
-        int _jumpLabelId;
-        JumpLableId(int jumpLabelId);
-    };
 
     class BasicBlock {
     public:
@@ -32,27 +27,6 @@ namespace front::optim_mir {
         std::vector<BasicBlock*> preBlock;
         BasicBlock(int _id, int _pre_id);
     };
-
-    class phi_index {
-    public:
-        int m;
-        mir::inst::VarId name;
-        phi_index(int _m, mir::inst::VarId _name) :m(_m), name(_name) {};
-        bool operator < (const phi_index& c) const {
-            if (m < c.m)
-                return true;
-            if (m > c.m)
-                return false;
-            return name < c.name;
-        }
-    };
-
-    typedef struct {
-        int n;
-        int m;
-        mir::inst::VarId name;
-        int num;
-    }phi_info;
 
 }
 
