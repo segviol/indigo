@@ -31,17 +31,26 @@ enum class RegisterKind {
 // vector register.
 using Reg = uint32_t;
 
+enum class ConstType { Word, AsciZ };
+
 class ConstValue
     : public std::variant<uint32_t, std::vector<uint32_t>, std::string>,
       public prelude::Displayable {
  public:
   ConstValue() {}
   ConstValue(uint32_t x)
-      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
+        ty(ConstType::Word) {}
   ConstValue(std::vector<uint32_t> x)
-      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
+        ty(ConstType::Word) {}
   ConstValue(std::string x)
-      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x) {}
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
+        ty(ConstType::AsciZ) {}
+  ConstValue(std::string x, ConstType ty)
+      : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x), ty(ty) {}
+
+  ConstType ty;
 
   virtual void display(std::ostream& o) const;
   virtual ~ConstValue() {}

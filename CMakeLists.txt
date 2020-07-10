@@ -53,7 +53,7 @@ add_subdirectory(include/spdlog)
 add_executable(compiler main.cpp)
 
 if(STATIC_LINK_ARTIFACTS)
-    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -g")
     set_target_properties(compiler PROPERTIES LINK_SEARCH_START_STATIC 1)
     set_target_properties(compiler PROPERTIES LINK_SEARCH_END_STATIC 1)
 endif(STATIC_LINK_ARTIFACTS)

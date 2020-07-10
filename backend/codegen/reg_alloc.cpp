@@ -361,14 +361,14 @@ void RegAllocator::perform_load_stores() {
       if (x->op == arm::OpCode::LdR) {
         inst_sink.push_back(std::move(f.inst[i]));
         if (is_virtual_register(x->rd)) {
-          x->rd = 6;
           write_store(x->rd, 6);
+          x->rd = 6;
         }
       } else {
         // StR
         if (is_virtual_register(x->rd)) {
-          x->rd = 6;
           write_load(x->rd, 6);
+          x->rd = 6;
         }
         inst_sink.push_back(std::move(f.inst[i]));
       }
