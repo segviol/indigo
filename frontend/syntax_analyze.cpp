@@ -487,7 +487,11 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   size_t i;
 
   tmpPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
-  irGenerator.ir_ref(tmpPtr, node->_name);
+  if (node->_operation == OperationType::ARR) {
+    irGenerator.ir_ref(tmpPtr, node->_name);
+  } else {
+    irGenerator.ir_assign(tmpPtr, node->_name);
+  }
 
   // in function, there should be a virtual d in dimensions.at(0)
   for (i = 1; i < dimesions.size(); i++) {
@@ -577,7 +581,9 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
     SharedExNdPtr child;
     SharedExNdPtr addr;
     node->_type = NodeType::VAR;
-    node->_operation = OperationType::ARR;
+    node->_operation = (std::static_pointer_cast<ArraySymbol>(arr)->isParam()
+                            ? OperationType::PTR
+                            : OperationType::ARR);
     node->_name = (std::static_pointer_cast<ArraySymbol>(arr)->isConst()
                        ? irGenerator.getConstName(arr->getName(), arr->getId())
                        : irGenerator.getVarName(arr->getName(), arr->getId()));
@@ -659,10 +665,16 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       node->_operation = OperationType::PTR;
       node->_name = arrPtr;
 
-      irGenerator.ir_ref(
-          arrPtr, (std::static_pointer_cast<ArraySymbol>(var)->isConst()
-                       ? irGenerator.getConstName(var->getName(), var->getId())
-                       : irGenerator.getVarName(var->getName(), var->getId())));
+      if (std::static_pointer_cast<ArraySymbol>(var)->isConst()) {
+        irGenerator.ir_ref(
+            arrPtr, irGenerator.getConstName(var->getName(), var->getId()));
+      } else if (std::static_pointer_cast<ArraySymbol>(var)->isParam()) {
+        irGenerator.ir_assign(
+            arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
+      } else {
+        irGenerator.ir_ref(
+            arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
+      }
     }
   }
 
@@ -778,6 +790,8 @@ void SyntaxAnalyze::gm_func_def() {
     std::static_pointer_cast<FunctionSymbol>(func)->getParams().push_back(var);
   }
 
+  irGenerator.ir_finish_param_declare();
+
   for (auto var : genValues) {
     irGenerator.ir_declare_value(var.first->getName(), var.first->kind(),
                                  var.first->getId());
@@ -852,9 +866,9 @@ void SyntaxAnalyze::gm_func_param(
 }
 
 string SyntaxAnalyze::hp_gen_save_value() {
-  string name = "@@";
+  string name = "$$";
   name = name + "__Compiler__gen__save__value__" + to_string(_genValueNum) +
-         "__@@";
+         "__$$";
   _genValueNum++;
   return name;
 }
