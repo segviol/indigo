@@ -39,6 +39,7 @@ class Block_Live_Var {
  public:
   // instLiveVars[idx] means livevars before inst at idx
   std::vector<sharedPtrVariableSet> instLiveVars;
+  sharedPtrVariableSet live_vars_out_ignoring_jump;
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
   std::set<sharedPtrVariableSet> subsequents;
@@ -51,6 +52,7 @@ class Block_Live_Var {
     auto size = block.inst.size();
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
+    live_vars_out_ignoring_jump = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
       instLiveVars.emplace_back(std::make_shared<VariableSet>());
     }
@@ -62,6 +64,10 @@ class Block_Live_Var {
   */
   void add_subsequent(sharedPtrVariableSet subsequent) {
     subsequents.insert(subsequent);
+  }
+
+  mir::types::TyKind queryTy(mir::inst::VarId var) {
+    return vartable.at(var).ty->kind();
   }
 
   // TODO: remove global and ptr
@@ -110,31 +116,35 @@ class Block_Live_Var {
 
   bool build() {
     assert(subsequents.size() <= 2 && subsequents.size() >= 0);
-    auto live_vars_out_before = *live_vars_out;
-    live_vars_out->clear();
-    auto jump_use_vars = block.jump.useVars();
-    live_vars_out->insert(jump_use_vars.begin(), jump_use_vars.end());
+    auto live_vars_out_before = *live_vars_out_ignoring_jump;
+    live_vars_out_ignoring_jump->clear();
+
     if (subsequents.size() == 2) {
       auto first = subsequents.begin();
       auto second = subsequents.end();
       second--;
-      std::set_union(
-          first->get()->begin(), first->get()->end(), second->get()->begin(),
-          second->get()->end(),
-          std::inserter(*(live_vars_out), this->live_vars_out->begin()));
+      std::set_union(first->get()->begin(), first->get()->end(),
+                     second->get()->begin(), second->get()->end(),
+                     std::inserter(*(live_vars_out_ignoring_jump),
+                                   this->live_vars_out_ignoring_jump->begin()));
     } else if (subsequents.size() == 1) {
       auto iter = subsequents.begin();
-      live_vars_out->insert(iter->get()->begin(), iter->get()->end());
+      live_vars_out_ignoring_jump->insert(iter->get()->begin(),
+                                          iter->get()->end());
     }
     // std::cout << live_vars_out_before.size() << "  " << live_vars_out->size()
     //           << std::endl;
     if (!first_build &&
-        *live_vars_out ==
+        *live_vars_out_ignoring_jump ==
             live_vars_out_before) {  // if live_vars out dont't change, then
                                      // the block will not be modified
       return false;
     }
-
+    auto jump_use_vars = block.jump.useVars();
+    live_vars_out->clear();
+    live_vars_out->insert(live_vars_out_ignoring_jump->begin(),
+                          live_vars_out_ignoring_jump->end());
+    live_vars_out->insert(jump_use_vars.begin(), jump_use_vars.end());
     auto tmp = live_vars_out;
     for (int i = instLiveVars.size() - 1; i >= 0; --i) {
       update(i);
