@@ -404,7 +404,7 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   // Move return value
   if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
     inst.push_back(std::make_unique<Arith2Inst>(
-        OpCode::Mov, translate_var_reg(i.dest), Reg(0)));
+        OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(0)));
 }
 
 void Codegen::translate_inst(mir::inst::StoreInst& i) {
@@ -472,8 +472,8 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
   bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
                         (i.op != mir::inst::Op::Div);
 
-  mir::inst::Value& lhs = reverse_params ? i.lhs : i.rhs;
-  mir::inst::Value& rhs = reverse_params ? i.rhs : i.lhs;
+  mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
+  mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
 
   switch (i.op) {
     case mir::inst::Op::Add:
@@ -486,11 +486,11 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       if (reverse_params) {
         inst.push_back(std::make_unique<Arith3Inst>(
             arm::OpCode::Rsb, translate_var_reg(i.dest),
-            translate_value_to_reg(lhs), translate_value_to_operand2(lhs)));
+            translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       } else {
         inst.push_back(std::make_unique<Arith3Inst>(
             arm::OpCode::Sub, translate_var_reg(i.dest),
-            translate_value_to_reg(rhs), translate_value_to_operand2(rhs)));
+            translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       }
       break;
 
