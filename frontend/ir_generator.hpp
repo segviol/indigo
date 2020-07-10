@@ -82,7 +82,7 @@ public:
   void ir_declare_function(string _name, symbol::SymbolKind kind);
   void ir_leave_function();
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
-  void ir_finish_param_declare();
+  void ir_finish_param_declare(std::vector<string>& paramsName);
   void ir_end_of_program();
 
   /* src type mean (src.index())
