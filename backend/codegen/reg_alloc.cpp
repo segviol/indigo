@@ -226,19 +226,22 @@ void RegAllocator::calc_live_intervals() {
 
 void RegAllocator::write_load(Reg r, Reg rd) {
   bool del = false;
+  auto spill_pos = spill_positions.at(r);
   if (inst_sink.size() > 0) {
     auto &x = inst_sink.back();
     if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
       if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-          *x__ == MemoryOperand(REG_SP, spill_positions.at(r)))
+          x_->op == arm::OpCode::StR && x_->rd == rd &&
+          (*x__) == MemoryOperand(REG_SP, spill_pos)) {
         del = true;
+      }
     }
   }
   if (del)
     inst_sink.pop_back();
   else
     inst_sink.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::LdR, rd, MemoryOperand(REG_SP, spill_positions.at(r))));
+        OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos)));
 }
 
 void RegAllocator::write_store(Reg r, Reg rs) {
@@ -355,20 +358,20 @@ void RegAllocator::perform_load_stores() {
       if (auto mem = std::get_if<MemoryOperand>(&x->mem)) {
         auto [vr1, vr2] = mem->is_virtual();
         if (is_virtual_register(vr1)) write_load(vr1, 4);
-        if (vr2 && is_virtual_register(*vr2)) write_load(*vr2, 5);
-        mem->replace_reg_if_virtual(4, 5);
+        if (vr2 && is_virtual_register(*vr2)) write_load(*vr2, 6);
+        mem->replace_reg_if_virtual(4, 6);
       }
       if (x->op == arm::OpCode::LdR) {
         inst_sink.push_back(std::move(f.inst[i]));
         if (is_virtual_register(x->rd)) {
-          write_store(x->rd, 6);
-          x->rd = 6;
+          write_store(x->rd, 5);
+          x->rd = 5;
         }
       } else {
         // StR
         if (is_virtual_register(x->rd)) {
-          write_load(x->rd, 6);
-          x->rd = 6;
+          write_load(x->rd, 5);
+          x->rd = 5;
         }
         inst_sink.push_back(std::move(f.inst[i]));
       }
