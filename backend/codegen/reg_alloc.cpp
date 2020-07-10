@@ -83,6 +83,7 @@ class RegAllocator {
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
 
   int stack_size;
+  std::optional<std::pair<Reg, Reg>> delayed_store;
 
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
@@ -237,11 +238,13 @@ void RegAllocator::write_load(Reg r, Reg rd) {
       }
     }
   }
-  if (del)
+  if (del) {
     inst_sink.pop_back();
-  else
+    delayed_store = {{r, rd}};
+  } else {
     inst_sink.push_back(std::make_unique<LoadStoreInst>(
         OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos)));
+  }
 }
 
 void RegAllocator::write_store(Reg r, Reg rs) {
@@ -253,6 +256,21 @@ void RegAllocator::write_store(Reg r, Reg rs) {
     stack_size += 4;
     spill_positions.insert({r, pos});
   }
+
+  bool del = false;
+  if (inst_sink.size() > 0) {
+    auto &x = inst_sink.back();
+    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+          x_->op == arm::OpCode::StR && (*x__) == MemoryOperand(REG_SP, pos)) {
+        del = true;
+      }
+    }
+  }
+  if (del) {
+    return;
+  }
+
   fmt::print("store {} to {}\n", r, pos);
   inst_sink.push_back(std::make_unique<LoadStoreInst>(
       OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
@@ -322,6 +340,7 @@ void RegAllocator::perform_load_stores() {
      * Replace every register used in 3-operand moves with r4, r5 and r6
      * Replace every register used in 2-operand moves with r4, r5
      */
+
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       if (is_virtual_register(x->r1)) {
         write_load(x->r1, 4);
@@ -389,6 +408,11 @@ void RegAllocator::perform_load_stores() {
       inst_sink.push_back(std::move(f.inst[i]));
     } else
       inst_sink.push_back(std::move(f.inst[i]));
+    if (delayed_store) {
+      auto [r, rd] = delayed_store.value();
+      write_store(r, rd);
+      delayed_store = {};
+    }
   }
 }
 
