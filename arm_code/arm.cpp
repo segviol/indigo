@@ -356,7 +356,10 @@ void ConstValue::display(std::ostream &o) const {
       o << i;
     }
   } else if (auto x = std::get_if<std::string>(this)) {
-    o << ".asciz \"" << *x << "\"";
+    if (ty == ConstType::AsciZ)
+      o << ".asciz \"" << *x << "\"";
+    else if (ty == ConstType::Word)
+      o << ".word " << *x;
   }
 }
 
