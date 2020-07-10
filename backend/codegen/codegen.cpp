@@ -296,6 +296,15 @@ arm::Reg Codegen::translate_var_reg(mir::inst::VarId v) {
   return r;
 }
 
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::Value& v_) {
+  if (auto x = v_.get_if<int32_t>()) {
+    throw new prelude::NotImplementedException();
+  } else {
+    auto x_ = v_.get_if<mir::inst::VarId>();
+    return translate_var_to_memory_arg(*x_);
+  }
+}
+
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
   // If it's param, load before use
@@ -407,8 +416,8 @@ void Codegen::translate_inst(mir::inst::StoreInst& i) {
 
 void Codegen::translate_inst(mir::inst::LoadInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(
-      arm::OpCode::LdR, translate_value_to_reg(i.src),
-      translate_var_to_memory_arg(i.dest));
+      arm::OpCode::LdR, translate_var_reg(i.dest),
+      translate_var_to_memory_arg(i.src));
   inst.push_back(std::move(ins));
 }
 
