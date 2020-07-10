@@ -14,20 +14,27 @@ namespace backend::codegen {
 inline std::string format_const_label(std::string_view function_name,
                                       uint32_t label_id) {
   auto s = std::stringstream();
-  s << "_CONST_" << function_name << "__" << label_id;
+  s << "_$const_" << function_name << "__" << label_id;
+  return s.str();
+}
+
+inline std::string format_load_pc_label(std::string_view function_name,
+                                        uint32_t label_id) {
+  auto s = std::stringstream();
+  s << "_$ld_pc_" << function_name << "__" << label_id;
   return s.str();
 }
 
 inline std::string format_bb_label(std::string_view function_name,
                                    uint32_t label_id) {
   auto s = std::stringstream();
-  s << function_name << "_$bb_" << label_id;
+  s << "_$bb_" << function_name << "__" << label_id;
   return s.str();
 }
 
 inline std::string format_fn_end_label(std::string_view function_name) {
   auto s = std::stringstream();
-  s << function_name << "_$end";
+  s << "_$end_" << function_name << "__";
   return s.str();
 }
 
@@ -115,6 +122,7 @@ class Codegen final {
   arm::Reg translate_var_reg(mir::inst::VarId v);
 
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v);
+  arm::MemoryOperand translate_var_to_memory_arg(mir::inst::Value& v);
 
   void scan();
   void scan_stack();

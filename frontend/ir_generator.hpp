@@ -1,4 +1,5 @@
 #include <stdint.h>
+
 #include <vector>
 
 #include "../arm_code/arm.hpp"
@@ -37,7 +38,7 @@ typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
 class WhileLabels {
-public:
+ public:
   LabelId _beginLabel;
   LabelId _endLabel;
 
@@ -50,7 +51,7 @@ public:
 };
 
 class JumpLabelId {
-public:
+ public:
   LabelId _jumpLabelId;
 
   JumpLabelId(LabelId id) : _jumpLabelId(id) {}
@@ -64,7 +65,7 @@ typedef std::variant<shared_ptr<mir::inst::Inst>,
 extern std::vector<string> externalFuncName;
 
 class irGenerator {
-public:
+ public:
   irGenerator();
 
   void outputInstructions(std::ostream &out);
@@ -118,7 +119,7 @@ public:
 
   mir::inst::MirPackage &getPackage() { return _package; }
 
-private:
+ private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
@@ -129,15 +130,15 @@ private:
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _MainFuncName = "$$__compiler_function_main__$$";
+  const string _MainFuncName = "_$compiler_function_main__$$";
   const string _MainFunctionName = "main";
-  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
-  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
-  const string _StringNamePrefix = "$$0";
-  const string _TmpNamePrefix = "$$1";
-  const string _ConstNamePrefix = "$$2";
-  const string _VarNamePrefix = "$$3";
-  const string _GenSaveParamVarNamePrefix = "$$4";
+  const string _VoidVarName = "_$Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "_$Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "_$$0";
+  const string _TmpNamePrefix = "_$$1";
+  const string _ConstNamePrefix = "_$$2";
+  const string _VarNamePrefix = "_$$3";
+  const string _GenSaveParamVarNamePrefix = "_$$4";
 
   std::map<string, LabelId> _localValueNameToId;
 
@@ -156,10 +157,11 @@ private:
 
   void insertFunc(string key, shared_ptr<mir::inst::MirFunction> func);
   void insertLocalValue(string name, std::uint32_t id, Variable &variable);
-  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId, string name);
+  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId,
+                          string name);
 
   string getGenSaveParamVarName(uint32_t id);
 };
-} // namespace front::irGenerator
+}  // namespace front::irGenerator
 
-#endif // !COMPILER_FRONT_IR_GENERATOR_H_
+#endif  // !COMPILER_FRONT_IR_GENERATOR_H_
