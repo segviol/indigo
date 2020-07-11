@@ -105,7 +105,7 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=8)
 
-                my_output = process.stdout
+                my_output = str(process.stdout).splitlines()
                 return_code = process.returncode
 
                 if return_code < 0:
@@ -127,9 +127,9 @@ def test_dir(dir):
                 std_output[-1] = std_output[-1].strip()
 
                 if my_output != std_output:
-                    logger.error(f"mismatched output for {new_path}: ")
                     logger.error(
-                        f"\texpected: {std_output}\n\tgot {my_output}")
+                        f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
+                    )
                     fail_list.append({
                         "file": file,
                         "reason": "wrong_output",
@@ -153,7 +153,7 @@ def test_dir(dir):
 
     logger.info(f"passed {num_passed} of {num_tested} tests")
 
-    if fail_list.count > 0:
+    if fail_list.count() > 0:
         fail_list_json = json.dumps(fail_list, indent=2, sort_keys=True)
         logger.error(f"Failed tests: {fail_list_json}")
 
