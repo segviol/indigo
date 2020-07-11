@@ -167,6 +167,7 @@ def test_dir(dir):
 
 
 result = test_dir(root_path)
+logger.log(result)
 if result.num_failed != 0:
     exit(1)
 else:
