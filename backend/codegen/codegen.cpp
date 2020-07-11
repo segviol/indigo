@@ -463,10 +463,28 @@ void Codegen::translate_inst(mir::inst::RefInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
-  auto ins = std::make_unique<Arith3Inst>(
-      arm::OpCode::Add, translate_var_reg(i.dest), translate_var_reg(i.ptr),
-      translate_value_to_operand2(i.offset));
-  inst.push_back(std::move(ins));
+  auto& ptr_ty = func.variables.at(i.ptr).ty;
+  auto ptr_ty_ = static_cast<mir::types::PtrTy*>(&*ptr_ty);
+  auto item_size = ptr_ty_->item->size().value();
+
+  auto offset_value = i.offset;
+  if (auto int_val = offset_value.get_if<int32_t>()) {
+    *int_val *= item_size;
+    inst.push_back(std::make_unique<Arith3Inst>(
+        arm::OpCode::Add, translate_var_reg(i.dest), translate_var_reg(i.ptr),
+        *int_val));
+  } else if (auto var_val = offset_value.get_if<mir::inst::VarId>()) {
+    auto num_reg = alloc_vgp();
+    auto reg = alloc_vgp();
+    inst.push_back(
+        std::make_unique<Arith2Inst>(OpCode::Mov, num_reg, item_size));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Mul, reg,
+                                                translate_var_reg(*var_val),
+                                                RegisterOperand(num_reg)));
+    inst.push_back(std::make_unique<Arith3Inst>(
+        arm::OpCode::Add, translate_var_reg(i.dest), translate_var_reg(i.ptr),
+        RegisterOperand(reg)));
+  }
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
