@@ -9,3 +9,7 @@ cmake_install.cmake
 .vs
 Makefile
 CMakeCache.txt
+compiler
+*.a
+tmp
+*.log

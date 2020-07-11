@@ -23,3 +23,7 @@ build:
         paths:
             - build/compiler
         expire_in: 1 week
+test:
+    script:
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
+        - mkdir -p buil
