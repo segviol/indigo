@@ -498,7 +498,8 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
     case mir::inst::Op::Mul:
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::Mul, translate_var_reg(i.dest),
-          translate_value_to_reg(lhs), translate_value_to_reg(rhs)));
+          translate_value_to_reg(lhs),
+          RegisterOperand(translate_value_to_reg(rhs))));
       break;
 
     case mir::inst::Op::Div:
