@@ -1,4 +1,5 @@
 import os
+from re import fullmatch
 import subprocess
 import argparse
 import re
@@ -153,7 +154,7 @@ def test_dir(dir):
 
     logger.info(f"passed {num_passed} of {num_tested} tests")
 
-    if fail_list.count() > 0:
+    if len(fail_list) > 0:
         fail_list_json = json.dumps(fail_list, indent=2, sort_keys=True)
         logger.error(f"Failed tests: {fail_list_json}")
 
