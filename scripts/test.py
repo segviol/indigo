@@ -105,7 +105,7 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=8)
 
-                my_output = str(process.stdout).splitlines()
+                my_output = process.stdout.decode("utf-8").splitlines()
                 return_code = process.returncode
 
                 if return_code < 0:
