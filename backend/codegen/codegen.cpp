@@ -457,7 +457,8 @@ void Codegen::translate_inst(mir::inst::RefInst& i) {
   } else if (auto x = std::get_if<mir::inst::VarId>(&i.val)) {
     auto reg = get_or_alloc_vgp(*x);
     auto reg1 = get_or_alloc_vgp(i.dest);
-    inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, reg1, reg));
+    inst.push_back(
+        std::make_unique<Arith2Inst>(OpCode::Mov, reg1, RegisterOperand(reg)));
   }
 }
 
