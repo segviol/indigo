@@ -52,7 +52,7 @@ class Node {
           // assignInst.In other cases,the mainVar must be varId
   std::vector<mir::inst::VarId> live_vars;
   std::vector<mir::inst::VarId> local_vars;
-  std::optional<mir::inst::Value> value;  // int Imm
+  std::optional<mir::inst::Value> value;  // int Imm or VarId
   std::set<NodeId> parents;
   std::variant<mir::inst::VarId, std::string> refVal;
   bool is_leaf;
@@ -67,32 +67,29 @@ class Node {
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
   void init_main_var() {
-    bool has_para = false;
     if (value.has_value()) {
       mainVar = value.value();
     } else {
-      if (local_vars.size()) {
-        auto iter = local_vars.begin();
-        for (; iter != local_vars.end(); ++iter) {
-          if (iter->id < 10000) {
-            break;
-          }
-        }
-        if (iter != local_vars.end()) {
-          mainVar = *iter;
-          has_para = true;
-          local_vars.erase(iter);
-        }
-      }
-      if (!has_para) {
-        if (live_vars.size()) {
-          mainVar = live_vars.back();
-          live_vars.pop_back();
-        } else {
-          assert(local_vars.size());
-          mainVar = local_vars.back();
-          local_vars.pop_back();
-        }
+      // if (local_vars.size()) {  // func para has high main priority
+      //   auto iter = local_vars.begin();
+      //   for (; iter != local_vars.end(); ++iter) {
+      //     if (iter->id < 10000) {
+      //       break;
+      //     }
+      //   }
+      //   if (iter != local_vars.end()) {
+      //     mainVar = *iter;
+      //     has_para = true;
+      //     local_vars.erase(iter);
+      //   }
+      // }
+      if (live_vars.size()) {
+        mainVar = live_vars.back();
+        live_vars.pop_back();
+      } else {
+        assert(local_vars.size());
+        mainVar = local_vars.back();
+        local_vars.pop_back();
       }
     }
   }
@@ -159,6 +156,7 @@ class BlockNodes {
     auto id = nodes.size();
     NodeId nodeId(id);
     auto node = std::make_shared<Node>();
+    node->value = var;
     nodes.push_back(node);
     var_map[var] = nodeId;
     node_map[*node] = id;
