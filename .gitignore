@@ -11,5 +11,6 @@ Makefile
 CMakeCache.txt
 compiler
 *.a
+!test_codes/*
 tmp
 *.log

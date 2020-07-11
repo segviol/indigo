@@ -52,15 +52,20 @@ add_subdirectory(include/spdlog)
 
 add_executable(compiler main.cpp)
 
+target_include_directories(src PRIVATE include/spdlog/include)
+
 if(STATIC_LINK_ARTIFACTS)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -g")
     set_target_properties(compiler PROPERTIES LINK_SEARCH_START_STATIC 1)
     set_target_properties(compiler PROPERTIES LINK_SEARCH_END_STATIC 1)
 endif(STATIC_LINK_ARTIFACTS)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Oz")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2")
+endif()
 
-target_include_directories(src PRIVATE include/spdlog/include)
 
 target_link_libraries(
     compiler
