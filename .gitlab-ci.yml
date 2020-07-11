@@ -9,7 +9,10 @@ before_script:
     # - mkdir -p /etc/apk-cache
     # - ln -s /etc/apk/cache /etc/apk-cache
     # - apk cache sync -v
-    - apk add autoconf build-base binutils cmake file gcc g++ git libgcc libtool linux-headers make musl-dev --no-cache
+    - apk add autoconf build-base binutils cmake file gcc g++ git libgcc libtool linux-headers make musl-dev --no-cache1
+    - apk add python3 python3-dev python3-pip  --no-cache
+    - pip3 install colorlog
+    - pip3 install tqdm
 
 build:
     script:
@@ -24,9 +27,6 @@ build:
             - build/compiler
         expire_in: 1 week
 test:
-    before_script:
-        - apk add python3 python3-dev python3-pip  --no-cache
-        - pip3 install colorlog
-        - pip3 install tqdm
+
     script:
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
