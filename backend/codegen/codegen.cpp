@@ -441,7 +441,7 @@ void Codegen::translate_inst(mir::inst::RefInst& i) {
     local_const_definition.append(*x);
     local_const_definition.append("-(");
     local_const_definition.append(load_pc_label);
-    local_const_definition.append(")");
+    local_const_definition.append("+4)");
 
     consts.insert(
         {offset_from_pc_label,
