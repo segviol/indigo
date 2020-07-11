@@ -7,6 +7,7 @@ from tqdm import tqdm
 import logging
 import colorlog
 import json
+import signal
 
 log_colors_config = {
     'DEBUG': 'white',  # cyan white
@@ -67,9 +68,10 @@ root_path = args.test_path
 
 
 def test_dir(dir):
-    test_count = 0
-    success_count = 0
+    num_tested = 0
+    num_passed = 0
     fail_list = []
+    pass_list = []
 
     files = os.listdir(dir)
     for file in tqdm(files):
@@ -77,9 +79,9 @@ def test_dir(dir):
         if os.path.isdir(new_path) and args.recursively:
             test_dir(new_path)
         elif file.split('.')[-1] == 'sy':
+            num_tested += 1
+            prefix = file.split('.')[0]
             try:
-                test_count += 1
-                prefix = file.split('.')[0]
                 f = open("info.txt", 'w')
 
                 subprocess.run(
@@ -92,43 +94,80 @@ def test_dir(dir):
                 ],
                                stdout=f)
 
-                f_out = open("./output.txt", 'w')
                 if os.path.exists(os.path.join(dir, f"{prefix}.in")):
                     f = open(os.path.join(dir, f"{prefix}.in"), 'r')
-                    subprocess.call(["./tmp"],
-                                    stdin=f,
-                                    stdout=f_out,
-                                    timeout=8)
+                    process = subprocess.run(["./tmp"],
+                                             stdin=f,
+                                             capture_output=True,
+                                             timeout=8)
                 else:
-                    subprocess.call(["./tmp"], stdout=f_out, timeout=8)
-                f_out.close()
-                with open("./output.txt", 'r') as f:
-                    my_output = f.readlines()
+                    process = subprocess.run(["./tmp"],
+                                             capture_output=True,
+                                             timeout=8)
+
+                my_output = process.stdout
+                return_code = process.returncode
+
+                if return_code < 0:
+                    sig = -return_code
+                    sig_def = signal.strsignal(sig)
+                    logger.error(
+                        f"{new_path} raised a runtime error with signal {sig} ({sig_def})"
+                    )
+                    fail_list.append({
+                        "file": file,
+                        "reason": "runtime_error",
+                        "got": my_output,
+                        "signal": sig_def
+                    })
+
                 with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
                     std_output = f.readlines()
+
                 std_output[-1] = std_output[-1].strip()
+
                 if my_output != std_output:
                     logger.error(f"mismatched output for {new_path}: ")
                     logger.error(
                         f"\texpected: {std_output}\n\tgot {my_output}")
                     fail_list.append({
                         "file": file,
-                        "reason": "WA",
+                        "reason": "wrong_output",
                         "expected": std_output,
                         "got": my_output
                     })
                 else:
                     logger.info(f"Successfully passed {prefix}")
-                    success_count += 1
+                    pass_list.append(file)
+                    num_passed += 1
                 f.close()
-            except subprocess.TimeoutExpired:
-                logger.error(f"{prefix} time out!(longer than 8 seconds)")
-                fail_list.append({"file": file, "reason": "timeout"})
-    logger.info(f"{success_count} of {test_count} tests passed")
-    fail_list_json = json.dumps(fail_list, indent=2, sort_keys=True)
-    logger.info(f"Failed: {fail_list_json}")
-    return 0 if success_count == test_count else 1
+
+            except subprocess.TimeoutExpired as t:
+                logger.error(
+                    f"{prefix} time out!(longer than {t.timeout} seconds)")
+                fail_list.append({
+                    "file": file,
+                    "reason": "timeout",
+                    "got": t.stdout
+                })
+
+    logger.info(f"passed {num_passed} of {num_tested} tests")
+
+    if fail_list.count > 0:
+        fail_list_json = json.dumps(fail_list, indent=2, sort_keys=True)
+        logger.error(f"Failed tests: {fail_list_json}")
+
+    return {
+        "num_tested": num_tested,
+        "num_passed": num_passed,
+        "num_failed": num_tested - num_passed,
+        "passed": pass_list,
+        "failed": fail_list
+    }
 
 
 result = test_dir(root_path)
-exit(result)
+if result.num_failed != 0:
+    exit(1)
+else:
+    exit(0)
