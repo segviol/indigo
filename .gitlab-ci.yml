@@ -24,6 +24,9 @@ build:
             - build/compiler
         expire_in: 1 week
 test:
+    before_script:
+        - apk add python3  --no-cache
+        - pip3 install colorlog
+        - pip3 install tqdm
     script:
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
-        - mkdir -p buil
