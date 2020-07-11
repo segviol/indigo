@@ -406,6 +406,14 @@ void RegAllocator::perform_load_stores() {
     } else if (auto x = dynamic_cast<PushPopInst *>(inst_)) {
       // push pop only use gpr
       inst_sink.push_back(std::move(f.inst[i]));
+    } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
+      inst_sink.push_back(std::move(f.inst[i]));
+
+      // HACK: If it's load_pc label, delay store once more
+      if (x->label.find("_$ld_pc") == 0 && inst_sink.size() >= 2 &&
+          dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
+        std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
+      }
     } else
       inst_sink.push_back(std::move(f.inst[i]));
     if (delayed_store) {
