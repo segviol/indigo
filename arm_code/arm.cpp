@@ -353,6 +353,7 @@ void ConstValue::display(std::ostream &o) const {
       if (!is_first) {
         o << ", ";
       }
+      is_first = false;
       o << i;
     }
   } else if (auto x = std::get_if<std::string>(this)) {
