@@ -1,4 +1,3 @@
-
-[submodule "test_codes/sysyruntimelibrary"]
+[submodule "sysyruntimelibrary"]
 	path = test_codes/sysyruntimelibrary
 	url = https://gitlab.eduxiji.net/windcome/sysyruntimelibrary.git/
