@@ -67,15 +67,33 @@ class Node {
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
   void init_main_var() {
+    bool has_para = false;
     if (value.has_value()) {
       mainVar = value.value();
-    } else if (live_vars.size()) {
-      mainVar = live_vars.back();
-      live_vars.pop_back();
     } else {
-      assert(local_vars.size());
-      mainVar = local_vars.back();
-      local_vars.pop_back();
+      if (local_vars.size()) {
+        auto iter = local_vars.begin();
+        for (; iter != local_vars.end(); ++iter) {
+          if (iter->id < 10000) {
+            break;
+          }
+        }
+        if (iter != local_vars.end()) {
+          mainVar = *iter;
+          has_para = true;
+          local_vars.erase(iter);
+        }
+      }
+      if (!has_para) {
+        if (live_vars.size()) {
+          mainVar = live_vars.back();
+          live_vars.pop_back();
+        } else {
+          assert(local_vars.size());
+          mainVar = local_vars.back();
+          local_vars.pop_back();
+        }
+      }
     }
   }
 
