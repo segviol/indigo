@@ -29,7 +29,11 @@ void MathOptimization::optimize_func(arm::Function &f) {
         auto i_ = dynamic_cast<arm::Arith3Inst *>(i.get());
         assert(i_ && "instruction must be Arith3Inst");
         // if (auto n = std::get_if<int32_t>(&i_->r2)) {
-        // } else {
+        //   if ((*n & (*n) - 1) == 0) {
+        //     //
+        //     inst_new.push_back(std::make_unique<Arith3Inst>(arm::OpCode::shr))
+        // }
+        // }
         inst_new.push_back(std::make_unique<arm::Arith2Inst>(
             arm::OpCode::Mov, arm::Reg(0), RegisterOperand(i_->r1)));
         inst_new.push_back(std::make_unique<arm::Arith2Inst>(
@@ -38,7 +42,6 @@ void MathOptimization::optimize_func(arm::Function &f) {
             std::make_unique<arm::BrInst>(arm::OpCode::Bl, "__aeabi_idiv"));
         inst_new.push_back(std::make_unique<arm::Arith2Inst>(
             arm::OpCode::Mov, i_->rd, RegisterOperand(0)));
-        // }
         break;
       }
       case arm::OpCode::_Mod: {
