@@ -119,29 +119,30 @@ def test_dir(dir):
                         "file": file,
                         "reason": "runtime_error",
                         "got": my_output,
-                        "signal": sig_def
+                        "error": sig_def
                     })
 
-                with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
-                    std_output = f.readlines()
-
-                std_output[-1] = std_output[-1].strip()
-
-                if my_output != std_output:
-                    logger.error(
-                        f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
-                    )
-                    fail_list.append({
-                        "file": file,
-                        "reason": "wrong_output",
-                        "expected": std_output,
-                        "got": my_output
-                    })
                 else:
-                    logger.info(f"Successfully passed {prefix}")
-                    pass_list.append(file)
-                    num_passed += 1
-                f.close()
+                    with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
+                        std_output = f.readlines()
+
+                    std_output[-1] = std_output[-1].strip()
+
+                    if my_output != std_output:
+                        logger.error(
+                            f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
+                        )
+                        fail_list.append({
+                            "file": file,
+                            "reason": "wrong_output",
+                            "expected": std_output,
+                            "got": my_output
+                        })
+                    else:
+                        logger.info(f"Successfully passed {prefix}")
+                        pass_list.append(file)
+                        num_passed += 1
+                    f.close()
 
             except subprocess.TimeoutExpired as t:
                 logger.error(
@@ -168,7 +169,7 @@ def test_dir(dir):
 
 
 result = test_dir(root_path)
-logger.log(result)
+logger.info(result)
 if result.num_failed != 0:
     exit(1)
 else:
