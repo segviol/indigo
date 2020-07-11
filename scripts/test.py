@@ -170,7 +170,7 @@ def test_dir(dir):
 
 result = test_dir(root_path)
 logger.info(result)
-if result.num_failed != 0:
+if result["num_failed"] != 0:
     exit(1)
 else:
     exit(0)
