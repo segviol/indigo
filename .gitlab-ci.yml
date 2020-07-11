@@ -26,6 +26,7 @@ build:
 test:
     before_script:
         - apk add python3  --no-cache
+        - apk add python3-pip --no-cache
         - pip3 install colorlog
         - pip3 install tqdm
     script:
