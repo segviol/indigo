@@ -49,6 +49,9 @@ class Backend {
   std::vector<std::unique_ptr<MirOptimizePass>> mir_passes;
   std::vector<std::unique_ptr<ArmOptimizePass>> arm_passes;
   std::map<std::string, std::any> extra_data;
+
+  bool should_run_pass(std::string& pass_name);
+  bool should_run_pass(std::string&& pass_name);
 };
 
 /// Base class for all optimize passes that work on MIR
