@@ -186,7 +186,8 @@ void RegAllocator::calc_live_intervals() {
       add_reg_read(x->r2, i);
       add_reg_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
-      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT) {
+      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
+          x->op == arm::OpCode::Mvn) {
         add_reg_write(x->r1, i);
       } else {
         add_reg_read(x->r1, i);
