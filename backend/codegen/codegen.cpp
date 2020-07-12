@@ -487,8 +487,9 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
-  bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
-                        (i.op != mir::inst::Op::Div);
+  bool reverse_params =
+      i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+      (i.op != mir::inst::Op::Div && i.op != mir::inst::Op::Rem);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
