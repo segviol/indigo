@@ -56,7 +56,7 @@ void MathOptimization::optimize_func(arm::Function &f) {
         inst_new.push_back(
             std::make_unique<arm::BrInst>(arm::OpCode::Bl, "__aeabi_idivmod"));
         inst_new.push_back(std::make_unique<arm::Arith2Inst>(
-            arm::OpCode::Mov, i_->rd, RegisterOperand(0)));
+            arm::OpCode::Mov, i_->rd, RegisterOperand(1)));
         // }
         break;
       }
