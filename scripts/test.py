@@ -106,7 +106,9 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=8)
 
-                my_output = process.stdout.decode("utf-8").splitlines()
+                my_output = process.stdout.decode("utf-8")
+                limited_output = my_output[0:2048]
+                if len(my_output) > 2048: limited_output += "..."
                 return_code = process.returncode
 
                 if return_code < 0:
@@ -118,15 +120,14 @@ def test_dir(dir):
                     fail_list.append({
                         "file": file,
                         "reason": "runtime_error",
-                        "got": my_output,
+                        "got": limited_output,
                         "error": sig_def
                     })
 
                 else:
+                    my_output = (my_output + "\n" + str(return_code)).strip()
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
-                        std_output = f.readlines()
-
-                    std_output[-1] = std_output[-1].strip()
+                        std_output = f.read().replace("\r", "").strip()
 
                     if my_output != std_output:
                         logger.error(
@@ -136,7 +137,7 @@ def test_dir(dir):
                             "file": file,
                             "reason": "wrong_output",
                             "expected": std_output,
-                            "got": my_output
+                            "got": limited_output
                         })
                     else:
                         logger.info(f"Successfully passed {prefix}")
@@ -147,17 +148,24 @@ def test_dir(dir):
             except subprocess.TimeoutExpired as t:
                 logger.error(
                     f"{prefix} time out!(longer than {t.timeout} seconds)")
+                stdout = t.stdout
+                if stdout != None:
+                    str_stdout = stdout.decode("utf-8")
+                    if len(str_stdout) > 2048:
+                        str_stdout = str_stdout[0:2048] + "..."
+                else:
+                    str_stdout = ""
+
                 fail_list.append({
                     "file": file,
                     "reason": "timeout",
-                    "got": t.stdout
+                    "got": str_stdout
                 })
 
     logger.info(f"passed {num_passed} of {num_tested} tests")
 
     if len(fail_list) > 0:
-        fail_list_json = json.dumps(fail_list, indent=2, sort_keys=True)
-        logger.error(f"Failed tests: {fail_list_json}")
+        logger.error(f"Failed tests: {fail_list}")
 
     return {
         "num_tested": num_tested,
