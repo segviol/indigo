@@ -71,14 +71,14 @@ root_path = args.test_path
 output_folder_name = "output"
 
 
-def format_compiler_output_file_name(name: str):
+def format_compiler_output_file_name(name: str, ty: str):
     name = name.replace('/', '_')
-    return f"{output_folder_name}/compiler-{name}.txt"
+    return f"{output_folder_name}/compiler-{ty}-{name}.txt"
 
 
-def format_linker_output_file_name(name: str):
+def format_linker_output_file_name(name: str, ty: str):
     name = name.replace('/', '_')
-    return f"{output_folder_name}/linker-{name}.txt"
+    return f"{output_folder_name}/linker-{ty}-{name}.txt"
 
 
 def test_dir(dir):
@@ -105,8 +105,9 @@ def test_dir(dir):
                 if compiler_output.returncode != 0:
                     logger.error(f"{new_path} encountered a compiler error")
 
-                    with open(format_compiler_output_file_name(new_path),
-                              "w") as f:
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
                         f.write(compiler_output.stdout.decode('utf-8'))
 
                     fail_list.append({
@@ -126,12 +127,18 @@ def test_dir(dir):
                 if link_output.returncode != 0:
                     logger.error(f"{new_path} encountered a linker error")
 
-                    with open(format_linker_output_file_name(new_path),
-                              "w") as f:
+                    with open(
+                            format_linker_output_file_name(new_path, 'stdout'),
+                            "w") as f:
                         f.write(link_output.stdout.decode('utf-8'))
-                    with open(format_compiler_output_file_name(new_path),
-                              "w") as f:
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
                         f.write(compiler_output.stdout.decode('utf-8'))
+                    with open(
+                            format_linker_output_file_name(new_path, 'stderr'),
+                            "w") as f:
+                        f.write(link_output.stderr.decode('utf-8'))
 
                     fail_list.append({
                         "file": file,
@@ -163,6 +170,12 @@ def test_dir(dir):
                     logger.error(
                         f"{new_path} raised a runtime error with signal {sig} ({sig_def})"
                     )
+
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+
                     fail_list.append({
                         "file": new_path,
                         "reason": "runtime_error",
@@ -187,6 +200,11 @@ def test_dir(dir):
                         logger.error(
                             f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
                         )
+                        with open(
+                                format_compiler_output_file_name(
+                                    new_path, 'stdout'), "w") as f:
+                            f.write(compiler_output.stdout.decode('utf-8'))
+
                         fail_list.append({
                             "file": file,
                             "reason": "wrong_output",
