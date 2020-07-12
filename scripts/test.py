@@ -1,4 +1,5 @@
 import os
+from os import link, path
 from re import fullmatch
 import subprocess
 import argparse
@@ -67,6 +68,18 @@ parser.add_argument('-r',
 args = parser.parse_args()
 root_path = args.test_path
 
+output_folder_name = "output"
+
+
+def format_compiler_output_file_name(name: str, ty: str):
+    name = name.replace('/', '_')
+    return f"{output_folder_name}/compiler-{ty}-{name}.txt"
+
+
+def format_linker_output_file_name(name: str, ty: str):
+    name = name.replace('/', '_')
+    return f"{output_folder_name}/linker-{ty}-{name}.txt"
+
 
 def test_dir(dir):
     num_tested = 0
@@ -82,18 +95,57 @@ def test_dir(dir):
         elif file.split('.')[-1] == 'sy':
             num_tested += 1
             prefix = file.split('.')[0]
+
             try:
-                f = open("info.txt", 'w')
-
-                subprocess.run(
+                compiler_output = subprocess.run(
                     [args.compiler_path, new_path, "-d", "-o", "tmp.s"],
-                    stdout=f)
+                    capture_output=True)
 
-                subprocess.run([
+                # compiler error
+                if compiler_output.returncode != 0:
+                    logger.error(f"{new_path} encountered a compiler error")
+
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+
+                    fail_list.append({
+                        "file": new_path,
+                        "reason": "compile_error",
+                        "return_code": compiler_output.returncode
+                    })
+                    continue
+
+                link_output = subprocess.run([
                     'gcc', 'tmp.s', args.linked_library_path, '-march=armv7-a',
                     "-o", "tmp"
                 ],
-                               stdout=f)
+                                             capture_output=True)
+
+                # compiler error
+                if link_output.returncode != 0:
+                    logger.error(f"{new_path} encountered a linker error")
+
+                    with open(
+                            format_linker_output_file_name(new_path, 'stdout'),
+                            "w") as f:
+                        f.write(link_output.stdout.decode('utf-8'))
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+                    with open(
+                            format_linker_output_file_name(new_path, 'stderr'),
+                            "w") as f:
+                        f.write(link_output.stderr.decode('utf-8'))
+
+                    fail_list.append({
+                        "file": file,
+                        "reason": "link_error",
+                        "return_code": link_output.returncode
+                    })
+                    continue
 
                 if os.path.exists(os.path.join(dir, f"{prefix}.in")):
                     f = open(os.path.join(dir, f"{prefix}.in"), 'r')
@@ -106,10 +158,11 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=8)
 
-                my_output = process.stdout.decode("utf-8")
-                limited_output = my_output[0:2048]
-                if len(my_output) > 2048: limited_output += "..."
                 return_code = process.returncode
+                my_output = process.stdout.decode("utf-8").replace("\r", "")
+                my_output = (my_output + "\n" + str(return_code)).strip()
+                limited_output = my_output[0:2048]
+                if len(my_output) > 2048: limited_output += "...(stripped)"
 
                 if return_code < 0:
                     sig = -return_code
@@ -117,22 +170,41 @@ def test_dir(dir):
                     logger.error(
                         f"{new_path} raised a runtime error with signal {sig} ({sig_def})"
                     )
+
+                    with open(
+                            format_compiler_output_file_name(
+                                new_path, 'stdout'), "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+
                     fail_list.append({
-                        "file": file,
+                        "file": new_path,
                         "reason": "runtime_error",
                         "got": limited_output,
                         "error": sig_def
                     })
 
                 else:
-                    my_output = (my_output + "\n" + str(return_code)).strip()
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
                         std_output = f.read().replace("\r", "").strip()
 
-                    if my_output != std_output:
+                    my_output_lines = [
+                        x.strip() for x in my_output.splitlines()
+                        if x.strip() != ''
+                    ]
+                    std_output_lines = [
+                        x.strip() for x in std_output.splitlines()
+                        if x.strip() != ''
+                    ]
+
+                    if my_output_lines != std_output_lines:
                         logger.error(
                             f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
                         )
+                        with open(
+                                format_compiler_output_file_name(
+                                    new_path, 'stdout'), "w") as f:
+                            f.write(compiler_output.stdout.decode('utf-8'))
+
                         fail_list.append({
                             "file": file,
                             "reason": "wrong_output",
@@ -141,7 +213,7 @@ def test_dir(dir):
                         })
                     else:
                         logger.info(f"Successfully passed {prefix}")
-                        pass_list.append(file)
+                        pass_list.append(new_path)
                         num_passed += 1
                     f.close()
 
@@ -157,7 +229,7 @@ def test_dir(dir):
                     str_stdout = ""
 
                 fail_list.append({
-                    "file": file,
+                    "file": new_path,
                     "reason": "timeout",
                     "got": str_stdout
                 })
