@@ -168,6 +168,9 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::MovT:
       o << "movt";
       break;
+    case OpCode::Mvn:
+      o << "mvn";
+      break;
     case OpCode::Add:
       o << "add";
       break;
