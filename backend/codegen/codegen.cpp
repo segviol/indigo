@@ -257,12 +257,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
     } else {
       auto reg = alloc_vgp();
       uint32_t imm_u = int_value;
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-      if (imm_u > 0xffff) {
-        inst.push_back(
-            std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-      }
+      make_number(reg, imm_u);
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
@@ -277,12 +272,7 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
     auto int_value = *x;
     auto reg = alloc_vgp();
     uint32_t imm_u = int_value;
-    inst.push_back(
-        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-    }
+    make_number(reg, imm_u);
     return reg;
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
     return get_or_alloc_vgp(*x);
@@ -332,16 +322,26 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   }
 }
 
+void Codegen::make_number(Reg reg, uint32_t num) {
+  // if ((~num) <= 0xffff) {
+  //   inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::Mvn,
+  //                                               translate_var_reg(reg),
+  //                                               ~num));
+  // } else {
+  inst.push_back(
+      std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, num & 0xffff));
+  if (num > 0xffff) {
+    inst.push_back(
+        std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, num >> 16));
+  }
+  // }
+}
+
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
   if (i.src.is_immediate()) {
     auto imm = *i.src.get_if<int32_t>();
     uint32_t imm_u = imm;
-    inst.push_back(std::make_unique<Arith2Inst>(
-        arm::OpCode::Mov, translate_var_reg(i.dest), imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(std::make_unique<Arith2Inst>(
-          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u >> 16));
-    }
+    make_number(translate_var_reg(i.dest), imm_u);
   } else {
     inst.push_back(std::make_unique<Arith2Inst>(
         arm::OpCode::Mov, translate_var_reg(i.dest),
@@ -488,8 +488,9 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
-  bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
-                        (i.op != mir::inst::Op::Div);
+  bool reverse_params =
+      i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+      (i.op != mir::inst::Op::Div && i.op != mir::inst::Op::Rem);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
