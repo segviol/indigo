@@ -357,7 +357,8 @@ void RegAllocator::perform_load_stores() {
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
       x->r2.replace_reg_if_virtual(5);
-      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT) {
+      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
+          x->op == arm::OpCode::Mvn) {
         Reg r1 = x->r1;
         if (is_virtual_register(r1)) {
           write_load(r1, 4);
