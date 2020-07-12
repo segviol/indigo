@@ -106,10 +106,11 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=8)
 
-                my_output = process.stdout.decode("utf-8")
-                limited_output = my_output[0:2048]
-                if len(my_output) > 2048: limited_output += "..."
                 return_code = process.returncode
+                my_output = process.stdout.decode("utf-8")
+                my_output = (my_output + "\n" + str(return_code)).strip()
+                limited_output = my_output[0:2048]
+                if len(my_output) > 2048: limited_output += "...(stripped)"
 
                 if return_code < 0:
                     sig = -return_code
@@ -125,7 +126,6 @@ def test_dir(dir):
                     })
 
                 else:
-                    my_output = (my_output + "\n" + str(return_code)).strip()
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
                         std_output = f.read().replace("\r", "").strip()
 
