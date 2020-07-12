@@ -82,18 +82,39 @@ def test_dir(dir):
         elif file.split('.')[-1] == 'sy':
             num_tested += 1
             prefix = file.split('.')[0]
+
             try:
-                f = open("info.txt", 'w')
-
-                subprocess.run(
+                compiler_output = subprocess.run(
                     [args.compiler_path, new_path, "-d", "-o", "tmp.s"],
-                    stdout=f)
+                    capture_output=True)
 
-                subprocess.run([
+                # compiler error
+                if compiler_output.returncode != 0:
+                    logger.error(f"{new_path} encountered a compiler error")
+                    fail_list.append({
+                        "file": file,
+                        "reason": "compile_error",
+                        "error": compiler_output.stdout,
+                        "return_code": compiler_output.return_code
+                    })
+                    continue
+
+                link_output = subprocess.run([
                     'gcc', 'tmp.s', args.linked_library_path, '-march=armv7-a',
                     "-o", "tmp"
                 ],
-                               stdout=f)
+                                             capture_output=True)
+
+                # compiler error
+                if link_output.returncode != 0:
+                    logger.error(f"{new_path} encountered a linker error")
+                    fail_list.append({
+                        "file": file,
+                        "reason": "link_error",
+                        "error": link_output.stdout,
+                        "return_code": link_output.return_code
+                    })
+                    continue
 
                 if os.path.exists(os.path.join(dir, f"{prefix}.in")):
                     f = open(os.path.join(dir, f"{prefix}.in"), 'r')
@@ -107,7 +128,7 @@ def test_dir(dir):
                                              timeout=8)
 
                 return_code = process.returncode
-                my_output = process.stdout.decode("utf-8")
+                my_output = process.stdout.decode("utf-8").replace("\r", "")
                 my_output = (my_output + "\n" + str(return_code)).strip()
                 limited_output = my_output[0:2048]
                 if len(my_output) > 2048: limited_output += "...(stripped)"
@@ -128,6 +149,13 @@ def test_dir(dir):
                 else:
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
                         std_output = f.read().replace("\r", "").strip()
+
+                    my_output_lines = [
+                        x.strip() for x in my_output.splitlines()
+                    ]
+                    std_output_lines = [
+                        x.strip() for x in std_output.splitlines()
+                    ]
 
                     if my_output != std_output:
                         logger.error(
