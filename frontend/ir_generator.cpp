@@ -378,10 +378,10 @@ void irGenerator::ir_leave_function() {
   shared_ptr<mir::inst::JumpInstruction> jumpInst;
 
   ir_label(_ReturnBlockLabelId);
-  if (_funcStack.back() == _MainFuncName) {
-    ir_function_call("void", symbol::SymbolKind::VOID, "putint",
-                     {_ReturnVarName});
-  }
+  // if (_funcStack.back() == _MainFuncName) {
+  //   ir_function_call("void", symbol::SymbolKind::VOID, "putint",
+  //                    {_ReturnVarName});
+  // }
   switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
   case mir::types::TyKind::Int: {
     jumpInst =
