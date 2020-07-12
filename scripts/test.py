@@ -1,4 +1,5 @@
 import os
+from os import link, path
 from re import fullmatch
 import subprocess
 import argparse
@@ -67,6 +68,16 @@ parser.add_argument('-r',
 args = parser.parse_args()
 root_path = args.test_path
 
+output_folder_name = "output"
+
+
+def format_compiler_output_file_name(name):
+    return f"{output_folder_name}/compiler-{name}.txt"
+
+
+def format_linker_output_file_name(name):
+    return f"{output_folder_name}/linker-{name}.txt"
+
 
 def test_dir(dir):
     num_tested = 0
@@ -91,10 +102,14 @@ def test_dir(dir):
                 # compiler error
                 if compiler_output.returncode != 0:
                     logger.error(f"{new_path} encountered a compiler error")
+
+                    with open(format_compiler_output_file_name(new_path),
+                              "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+
                     fail_list.append({
-                        "file": file,
+                        "file": new_path,
                         "reason": "compile_error",
-                        "error": compiler_output.stdout,
                         "return_code": compiler_output.returncode
                     })
                     continue
@@ -108,10 +123,17 @@ def test_dir(dir):
                 # compiler error
                 if link_output.returncode != 0:
                     logger.error(f"{new_path} encountered a linker error")
+
+                    with open(format_linker_output_file_name(new_path),
+                              "w") as f:
+                        f.write(link_output.stdout.decode('utf-8'))
+                    with open(format_compiler_output_file_name(new_path),
+                              "w") as f:
+                        f.write(compiler_output.stdout.decode('utf-8'))
+
                     fail_list.append({
                         "file": file,
                         "reason": "link_error",
-                        "error": link_output.stdout,
                         "return_code": link_output.returncode
                     })
                     continue
@@ -140,7 +162,7 @@ def test_dir(dir):
                         f"{new_path} raised a runtime error with signal {sig} ({sig_def})"
                     )
                     fail_list.append({
-                        "file": file,
+                        "file": new_path,
                         "reason": "runtime_error",
                         "got": limited_output,
                         "error": sig_def
@@ -171,7 +193,7 @@ def test_dir(dir):
                         })
                     else:
                         logger.info(f"Successfully passed {prefix}")
-                        pass_list.append(file)
+                        pass_list.append(new_path)
                         num_passed += 1
                     f.close()
 
@@ -187,7 +209,7 @@ def test_dir(dir):
                     str_stdout = ""
 
                 fail_list.append({
-                    "file": file,
+                    "file": new_path,
                     "reason": "timeout",
                     "got": str_stdout
                 })
