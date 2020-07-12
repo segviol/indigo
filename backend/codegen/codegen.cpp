@@ -623,7 +623,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
             Operand2(0)));
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
-            ConditionCode::NotEqual));
+            ConditionCode::Equal));
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_true)));
       }
