@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 
 #include "backend/backend.hpp"
 #include "backend/codegen/bb_rearrange.hpp"
@@ -108,6 +109,12 @@ Options parse_options(int argc, const char** argv) {
   parser.add_argument()
       .names({"-d", "--pass-diff"})
       .description("Show code difference after each pass");
+  parser.add_argument()
+      .names({"-r", "--run-pass"})
+      .description("Only run listed pass");
+  parser.add_argument()
+      .names({"-s", "--skip-pass"})
+      .description("Skip listed pass");
   parser.enable_help();
 
   auto err = parser.parse(argc, argv);
@@ -140,6 +147,39 @@ Options parse_options(int argc, const char** argv) {
     spdlog::set_level(spdlog::level::warn);
   }
   spdlog::set_level(spdlog::level::trace);
+
+  if (parser.exists("run-pass")) {
+    auto out = parser.get<std::vector<string>>("run-pass");
+    std::set<std::string> run_pass(out.begin(), out.end());
+    {
+      std::stringstream pass_name;
+      for (auto i = run_pass.cbegin(); i != run_pass.cend(); i++) {
+        if (i != run_pass.cbegin()) pass_name << ", ";
+        pass_name << *i;
+      }
+      spdlog::info("Only running the following passes: {}", pass_name.str());
+    }
+    options.run_pass = {std::move(run_pass)};
+  } else {
+    options.run_pass = {};
+  }
+
+  if (parser.exists("skip-pass")) {
+    auto out = parser.get<std::vector<string>>("skip-pass");
+    std::set<std::string> skip_pass(out.begin(), out.end());
+    {
+      std::stringstream pass_name;
+      for (auto i = skip_pass.cbegin(); i != skip_pass.cend(); i++) {
+        if (i != skip_pass.cbegin()) pass_name << ", ";
+        pass_name << *i;
+      }
+      spdlog::info("Skipping the following passes: {}", pass_name.str());
+    }
+    options.skip_pass = std::move(skip_pass);
+  } else {
+    options.skip_pass = {};
+  }
+
   spdlog::set_default_logger(spdlog::stdout_logger_st("console"));
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
 
