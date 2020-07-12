@@ -291,7 +291,7 @@ void display_cond(ConditionCode cond, std::ostream &o) {
   }
 }
 
-ConditionCode inverse_cond(ConditionCode cond) {
+ConditionCode invert_cond(ConditionCode cond) {
   switch (cond) {
     case ConditionCode::Equal:
       return ConditionCode::NotEqual;
@@ -329,11 +329,46 @@ ConditionCode inverse_cond(ConditionCode cond) {
     case ConditionCode::Gt:
       return ConditionCode::Le;
     case ConditionCode::Le:
-      return ConditionCode::Ge;
+      return ConditionCode::Gt;
 
     case ConditionCode::Always:
     default:
       return ConditionCode::Always;
+  }
+}
+
+ConditionCode reverse_cond(ConditionCode cond) {
+  switch (cond) {
+    case ConditionCode::Equal:
+    case ConditionCode::NotEqual:
+    case ConditionCode::CarrySet:
+    case ConditionCode::CarryClear:
+    case ConditionCode::MinusOrNegative:
+    case ConditionCode::PositiveOrZero:
+    case ConditionCode::Overflow:
+    case ConditionCode::NoOverflow:
+    case ConditionCode::Always:
+      return cond;
+
+    case ConditionCode::UnsignedGe:
+      return ConditionCode::UnsignedLe;
+    case ConditionCode::UnsignedLt:
+      return ConditionCode::UnsignedGt;
+    case ConditionCode::UnsignedGt:
+      return ConditionCode::UnsignedLt;
+    case ConditionCode::UnsignedLe:
+      return ConditionCode::UnsignedGe;
+
+    case ConditionCode::Ge:
+      return ConditionCode::Le;
+    case ConditionCode::Lt:
+      return ConditionCode::Gt;
+    case ConditionCode::Gt:
+      return ConditionCode::Lt;
+    case ConditionCode::Le:
+      return ConditionCode::Ge;
+    default:
+      return cond;
   }
 }
 
