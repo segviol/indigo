@@ -160,7 +160,7 @@ class BlockNodes {
     nodes.push_back(node);
     var_map[var] = nodeId;
     node_map[*node] = id;
-    add_var(var, id);
+    // add_var(var, id); leaf var is always regarded as main var
     return nodeId;
   }
 
