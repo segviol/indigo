@@ -152,12 +152,14 @@ def test_dir(dir):
 
                     my_output_lines = [
                         x.strip() for x in my_output.splitlines()
+                        if x.strip() != ''
                     ]
                     std_output_lines = [
                         x.strip() for x in std_output.splitlines()
+                        if x.strip() != ''
                     ]
 
-                    if my_output != std_output:
+                    if my_output_lines != std_output_lines:
                         logger.error(
                             f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
                         )
