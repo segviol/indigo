@@ -71,11 +71,13 @@ root_path = args.test_path
 output_folder_name = "output"
 
 
-def format_compiler_output_file_name(name):
+def format_compiler_output_file_name(name: str):
+    name = name.replace('/', '_')
     return f"{output_folder_name}/compiler-{name}.txt"
 
 
-def format_linker_output_file_name(name):
+def format_linker_output_file_name(name: str):
+    name = name.replace('/', '_')
     return f"{output_folder_name}/linker-{name}.txt"
 
 
