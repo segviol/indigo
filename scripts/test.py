@@ -95,7 +95,7 @@ def test_dir(dir):
                         "file": file,
                         "reason": "compile_error",
                         "error": compiler_output.stdout,
-                        "return_code": compiler_output.return_code
+                        "return_code": compiler_output.returncode
                     })
                     continue
 
@@ -112,7 +112,7 @@ def test_dir(dir):
                         "file": file,
                         "reason": "link_error",
                         "error": link_output.stdout,
-                        "return_code": link_output.return_code
+                        "return_code": link_output.returncode
                     })
                     continue
 
