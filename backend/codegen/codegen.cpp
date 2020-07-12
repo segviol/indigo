@@ -572,10 +572,11 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                            bool reversed) {
   auto lhsv = translate_value_to_reg(lhs);
   auto rhsv = translate_value_to_operand2(rhs);
+  if (reversed) cond = reverse_cond(cond);
 
-  inst.push_back(std::make_unique<Arith2Inst>(
-      reversed ? OpCode::Cmn : OpCode::Cmp, translate_value_to_reg(lhs),
-      translate_value_to_operand2(rhs)));
+  inst.push_back(
+      std::make_unique<Arith2Inst>(OpCode::Cmp, translate_value_to_reg(lhs),
+                                   translate_value_to_operand2(rhs)));
 
   inst.push_back(std::make_unique<Arith2Inst>(
       OpCode::Mov, translate_var_reg(dest), Operand2(0)));
@@ -614,7 +615,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         inst.pop_back();
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
-            inverse_cond(cond.value())));
+            invert_cond(cond.value())));
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_true)));
       } else {
