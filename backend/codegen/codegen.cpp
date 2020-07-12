@@ -323,18 +323,16 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
 }
 
 void Codegen::make_number(Reg reg, uint32_t num) {
-  // if ((~num) <= 0xffff) {
-  //   inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::Mvn,
-  //                                               translate_var_reg(reg),
-  //                                               ~num));
-  // } else {
-  inst.push_back(
-      std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, num & 0xffff));
-  if (num > 0xffff) {
+  if ((~num) <= 0xffff) {
+    inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::Mvn, reg, ~num));
+  } else {
     inst.push_back(
-        std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, num >> 16));
+        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, num & 0xffff));
+    if (num > 0xffff) {
+      inst.push_back(
+          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, num >> 16));
+    }
   }
-  // }
 }
 
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
