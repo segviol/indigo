@@ -50,8 +50,8 @@ class Node {
   mir::inst::Value mainVar =
       0;  // mainVar is an imm only when the node starts with a cosnt
           // assignInst.In other cases,the mainVar must be varId
-  std::vector<mir::inst::VarId> live_vars;
-  std::vector<mir::inst::VarId> local_vars;
+  std::list<mir::inst::VarId> live_vars;
+  std::list<mir::inst::VarId> local_vars;
   std::optional<mir::inst::Value> value;  // int Imm or VarId
   std::set<NodeId> parents;
   std::variant<mir::inst::VarId, std::string> refVal;
@@ -84,12 +84,12 @@ class Node {
       //   }
       // }
       if (live_vars.size()) {
-        mainVar = live_vars.back();
-        live_vars.pop_back();
-      } else {
-        assert(local_vars.size());
-        mainVar = local_vars.back();
-        local_vars.pop_back();
+        mainVar = live_vars.front();
+        live_vars.pop_front();
+      } else if (local_vars.size()) {
+        // assert(local_vars.size()); store inst has no dest
+        mainVar = local_vars.front();
+        local_vars.pop_front();
       }
     }
   }
@@ -318,7 +318,7 @@ class BlockNodes {
                   std::get<mir::inst::VarId>(node->mainVar), val));
             } else {
               auto ptr = std::get<mir::inst::VarId>(
-                  nodes[std::get<NodeId>(node->operands[0]).id]->mainVar);
+                  convert_operand_to_value(node->operands[0]));
               auto offset = convert_operand_to_value(node->operands[1]);
               auto ptrInst = std::make_unique<mir::inst::PtrOffsetInst>(
                   std::get<mir::inst::VarId>(node->mainVar), ptr, offset);
@@ -518,7 +518,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           values.push_back(storeInst->val);
           values.push_back(storeInst->dest);
           auto operands = blnd.cast_operands(values);
-          blnd.add_node(op, operands, storeInst->dest);
+          blnd.add_node(op, operands);
           break;
         }
         case mir::inst::InstKind::Call: {
