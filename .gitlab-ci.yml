@@ -11,7 +11,6 @@ variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     GIT_SUBMODULE_STRATEGY: recursive
 
-    
 build:
     stage: build
     image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-build:0.1.0
