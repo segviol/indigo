@@ -48,7 +48,10 @@ test:
         - pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --ignore-installed colorlog tqdm
     script:
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/functional_test -r
+        # - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r
     artifacts:
+        when: always
         paths:
             - test.log
         expire_in: 1 month
