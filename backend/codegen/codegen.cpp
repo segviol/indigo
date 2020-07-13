@@ -167,22 +167,26 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
 }
 
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  std::cout << i << ": ";
   auto res = this->var_collapse.find(i);
-  auto min = res->second;
   if (res != var_collapse.end()) {
+    std::set<mir::inst::VarId> path;
     while (true) {
       auto res_ = this->var_collapse.find(res->second);
-      if (res_ == var_collapse.end() || res == res_) {
-        return res->second;
-      } else if (res_->second == min) {
-        // Avoid loops: always return the smallest value in loop
+      if (res_ == var_collapse.end() || path.find(res_->second) != path.end()) {
+        auto min = *path.begin();
+        for (auto i : path) {
+          std::cout << i << " ";
+          var_collapse.insert_or_assign(i, min);
+        }
+        std::cout << std::endl;
         return min;
       } else {
-        if (res_->second < min) min = res->second;
-        res = res_;
+        path.insert(res_->second);
       }
     }
   } else {
+    std::cout << i << std::endl;
     return i;
   }
 }
@@ -198,29 +202,31 @@ void Codegen::scan() {
     }
   }
 
-#pragma region CollapseShow
-  std::cout << "collapsing: " << std::endl;
-  for (auto& v : var_collapse) {
-    std::cout << v.first << " -> " << v.second << std::endl;
-  }
-  std::cout << std::endl;
-#pragma endregion
+  // #pragma region CollapseShow
+  //   std::cout << "collapsing: " << std::endl;
+  //   for (auto& v : var_collapse) {
+  //     std::cout << v.first << " -> " << v.second << std::endl;
+  //   }
+  //   std::cout << std::endl;
+  // #pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  auto min = phi.dest.id;
-  auto vec = std::vector<mir::inst::VarId>();
-  vec.push_back(min);
+  auto set = std::set<mir::inst::VarId>();
+  auto dest = get_collapsed_var(phi.dest);
+  set.insert(dest);
   for (auto& id : phi.vars) {
     auto x = get_collapsed_var(id);
-    if (x < min) min = x;
-    vec.push_back(x);
+    set.insert(x);
   }
-  for (auto& x : vec) {
-    var_collapse.insert_or_assign(x, min);
+  std::cout << *set.begin() << " <- ";
+  for (auto& x : set) {
+    std::cout << x << " ";
+    var_collapse.insert_or_assign(x, *set.begin());
   }
+  std::cout << std::endl;
 }
 
 void Codegen::scan_stack() {
