@@ -13,9 +13,7 @@ variables:
 
 build:
     stage: build
-    before_script:
-        - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-        - apk add cmake gcc g++ libgcc build-base make --no-cache
+    image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-build:0.1.0
     script:
         - ls -la
         - mkdir -p build
@@ -32,20 +30,9 @@ build:
         expire_in: 1 week
 test:
     stage: test
-    cache:
-        paths:
-            - .cache/pip
-            - venv/
     dependencies:
         - build
-    before_script:
-        - sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-        - apk add python3 py3-pip gcc libgcc build-base --no-cache
-        - python3 -V               # Print out python version for debugging
-        - pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --ignore-installed virtualenv
-        - virtualenv venv
-        - source venv/bin/activate
-        - pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --ignore-installed colorlog tqdm
+    image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-test:0.1.0
     script:
         - mkdir -p output
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
