@@ -113,7 +113,7 @@ void Codegen::generate_startup() {
 arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
   // If it's param, load before use
-  if (v >= 4 && v <= param_size) {
+  if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
     inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, reg, Reg(REG_FP),
                                                 (v - 4) * 4));
@@ -376,10 +376,12 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 
   auto stack_size = param_count > 4 ? param_count - 4 : 0;
   auto reg_size = param_count > 4 ? 4 : param_count;
+
+  // TODO: Will not work with more than 4 params
   // Expand stack
   if (stack_size > 0)
-    inst.push_back(
-        std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP, stack_size));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                                                stack_size * 4));
 
   {
     // Push params
