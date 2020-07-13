@@ -743,8 +743,8 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
     rightParams.push_back(rightVal);
   }
   irGenerator.ir_function_call(
-      irGenerator.getFunctionName(node->_name), std::static_pointer_cast<FunctionSymbol>(func)->getRet(),
-      std::static_pointer_cast<FunctionSymbol>(func)->getName(), rightParams);
+      node->_name, std::static_pointer_cast<FunctionSymbol>(func)->getRet(),
+      irGenerator.getFunctionName(std::static_pointer_cast<FunctionSymbol>(func)->getName()), rightParams);
 
   return node;
 }
