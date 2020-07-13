@@ -30,10 +30,6 @@ build:
         expire_in: 1 week
 test:
     stage: test
-    cache:
-        paths:
-            - .cache/pip
-            - venv/
     dependencies:
         - build
     image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-test:0.1.0
