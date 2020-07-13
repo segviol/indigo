@@ -51,6 +51,8 @@ SyntaxAnalyze::~SyntaxAnalyze() {}
 void SyntaxAnalyze::gm_comp_unit() {
   hp_init_external_function();
 
+  irGenerator.ir_begin_of_program();
+
   while (matched_index + 1 < word_list.size()) {
     if (try_word(1, Token::INTTK, Token::VOIDTK) &&
         try_word(2, Token::IDENFR) && try_word(3, Token::LPARENT)) {
@@ -741,7 +743,7 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
     rightParams.push_back(rightVal);
   }
   irGenerator.ir_function_call(
-      node->_name, std::static_pointer_cast<FunctionSymbol>(func)->getRet(),
+      irGenerator.getFunctionName(node->_name), std::static_pointer_cast<FunctionSymbol>(func)->getRet(),
       std::static_pointer_cast<FunctionSymbol>(func)->getName(), rightParams);
 
   return node;
@@ -771,7 +773,7 @@ void SyntaxAnalyze::gm_func_def() {
   func.reset(new FunctionSymbol(name, ret, funcLayerNum));
   symbolTable.push_symbol(func);
 
-  irGenerator.ir_declare_function(name, ret);
+  irGenerator.ir_declare_function(irGenerator.getFunctionName(name), ret);
 
   match_one_word(Token::LPARENT);
   if (!try_word(1, Token::RPARENT)) {
