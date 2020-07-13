@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <vector>
+#include <algorithm>
 
 #include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"

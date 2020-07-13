@@ -62,6 +62,10 @@ string irGenerator::getGenSaveParamVarName(uint32_t id) {
 
 string irGenerator::getFunctionName(string name)
 {
+    if (find(externalFuncName.begin(), externalFuncName.end(), name) != externalFuncName.end())
+    {
+        return name;
+    }
     return _FunctionNamePrefix + "_" + name;
 }
 
