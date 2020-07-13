@@ -115,6 +115,15 @@ Options parse_options(int argc, const char** argv) {
   parser.add_argument()
       .names({"-s", "--skip-pass"})
       .description("Skip listed pass");
+  parser.add_argument()
+      .names({"-S", "--asm"})
+      .description("Output assembly (no effect)");
+  parser.add_argument()
+      .names({"-O", "--optimize"})
+      .description("Optimize assembly (no effect)");
+  parser.add_argument()
+      .names({"-O2", "--optimize-2"})
+      .description("Optimize assembly (no effect)");
   parser.enable_help();
 
   auto err = parser.parse(argc, argv);
@@ -138,6 +147,11 @@ Options parse_options(int argc, const char** argv) {
     options.out_file = out;
   } else {
     options.out_file = "out.s";
+  }
+
+  if (parser.exists("optimize")) {
+    auto out = parser.get<std::string>("optimize");
+  } else {
   }
 
   options.show_code_after_each_pass = parser.exists("pass-diff");
