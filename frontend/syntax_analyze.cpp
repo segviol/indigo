@@ -823,6 +823,11 @@ void SyntaxAnalyze::gm_func_param(
     symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(),
                                  funcLayerNum + 1, false, true));
     match_one_word(Token::LBRACK);
+
+    SharedExNdPtr holderDimension = SharedExNdPtr(new ExpressNode());
+    holderDimension->_type = NodeType::VAR;
+    std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(SharedExNdPtr(holderDimension));
+
     match_one_word(Token::RBRACK);
 
     while (try_word(1, Token::LBRACK)) {
