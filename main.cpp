@@ -121,7 +121,14 @@ Options parse_options(int argc, const char** argv) {
       .help("Emit assembly code (no effect)")
       .implicit_value(true)
       .default_value(false);
-  parser.add_argument("-O", "--optimize").help("Optimize code (no effect)");
+  parser.add_argument("-O", "--optimize")
+      .help("Optimize code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
+  parser.add_argument("-O2", "--optimize-2")
+      .help("Optimize code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
 
   try {
     parser.parse_args(argc, argv);
