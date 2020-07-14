@@ -1,6 +1,6 @@
 #include <stdint.h>
-
 #include <vector>
+#include <algorithm>
 
 #include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"
@@ -38,7 +38,7 @@ typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
 class WhileLabels {
- public:
+public:
   LabelId _beginLabel;
   LabelId _endLabel;
 
@@ -50,8 +50,16 @@ class WhileLabels {
       : _beginLabel(beginLabel), _endLabel(endLabel) {}
 };
 
+class FunctionData {
+public:
+    std::map<string, LabelId> _localValueNameToId;
+    std::vector<string> _freeList;
+    std::uint32_t _nowTmpId;
+    std::uint32_t _nowLocalValueId;
+};
+
 class JumpLabelId {
- public:
+public:
   LabelId _jumpLabelId;
 
   JumpLabelId(LabelId id) : _jumpLabelId(id) {}
@@ -65,7 +73,7 @@ typedef std::variant<shared_ptr<mir::inst::Inst>,
 extern std::vector<string> externalFuncName;
 
 class irGenerator {
- public:
+public:
   irGenerator();
 
   void outputInstructions(std::ostream &out);
@@ -85,6 +93,7 @@ class irGenerator {
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
   void ir_finish_param_declare(std::vector<string>& paramsName);
   void ir_end_of_program();
+  void ir_begin_of_program();
 
   /* src type mean (src.index())
    * 0: jumplabel
@@ -112,6 +121,7 @@ class irGenerator {
   string getConstName(string name, int id);
   string getTmpName(std::uint32_t id);
   string getVarName(string name, std::uint32_t id);
+  string getFunctionName(string name);
 
   std::map<string, std::vector<Instruction>> &getfuncNameToInstructions() {
     return _funcNameToInstructions;
@@ -119,7 +129,7 @@ class irGenerator {
 
   mir::inst::MirPackage &getPackage() { return _package; }
 
- private:
+private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
@@ -130,24 +140,21 @@ class irGenerator {
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _MainFuncName = "_$compiler_function_main__$$";
-  const string _MainFunctionName = "main";
-  const string _VoidVarName = "_$Compiler_Void_Var_Name_$$";
-  const string _ReturnVarName = "_$Compiler_Retuen_Var_Name__$$";
-  const string _StringNamePrefix = "_$$0";
-  const string _TmpNamePrefix = "_$$1";
-  const string _ConstNamePrefix = "_$$2";
-  const string _VarNamePrefix = "_$$3";
-  const string _GenSaveParamVarNamePrefix = "_$$4";
+  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "$$0";
+  const string _TmpNamePrefix = "$$1";
+  const string _ConstNamePrefix = "$$2";
+  const string _VarNamePrefix = "$$3";
+  const string _GenSaveParamVarNamePrefix = "$$4";
+  const string _FunctionNamePrefix = "$$5";
 
-  std::map<string, LabelId> _localValueNameToId;
 
   LabelId _nowLabelId;
-  std::uint32_t _nowtmpId;
-  std::uint32_t _nowLocalValueId;
 
   std::vector<WhileLabels> _whileStack;
   std::vector<string> _funcStack;
+  std::map<string, FunctionData> _funcNameToFuncData;
 
   // name of {local value, global value}
   LabelId nameToLabelId(string name);
@@ -157,11 +164,11 @@ class irGenerator {
 
   void insertFunc(string key, shared_ptr<mir::inst::MirFunction> func);
   void insertLocalValue(string name, std::uint32_t id, Variable &variable);
-  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId,
-                          string name);
+  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId, string name);
 
   string getGenSaveParamVarName(uint32_t id);
-};
-}  // namespace front::irGenerator
 
-#endif  // !COMPILER_FRONT_IR_GENERATOR_H_
+};
+} // namespace front::irGenerator
+
+#endif // !COMPILER_FRONT_IR_GENERATOR_H_
