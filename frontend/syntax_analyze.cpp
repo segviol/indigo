@@ -209,7 +209,15 @@ void SyntaxAnalyze::gm_var_def() {
       int offset = 0;
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
-      irGenerator.ir_ref(initPtr, valueName);
+
+      if (inGlobalLayer())
+      {
+          irGenerator.ir_ref(initPtr, valueName);
+      }
+      else
+      {
+          irGenerator.ir_assign(initPtr, valueName);
+      }
 
       for (auto var : init_values) {
         if (offset > 0) {
