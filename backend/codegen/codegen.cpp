@@ -84,7 +84,7 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
 }
 
 void Codegen::init_reg_map() {
-  reg_map.insert({mir::inst::VarId(0), Reg(0)});
+  // reg_map.insert({mir::inst::VarId(0), Reg(0)});
   for (int i = 0; i < 4 && i < param_size; i++) {
     reg_map.insert({mir::inst::VarId(i + 1), Reg(i)});
   }
