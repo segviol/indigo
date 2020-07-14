@@ -212,6 +212,8 @@ enum class OpCode {
   Mov,
   // Move top 16 bits
   MovT,
+  // Move not
+  Mvn,
   // Add
   Add,
   // Subtract
@@ -285,7 +287,10 @@ enum class ConditionCode : uint8_t {
 };
 
 void display_cond(ConditionCode cond, std::ostream& o);
-ConditionCode inverse_cond(ConditionCode cond);
+// Invert Condition code (result = NOT cond)
+ConditionCode invert_cond(ConditionCode cond);
+// Reverse Consition code (a cond b -> b result a)
+ConditionCode reverse_cond(ConditionCode cond);
 
 struct Inst : public prelude::Displayable {
   Inst(OpCode op, ConditionCode cond = ConditionCode::Always)

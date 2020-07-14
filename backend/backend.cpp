@@ -12,8 +12,31 @@
 
 namespace backend {
 
+bool Backend::should_run_pass(std::string&& pass_name) {
+  auto pass = pass_name;
+  return should_run_pass(pass);
+}
+
+bool Backend::should_run_pass(std::string& pass_name) {
+  if (options.run_pass &&
+      (options.run_pass->find(pass_name) == options.run_pass->end())) {
+    return false;
+  } else {
+    if (options.skip_pass.find(pass_name) != options.skip_pass.end()) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+}
+
 void Backend::do_mir_optimization() {
   for (auto& pass : mir_passes) {
+    if (!should_run_pass(pass->pass_name())) {
+      spdlog::info("Skipping MIR pass: {}", pass->pass_name());
+      continue;
+    }
+
     spdlog::info("Running MIR pass: {}", pass->pass_name());
     pass->optimize_mir(package, extra_data);
     if (options.show_code_after_each_pass) {
@@ -25,6 +48,11 @@ void Backend::do_mir_optimization() {
 
 void Backend::do_arm_optimization() {
   for (auto& pass : arm_passes) {
+    if (!should_run_pass(pass->pass_name())) {
+      spdlog::info("Skipping ARM pass: {}", pass->pass_name());
+      continue;
+    }
+
     spdlog::info("Running ARM pass: {}", pass->pass_name());
     pass->optimize_arm(arm_code.value(), extra_data);
     if (options.show_code_after_each_pass) {
