@@ -639,11 +639,11 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
     case mir::inst::JumpInstructionKind::Return:
       if (j.cond_or_ret.has_value()) {
         // Move return value to its register
-        if (j.cond_or_ret.value().id != 0) {
-          inst.push_back(std::make_unique<Arith2Inst>(
-              OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
-              Reg(translate_var_reg(j.cond_or_ret.value()))));
-        }
+        // if (j.cond_or_ret.value().id != 0) {
+        inst.push_back(std::make_unique<Arith2Inst>(
+            OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
+            RegisterOperand(translate_var_reg(j.cond_or_ret.value()))));
+        // }
       }
       inst.push_back(
           std::make_unique<BrInst>(OpCode::B, format_fn_end_label(func.name)));
