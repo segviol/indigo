@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 
 #include "backend/backend.hpp"
 #include "backend/codegen/bb_rearrange.hpp"
@@ -14,7 +15,7 @@
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
-#include "include/argparse/argparse.h"
+#include "include/argparse/argparse.hpp"
 #include "include/spdlog/include/spdlog/spdlog.h"
 #include "mir/mir.hpp"
 #include "opt.hpp"
@@ -96,59 +97,46 @@ string read_input(std::string& input_filename) {
 }
 
 Options parse_options(int argc, const char** argv) {
-  argparse::ArgumentParser parser(
-      "compiler", "Compiler for SysY language, by SEGVIOL team.");
+  Options options;
 
-  parser.add_argument()
-      .name("input")
-      .description("Input file")
-      .position(0)
-      .required(true);
-  parser.add_argument("-o", "--output", "Output file", false);
-  parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
-  parser.add_argument()
-      .names({"-d", "--pass-diff"})
-      .description("Show code difference after each pass");
-  parser.add_argument()
-      .names({"-r", "--run-pass"})
-      .description("Only run listed pass");
-  parser.add_argument()
-      .names({"-s", "--skip-pass"})
-      .description("Skip listed pass");
-  parser.enable_help();
+  argparse::ArgumentParser parser("compiler", "0.1.0");
+  parser.add_description("Compiler for SysY language, by SEGVIOL team.");
 
-  auto err = parser.parse(argc, argv);
+  parser.add_argument("input").help("Input file").required();
+  parser.add_argument("-o", "--output")
+      .help("Output file")
+      .nargs(1)
+      .default_value("out.s");
+  parser.add_argument("-v", "--verbose")
+      .help("Set verbosity")
+      .default_value(false)
+      .implicit_value(true);
+  parser.add_argument("-d", "--pass-diff")
+      .help("Show code difference after each pass")
+      .default_value(false)
+      .implicit_value(true);
+  parser.add_argument("-r", "--run-pass").help("Only run pass");
+  parser.add_argument("-s", "--skip-pass").help("Skip pass");
+  parser.add_argument("-S", "--asm")
+      .help("Emit assembly code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
+  parser.add_argument("-O", "--optimize").help("Optimize code (no effect)");
 
-  if (err) {
-    std::cout << err << endl;
-    exit(1);
-  }
-
-  if (parser.exists("help")) {
-    parser.print_help();
+  try {
+    parser.parse_args(argc, argv);
+  } catch (const std::runtime_error& err) {
+    std::cout << err.what() << std::endl;
+    std::cout << parser;
     exit(0);
   }
 
-  Options options;
-
   options.in_file = parser.get<std::string>("input");
+  options.out_file = parser.get<std::string>("--output");
 
-  if (parser.exists("output")) {
-    auto out = parser.get<std::string>("output");
-    options.out_file = out;
-  } else {
-    options.out_file = "out.s";
-  }
+  options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
-  options.show_code_after_each_pass = parser.exists("pass-diff");
-
-  if (parser.exists("verbosity")) {
-  } else {
-    spdlog::set_level(spdlog::level::warn);
-  }
-  spdlog::set_level(spdlog::level::trace);
-
-  if (parser.exists("run-pass")) {
+  if (parser.present("--run-pass")) {
     auto out = parser.get<std::vector<string>>("run-pass");
     std::set<std::string> run_pass(out.begin(), out.end());
     {
@@ -164,7 +152,7 @@ Options parse_options(int argc, const char** argv) {
     options.run_pass = {};
   }
 
-  if (parser.exists("skip-pass")) {
+  if (parser.present("--skip-pass")) {
     auto out = parser.get<std::vector<string>>("skip-pass");
     std::set<std::string> skip_pass(out.begin(), out.end());
     {
