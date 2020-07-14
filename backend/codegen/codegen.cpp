@@ -167,8 +167,8 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = phi_reg.find(v);
   if (found != phi_reg.end()) {
     return found->second;
@@ -609,8 +609,7 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 void Codegen::emit_phi_move(mir::types::LabelId i) {
   auto& bb_var_use = var_use.at(i);
   for (auto id : bb_var_use) {
-    auto dest = get_collapsed_var(id);
-    auto dest_reg = get_or_alloc_phi_reg(dest);
+    auto dest_reg = get_or_alloc_phi_reg(id);
     inst.push_back(std::make_unique<Arith2Inst>(
         OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
   }
