@@ -1176,6 +1176,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
         if (iter != f.end()) {
             shared_ptr<mir::types::FunctionTy> type = it->second.type;
             int n = type->params.size();
+            notRename.clear();
             for (int i = 0; i <= n; i++) {
                 mir::inst::VarId s(i);
                 notRename.push_back(s);
