@@ -80,7 +80,7 @@ class Rewriter {
     if (val.index() == 0) {
       return std::get<int>(val);
     }
-    return var_cast_map.at(std::get<mir::inst::VarId>(val).id);
+    return varId(var_cast_map.at(std::get<mir::inst::VarId>(val).id));
   }
 
   mir::inst::VarId cast_varId(mir::inst::VarId var) {
@@ -88,7 +88,9 @@ class Rewriter {
   }
 
   void cast_block(mir::inst::BasicBlk& blk) {
-    mir::inst::BasicBlk new_blk(label_cast_map[blk.id]);
+    auto new_id = label_cast_map.at(blk.id);
+    func.basic_blks.insert(std::make_pair(new_id, mir::inst::BasicBlk(new_id)));
+    auto& new_blk = func.basic_blks.at(new_id);
     for (auto pre : blk.preceding) {
       new_blk.preceding.insert(label_cast_map.at(pre));
     }
@@ -169,17 +171,14 @@ class Rewriter {
       }
     }
 
-    void excute_jump() {}
-
     std::optional<mir::inst::VarId> cond_or_ret = {};
+    auto bb_true = blk.jump.bb_true;
+    auto bb_false = blk.jump.bb_false;
     if (blk.jump.cond_or_ret.has_value()) {
       cond_or_ret = blk.jump.cond_or_ret.value();
     }
-    new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, blk.jump.bb_true,
-                                              blk.jump.bb_false, cond_or_ret);
-    if (func.basic_blks.count(blk.id)) {
-      func.basic_blks.insert(std::make_pair(new_blk.id, new_blk));
-    }
+    new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
+                                              cond_or_ret);
   }
 
   mir::inst::VarId get_new_varId() { return mir::inst::VarId(++varId); }
@@ -206,46 +205,96 @@ class Inline_Func : public backend::MirOptimizePass {
   void optimize_func(std::string funcId, mir::inst::MirFunction& func,
                      std::map<std::string, mir::inst::MirFunction>& funcTable) {
     int cur_blkId = func.basic_blks.begin()->first;
-    for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
-         ++iter) {
-      auto& insts = iter->second.inst;
-      for (int i = 0; i < insts.size(); i++) {
-        auto& inst = insts[i];
-        if (inst->inst_kind() != mir::inst::InstKind::Call) {
+    std::set<mir::types::LabelId> base_labels;
+    for (auto& iter : func.basic_blks) {
+      base_labels.insert(iter.first);
+    }
+    while (true) {
+      auto iter = func.basic_blks.begin();
+      for (; iter != func.basic_blks.end(); ++iter) {
+        bool flag = false;
+        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
           continue;
         }
-        auto& iptr = *inst;
-        auto callInst = dynamic_cast<mir::inst::CallInst*>(&iptr);
-        auto& subfunc = funcTable.at(callInst->func);
-        if (uninlineable_funcs.count(func.name)) {
-          continue;
+        auto& insts = iter->second.inst;
+        auto& cur_blk = iter->second;
+        for (int i = 0; i < insts.size(); i++) {
+          auto& inst = insts[i];
+          if (inst->inst_kind() != mir::inst::InstKind::Call) {
+            continue;
+          }
+          auto& iptr = *inst;
+          auto callInst = dynamic_cast<mir::inst::CallInst*>(&iptr);
+          auto& subfunc = funcTable.at(callInst->func);
+          if (uninlineable_funcs.count(func.name)) {
+            continue;
+          }
+          if (subfunc.type->is_extern) {
+            continue;
+          }
+          if (subfunc.variables.size() + func.variables.size() >= 1024) {
+            continue;
+          }
+          if (callInst->func == func.name) {
+            uninlineable_funcs.insert(func.name);
+            continue;
+          }
+          //  Then this func is inlineable
+          Rewriter rwt(func, subfunc, *callInst);
+          for (auto iter = subfunc.basic_blks.begin();
+               iter != subfunc.basic_blks.end(); iter++) {
+            rwt.cast_block(iter->second);
+          }
+          auto sub_start_id =
+              rwt.label_cast_map.at(subfunc.basic_blks.begin()->first);
+          auto end_iter = subfunc.basic_blks.end();
+          end_iter--;
+          auto sub_end_id = rwt.label_cast_map.at(end_iter->first);
+          int new_id;  // the preceding half of the block (when the block is the
+                       // starting block, the new_id should smaller than the
+                       // original one)
+          if (iter == func.basic_blks.begin()) {  // the first
+            new_id = func.basic_blks.begin()->first - 1;
+          } else {
+            new_id = rwt.get_new_labelId();
+          }
+          iter->second.id = new_id;
+          func.basic_blks.insert(
+              std::make_pair(new_id, mir::inst::BasicBlk(new_id)));
+          auto& new_blk = func.basic_blks.at(new_id);
+          for (int j = 0; j < i; j++) {
+            new_blk.inst.push_back(std ::move(insts[j]));
+          }
+          new_blk.preceding = cur_blk.preceding;
+          new_blk.jump = mir::inst::JumpInstruction(
+              mir::inst::JumpInstructionKind::Br, sub_start_id);
+          cur_blk.inst.erase(insts.begin(), insts.begin() + i + 1);
+
+          auto& start_blk = func.basic_blks.at(sub_start_id);
+          for (auto riter = rwt.init_inst_before.rbegin();
+               riter != rwt.init_inst_before.rend(); ++riter) {
+            start_blk.inst.insert(start_blk.inst.begin(), std::move(*riter));
+          }
+          start_blk.preceding.insert(new_blk.id);
+
+          auto& end_blk = func.basic_blks.at(sub_end_id);
+          cur_blk.preceding.clear();
+          cur_blk.preceding.insert(end_blk.id);
+          for (auto& inst : rwt.init_inst_after) {
+            end_blk.inst.push_back(std::move(inst));
+          }
+          end_blk.jump = mir::inst::JumpInstruction(
+              mir::inst::JumpInstructionKind::Br, cur_blk.id);
+          flag = true;
+          break;
         }
-        if (subfunc.type->is_extern) {
-          continue;
+        if (flag) {
+          cur_blkId = iter->first;
+          break;
         }
-        if (subfunc.variables.size() + func.variables.size() >= 1024) {
-          continue;
-        }
-        if (callInst->func == func.name) {
-          uninlineable_funcs.insert(func.name);
-          continue;
-        }
-        //  Then this func is inlineable
-        Rewriter rwt(func, subfunc, *callInst);
-        for (auto iter = subfunc.basic_blks.begin();
-             iter != subfunc.basic_blks.end(); iter++) {
-          rwt.cast_block(iter->second);
-        }
-        auto sub_start_id =
-            rwt.label_cast_map.at(subfunc.basic_blks.begin()->first);
-        auto end_iter = subfunc.basic_blks.end();
-        end_iter--;
-        auto sub_end_id = rwt.label_cast_map.at(end_iter->first);
-        int new_id;  // the preceding half of the block (when the block is the
-                     // starting block, the new_id should smaller than the
-                     // original one)
-        if (iter == func.basic_blks.begin()) {  // the first
-        }
+      }
+      if (iter == func.basic_blks.end()) {
+        break;
       }
     }
   }
