@@ -3,8 +3,8 @@
 using namespace front::irGenerator;
 
 std::vector<string> front::irGenerator::externalFuncName = {
-    "getint",   "getch", "getarray",  "putint",  "putch",
-    "putarray", "putf",  "starttime", "stoptime"};
+    "getint", "getch",     "getarray", "putint", "putch", "putarray",
+    "putf",   "starttime", "stoptime", "malloc", "free"};
 
 void irGenerator::outputInstructions(std::ostream &out) {
   out << (string) ">====== global_var ======<" << std::endl;
@@ -131,6 +131,14 @@ void irGenerator::ir_begin_of_program() {
     } else if (funcName == "stoptime") {
       type = shared_ptr<FunctionTy>(
           new FunctionTy(SharedTyPtr(new VoidTy()), {}, true));
+    } else if (funcName == "malloc") {
+      type = shared_ptr<FunctionTy>(
+          new FunctionTy(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
+                         {SharedTyPtr(new IntTy())}, true));
+    } else if (funcName == "free") {
+      type = shared_ptr<FunctionTy>(new FunctionTy(
+          SharedTyPtr(new VoidTy()),
+          {SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy)))}, true));
     }
 
     func = shared_ptr<mir::inst::MirFunction>(
@@ -141,11 +149,22 @@ void irGenerator::ir_begin_of_program() {
           SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
     } else if (funcName == "putint") {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "putch") {
+      func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "putarray") {
+      func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+      func->variables[2] =
+          Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
     } else if (funcName == "putf") {
       func->variables[1] =
           Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
       func->variables[2] =
           Variable(SharedTyPtr(new RestParamTy()), true, false);
+    } else if (funcName == "malloc") {
+      func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "free") {
+      func->variables[1] =
+          Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
     }
 
     if (funcName == "putf") {
@@ -265,6 +284,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
   } else {
     SharedTyPtr ty;
     bool is_memory;
+    string varName;
 
     switch (kind) {
     case front::symbol::SymbolKind::INT:
@@ -272,8 +292,8 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
       is_memory = false;
       break;
     case front::symbol::SymbolKind::Array:
-      ty = SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy()), len));
-      is_memory = true;
+      ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
+      is_memory = false;
       break;
     case front::symbol::SymbolKind::Ptr:
       ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
@@ -283,10 +303,19 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
       break;
     }
     Variable variable(ty, is_memory, false);
-    insertLocalValue(getVarName(name, id),
+    varName = getVarName(name, id);
+
+    insertLocalValue(varName,
                      _funcNameToFuncData[_funcStack.back()]._nowLocalValueId,
                      variable);
     _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
+
+    if (kind == symbol::SymbolKind::Array) {
+      RightVal right;
+      right.emplace<0>(len * ty->size().value());
+      ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right});
+      _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
+    }
   }
 }
 
@@ -380,13 +409,17 @@ void irGenerator::ir_leave_function() {
   shared_ptr<mir::inst::JumpInstruction> jumpInst;
 
   ir_label(_ReturnBlockLabelId);
+
+  for (string var : _funcNameToFuncData[_funcStack.back()]._freeList) {
+    ir_function_call("void", symbol::SymbolKind::VOID, "free", {var});
+  }
+
   switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
   case mir::types::TyKind::Int: {
     jumpInst =
         shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
             mir::inst::JumpInstructionKind::Return, -1, -1, VarId(_ReturnVarId),
             mir::inst::JumpKind::Undefined));
-    _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
     break;
   }
   case mir::types::TyKind::Void: {
@@ -394,12 +427,12 @@ void irGenerator::ir_leave_function() {
         shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
             mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
             mir::inst::JumpKind::Undefined));
-    _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
     break;
   }
   default:
     break;
   }
+  _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
   _funcStack.pop_back();
 }
 
@@ -504,6 +537,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   shared_ptr<mir::inst::CallInst> callInst;
 
   switch (kind) {
+  case front::symbol::SymbolKind::Ptr:
   case front::symbol::SymbolKind::INT: {
     destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(retName)));
     break;
