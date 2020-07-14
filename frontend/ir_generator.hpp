@@ -53,6 +53,7 @@ public:
 class FunctionData {
 public:
     std::map<string, LabelId> _localValueNameToId;
+    std::vector<string> _freeList;
     std::uint32_t _nowTmpId;
     std::uint32_t _nowLocalValueId;
 };
