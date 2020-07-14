@@ -108,7 +108,7 @@ Options parse_options(int argc, const char** argv) {
   parser.add_argument("-o", "--output")
       .help("Output file")
       .nargs(1)
-      .default_value("out.s");
+      .default_value(std::string("out.s"));
   parser.add_argument("-v", "--verbose")
       .help("Set verbosity")
       .default_value(false)
