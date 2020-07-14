@@ -583,9 +583,12 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
     SharedExNdPtr child;
     SharedExNdPtr addr;
     node->_type = NodeType::VAR;
-    node->_operation = (std::static_pointer_cast<ArraySymbol>(arr)->isParam()
-                            ? OperationType::PTR
-                            : OperationType::ARR);
+    node->_operation =
+        (std::static_pointer_cast<ArraySymbol>(arr)->isParam() ||
+                 (arr->getLayerNum() != _initLayerNum &&
+                  !std::static_pointer_cast<ArraySymbol>(arr)->isConst())
+             ? OperationType::PTR
+             : OperationType::ARR);
     node->_name = (std::static_pointer_cast<ArraySymbol>(arr)->isConst()
                        ? irGenerator.getConstName(arr->getName(), arr->getId())
                        : irGenerator.getVarName(arr->getName(), arr->getId()));
@@ -673,6 +676,10 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       } else if (std::static_pointer_cast<ArraySymbol>(var)->isParam()) {
         irGenerator.ir_assign(
             arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
+      } else if (var->getLayerNum() != _initLayerNum &&
+                 !std::static_pointer_cast<ArraySymbol>(var)->isConst()) {
+        irGenerator.ir_assign(
+            arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
       } else {
         irGenerator.ir_ref(
             arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
@@ -744,7 +751,9 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
   }
   irGenerator.ir_function_call(
       node->_name, std::static_pointer_cast<FunctionSymbol>(func)->getRet(),
-      irGenerator.getFunctionName(std::static_pointer_cast<FunctionSymbol>(func)->getName()), rightParams);
+      irGenerator.getFunctionName(
+          std::static_pointer_cast<FunctionSymbol>(func)->getName()),
+      rightParams);
 
   return node;
 }
@@ -826,7 +835,8 @@ void SyntaxAnalyze::gm_func_param(
 
     SharedExNdPtr holderDimension = SharedExNdPtr(new ExpressNode());
     holderDimension->_type = NodeType::VAR;
-    std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(SharedExNdPtr(holderDimension));
+    std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(
+        SharedExNdPtr(holderDimension));
 
     match_one_word(Token::RBRACK);
 
