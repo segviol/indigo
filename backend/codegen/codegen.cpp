@@ -113,7 +113,7 @@ void Codegen::generate_startup() {
 arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
   // If it's param, load before use
-  if (v >= 4 && v <= param_size) {
+  if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
     inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, reg, Reg(REG_FP),
                                                 (v - 4) * 4));
@@ -167,22 +167,26 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
 }
 
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  std::cout << i << ": ";
   auto res = this->var_collapse.find(i);
-  auto min = res->second;
   if (res != var_collapse.end()) {
+    std::set<mir::inst::VarId> path;
     while (true) {
       auto res_ = this->var_collapse.find(res->second);
-      if (res_ == var_collapse.end() || res == res_) {
-        return res->second;
-      } else if (res_->second == min) {
-        // Avoid loops: always return the smallest value in loop
+      if (res_ == var_collapse.end() || path.find(res_->second) != path.end()) {
+        auto min = *path.begin();
+        for (auto i : path) {
+          std::cout << i << " ";
+          var_collapse.insert_or_assign(i, min);
+        }
+        std::cout << std::endl;
         return min;
       } else {
-        if (res_->second < min) min = res->second;
-        res = res_;
+        path.insert(res_->second);
       }
     }
   } else {
+    std::cout << i << std::endl;
     return i;
   }
 }
@@ -198,29 +202,31 @@ void Codegen::scan() {
     }
   }
 
-#pragma region CollapseShow
-  std::cout << "collapsing: " << std::endl;
-  for (auto& v : var_collapse) {
-    std::cout << v.first << " -> " << v.second << std::endl;
-  }
-  std::cout << std::endl;
-#pragma endregion
+  // #pragma region CollapseShow
+  //   std::cout << "collapsing: " << std::endl;
+  //   for (auto& v : var_collapse) {
+  //     std::cout << v.first << " -> " << v.second << std::endl;
+  //   }
+  //   std::cout << std::endl;
+  // #pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  auto min = phi.dest.id;
-  auto vec = std::vector<mir::inst::VarId>();
-  vec.push_back(min);
+  auto set = std::set<mir::inst::VarId>();
+  auto dest = get_collapsed_var(phi.dest);
+  set.insert(dest);
   for (auto& id : phi.vars) {
     auto x = get_collapsed_var(id);
-    if (x < min) min = x;
-    vec.push_back(x);
+    set.insert(x);
   }
-  for (auto& x : vec) {
-    var_collapse.insert_or_assign(x, min);
+  std::cout << *set.begin() << " <- ";
+  for (auto& x : set) {
+    std::cout << x << " ";
+    var_collapse.insert_or_assign(x, *set.begin());
   }
+  std::cout << std::endl;
 }
 
 void Codegen::scan_stack() {
@@ -257,12 +263,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
     } else {
       auto reg = alloc_vgp();
       uint32_t imm_u = int_value;
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-      if (imm_u > 0xffff) {
-        inst.push_back(
-            std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-      }
+      make_number(reg, imm_u);
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
@@ -277,12 +278,7 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
     auto int_value = *x;
     auto reg = alloc_vgp();
     uint32_t imm_u = int_value;
-    inst.push_back(
-        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-    }
+    make_number(reg, imm_u);
     return reg;
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
     return get_or_alloc_vgp(*x);
@@ -332,16 +328,24 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   }
 }
 
+void Codegen::make_number(Reg reg, uint32_t num) {
+  if ((~num) <= 0xffff) {
+    inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::Mvn, reg, ~num));
+  } else {
+    inst.push_back(
+        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, num & 0xffff));
+    if (num > 0xffff) {
+      inst.push_back(
+          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, num >> 16));
+    }
+  }
+}
+
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
   if (i.src.is_immediate()) {
     auto imm = *i.src.get_if<int32_t>();
     uint32_t imm_u = imm;
-    inst.push_back(std::make_unique<Arith2Inst>(
-        arm::OpCode::Mov, translate_var_reg(i.dest), imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(std::make_unique<Arith2Inst>(
-          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u >> 16));
-    }
+    make_number(translate_var_reg(i.dest), imm_u);
   } else {
     inst.push_back(std::make_unique<Arith2Inst>(
         arm::OpCode::Mov, translate_var_reg(i.dest),
@@ -372,10 +376,12 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 
   auto stack_size = param_count > 4 ? param_count - 4 : 0;
   auto reg_size = param_count > 4 ? 4 : param_count;
+
+  // TODO: Will not work with more than 4 params
   // Expand stack
   if (stack_size > 0)
-    inst.push_back(
-        std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP, stack_size));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                                                stack_size * 4));
 
   {
     // Push params
@@ -488,8 +494,9 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
-  bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
-                        (i.op != mir::inst::Op::Div);
+  bool reverse_params =
+      i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+      (i.op != mir::inst::Op::Div && i.op != mir::inst::Op::Rem);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;

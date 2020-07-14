@@ -212,6 +212,8 @@ enum class OpCode {
   Mov,
   // Move top 16 bits
   MovT,
+  // Move not
+  Mvn,
   // Add
   Add,
   // Subtract
