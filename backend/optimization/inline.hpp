@@ -17,7 +17,7 @@
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 
-namespace inlineFunc {
+namespace optimization::inlineFunc {
 
 class Rewriter {
  public:
@@ -80,7 +80,8 @@ class Rewriter {
     if (val.index() == 0) {
       return std::get<int>(val);
     }
-    return varId(var_cast_map.at(std::get<mir::inst::VarId>(val).id));
+    return mir::inst::VarId(
+        var_cast_map.at(std::get<mir::inst::VarId>(val).id));
   }
 
   mir::inst::VarId cast_varId(mir::inst::VarId var) {
@@ -161,7 +162,7 @@ class Rewriter {
           for (auto vaR : phiInst->vars) {
             vars.push_back(cast_varId(vaR));
           }
-          new_blk.inst.push_back(std::make_unique<mir::inst::CallInst>(
+          new_blk.inst.push_back(std::make_unique<mir::inst::PhiInst>(
               cast_varId(phiInst->dest), vars));
           break;
         }
@@ -189,6 +190,9 @@ class Rewriter {
 class Inline_Func : public backend::MirOptimizePass {
  public:
   std::set<std::string> uninlineable_funcs;
+  std::string name = "InlineFunction";
+
+  std::string pass_name() const { return name; }
 
   // void init_map(mir::inst::MirPackage& package) {
   //   for (auto iter = package.functions.begin(); iter !=
@@ -308,4 +312,4 @@ class Inline_Func : public backend::MirOptimizePass {
   }
 };
 
-}  // namespace inlineFunc
+}  // namespace optimization::inlineFunc
