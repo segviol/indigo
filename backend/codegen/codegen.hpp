@@ -98,6 +98,7 @@ class Codegen final {
   std::map<mir::types::LabelId, std::set<mir::inst::VarId>> var_use;
   std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
   std::map<mir::inst::VarId, arm::Reg> fixed_vars;
+  std::map<mir::inst::VarId, arm::Reg> phi_reg;
 
   std::map<mir::inst::VarId, int32_t> stack_space_allocation;
 
@@ -117,6 +118,8 @@ class Codegen final {
   arm::Reg alloc_vgp();
   arm::Reg alloc_vd();
   arm::Reg alloc_vq();
+
+  arm::Reg get_or_alloc_phi_reg(mir::inst::VarId v);
 
   arm::Operand2 translate_value_to_operand2(mir::inst::Value& v);
   arm::Reg translate_value_to_reg(mir::inst::Value& v);

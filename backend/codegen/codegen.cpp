@@ -167,6 +167,19 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
   }
 }
 
+arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v) {
+  // auto v = get_collapsed_var(v_);
+  auto found = phi_reg.find(v);
+  if (found != phi_reg.end()) {
+    return found->second;
+  } else {
+    // TODO: Allow other types of register to be phi register
+    auto gp = alloc_vgp();
+    phi_reg.insert({v, gp});
+    return gp;
+  }
+}
+
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
   auto res = this->var_collapse.find(i);
   if (res != var_collapse.end()) {
@@ -354,7 +367,9 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
-  // noop
+  auto phi_reg = get_or_alloc_phi_reg(i.dest);
+  inst.push_back(std::make_unique<Arith2Inst>(
+      arm::OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(phi_reg)));
 }
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
@@ -595,9 +610,9 @@ void Codegen::emit_phi_move(mir::types::LabelId i) {
   auto& bb_var_use = var_use.at(i);
   for (auto id : bb_var_use) {
     auto dest = get_collapsed_var(id);
-    inst.push_back(
-        std::make_unique<Arith2Inst>(OpCode::Mov, translate_var_reg(dest),
-                                     RegisterOperand(translate_var_reg(id))));
+    auto dest_reg = get_or_alloc_phi_reg(dest);
+    inst.push_back(std::make_unique<Arith2Inst>(
+        OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
   }
 }
 
