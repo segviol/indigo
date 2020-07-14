@@ -80,11 +80,12 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       throw new std::bad_cast();
     }
   }
+  emit_phi_move(blk.id);
   translate_branch(blk.jump);
 }
 
 void Codegen::init_reg_map() {
-  reg_map.insert({mir::inst::VarId(0), Reg(0)});
+  // reg_map.insert({mir::inst::VarId(0), Reg(0)});
   for (int i = 0; i < 4 && i < param_size; i++) {
     reg_map.insert({mir::inst::VarId(i + 1), Reg(i)});
   }
@@ -110,10 +111,10 @@ void Codegen::generate_startup() {
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
-arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
+  // auto v = get_collapsed_var(v_);
   // If it's param, load before use
-  if (v >= 4 && v <= param_size) {
+  if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
     inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, reg, Reg(REG_FP),
                                                 (v - 4) * 4));
@@ -140,8 +141,8 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
+  // auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -154,8 +155,8 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
+  // auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -166,20 +167,33 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
   }
 }
 
+arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
+  auto found = phi_reg.find(v);
+  if (found != phi_reg.end()) {
+    return found->second;
+  } else {
+    // TODO: Allow other types of register to be phi register
+    auto gp = alloc_vgp();
+    phi_reg.insert({v, gp});
+    return gp;
+  }
+}
+
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
   auto res = this->var_collapse.find(i);
-  auto min = res->second;
   if (res != var_collapse.end()) {
+    std::set<mir::inst::VarId> path;
     while (true) {
       auto res_ = this->var_collapse.find(res->second);
-      if (res_ == var_collapse.end() || res == res_) {
-        return res->second;
-      } else if (res_->second == min) {
-        // Avoid loops: always return the smallest value in loop
+      if (res_ == var_collapse.end() || path.find(res_->second) != path.end()) {
+        auto min = *path.begin();
+        for (auto i : path) {
+          var_collapse.insert_or_assign(i, min);
+        }
         return min;
       } else {
-        if (res_->second < min) min = res->second;
-        res = res_;
+        path.insert(res_->second);
       }
     }
   } else {
@@ -189,38 +203,43 @@ mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
 
 void Codegen::scan() {
   for (auto& bb : func.basic_blks) {
+    std::set<mir::inst::VarId> bb_var_use;
     for (auto& inst : bb.second.inst) {
       if (auto x = dynamic_cast<mir::inst::PhiInst*>(&*inst)) {
         deal_phi(*x);
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&*inst)) {
         deal_call(*x);
       }
+      bb_var_use.insert(inst->dest);
     }
+    var_use.insert({bb.first, std::move(bb_var_use)});
   }
 
-#pragma region CollapseShow
-  std::cout << "collapsing: " << std::endl;
-  for (auto& v : var_collapse) {
-    std::cout << v.first << " -> " << v.second << std::endl;
-  }
-  std::cout << std::endl;
-#pragma endregion
+  // #pragma region CollapseShow
+  //   std::cout << "collapsing: " << std::endl;
+  //   for (auto& v : var_collapse) {
+  //     std::cout << v.first << " -> " << v.second << std::endl;
+  //   }
+  //   std::cout << std::endl;
+  // #pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  auto min = phi.dest.id;
-  auto vec = std::vector<mir::inst::VarId>();
-  vec.push_back(min);
+  auto set = std::set<mir::inst::VarId>();
+  auto dest = get_collapsed_var(phi.dest);
+  set.insert(dest);
   for (auto& id : phi.vars) {
     auto x = get_collapsed_var(id);
-    if (x < min) min = x;
-    vec.push_back(x);
+    set.insert(x);
   }
-  for (auto& x : vec) {
-    var_collapse.insert_or_assign(x, min);
+  std::cout << *set.begin() << " <- ";
+  for (auto& x : set) {
+    std::cout << x << " ";
+    var_collapse.insert_or_assign(x, *set.begin());
   }
+  std::cout << std::endl;
 }
 
 void Codegen::scan_stack() {
@@ -257,12 +276,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
     } else {
       auto reg = alloc_vgp();
       uint32_t imm_u = int_value;
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-      if (imm_u > 0xffff) {
-        inst.push_back(
-            std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-      }
+      make_number(reg, imm_u);
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
@@ -277,12 +291,7 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
     auto int_value = *x;
     auto reg = alloc_vgp();
     uint32_t imm_u = int_value;
-    inst.push_back(
-        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(
-          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, imm_u >> 16));
-    }
+    make_number(reg, imm_u);
     return reg;
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
     return get_or_alloc_vgp(*x);
@@ -332,16 +341,24 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   }
 }
 
+void Codegen::make_number(Reg reg, uint32_t num) {
+  if ((~num) <= 0xffff) {
+    inst.push_back(std::make_unique<Arith2Inst>(arm::OpCode::Mvn, reg, ~num));
+  } else {
+    inst.push_back(
+        std::make_unique<Arith2Inst>(arm::OpCode::Mov, reg, num & 0xffff));
+    if (num > 0xffff) {
+      inst.push_back(
+          std::make_unique<Arith2Inst>(arm::OpCode::MovT, reg, num >> 16));
+    }
+  }
+}
+
 void Codegen::translate_inst(mir::inst::AssignInst& i) {
   if (i.src.is_immediate()) {
     auto imm = *i.src.get_if<int32_t>();
     uint32_t imm_u = imm;
-    inst.push_back(std::make_unique<Arith2Inst>(
-        arm::OpCode::Mov, translate_var_reg(i.dest), imm_u & 0xffff));
-    if (imm_u > 0xffff) {
-      inst.push_back(std::make_unique<Arith2Inst>(
-          arm::OpCode::MovT, translate_var_reg(i.dest), imm_u >> 16));
-    }
+    make_number(translate_var_reg(i.dest), imm_u);
   } else {
     inst.push_back(std::make_unique<Arith2Inst>(
         arm::OpCode::Mov, translate_var_reg(i.dest),
@@ -350,7 +367,9 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
-  // noop
+  auto phi_reg = get_or_alloc_phi_reg(i.dest);
+  inst.push_back(std::make_unique<Arith2Inst>(
+      arm::OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(phi_reg)));
 }
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
@@ -372,10 +391,12 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 
   auto stack_size = param_count > 4 ? param_count - 4 : 0;
   auto reg_size = param_count > 4 ? 4 : param_count;
+
+  // TODO: Will not work with more than 4 params
   // Expand stack
   if (stack_size > 0)
-    inst.push_back(
-        std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP, stack_size));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                                                stack_size * 4));
 
   {
     // Push params
@@ -488,8 +509,9 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
-  bool reverse_params = i.lhs.is_immediate() && !i.rhs.is_immediate() &&
-                        (i.op != mir::inst::Op::Div);
+  bool reverse_params =
+      i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+      (i.op != mir::inst::Op::Div && i.op != mir::inst::Op::Rem);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
@@ -572,15 +594,25 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                            bool reversed) {
   auto lhsv = translate_value_to_reg(lhs);
   auto rhsv = translate_value_to_operand2(rhs);
+  if (reversed) cond = reverse_cond(cond);
 
-  inst.push_back(std::make_unique<Arith2Inst>(
-      reversed ? OpCode::Cmn : OpCode::Cmp, translate_value_to_reg(lhs),
-      translate_value_to_operand2(rhs)));
+  inst.push_back(
+      std::make_unique<Arith2Inst>(OpCode::Cmp, translate_value_to_reg(lhs),
+                                   translate_value_to_operand2(rhs)));
 
   inst.push_back(std::make_unique<Arith2Inst>(
       OpCode::Mov, translate_var_reg(dest), Operand2(0)));
   inst.push_back(std::make_unique<Arith2Inst>(
       OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
+}
+
+void Codegen::emit_phi_move(mir::types::LabelId i) {
+  auto& bb_var_use = var_use.at(i);
+  for (auto id : bb_var_use) {
+    auto dest_reg = get_or_alloc_phi_reg(id);
+    inst.push_back(std::make_unique<Arith2Inst>(
+        OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
+  }
 }
 
 void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
@@ -614,7 +646,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         inst.pop_back();
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_false),
-            inverse_cond(cond.value())));
+            invert_cond(cond.value())));
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_true)));
       } else {
@@ -631,11 +663,11 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
     case mir::inst::JumpInstructionKind::Return:
       if (j.cond_or_ret.has_value()) {
         // Move return value to its register
-        if (j.cond_or_ret.value().id != 0) {
-          inst.push_back(std::make_unique<Arith2Inst>(
-              OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
-              Reg(translate_var_reg(j.cond_or_ret.value()))));
-        }
+        // if (j.cond_or_ret.value().id != 0) {
+        inst.push_back(std::make_unique<Arith2Inst>(
+            OpCode::Mov, make_register(arm::RegisterKind::GeneralPurpose, 0),
+            RegisterOperand(translate_var_reg(j.cond_or_ret.value()))));
+        // }
       }
       inst.push_back(
           std::make_unique<BrInst>(OpCode::B, format_fn_end_label(func.name)));

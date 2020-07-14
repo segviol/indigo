@@ -1,6 +1,8 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 
 #include "backend/backend.hpp"
 #include "backend/codegen/bb_rearrange.hpp"
@@ -13,7 +15,7 @@
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
-#include "include/argparse/argparse.h"
+#include "include/argparse/argparse.hpp"
 #include "include/spdlog/include/spdlog/spdlog.h"
 #include "mir/mir.hpp"
 #include "opt.hpp"
@@ -95,51 +97,84 @@ string read_input(std::string& input_filename) {
 }
 
 Options parse_options(int argc, const char** argv) {
-  argparse::ArgumentParser parser(
-      "compiler", "Compiler for SysY language, by SEGVIOL team.");
+  Options options;
 
-  parser.add_argument()
-      .name("input")
-      .description("Input file")
-      .position(0)
-      .required(true);
-  parser.add_argument("-o", "--output", "Output file", false);
-  parser.add_argument().names({"-v", "--verbose"}).description("Set verbosity");
-  parser.add_argument()
-      .names({"-d", "--pass-diff"})
-      .description("Show code difference after each pass");
-  parser.enable_help();
+  argparse::ArgumentParser parser("compiler", "0.1.0");
+  parser.add_description("Compiler for SysY language, by SEGVIOL team.");
 
-  auto err = parser.parse(argc, argv);
+  parser.add_argument("input").help("Input file").required();
+  parser.add_argument("-o", "--output")
+      .help("Output file")
+      .nargs(1)
+      .default_value(std::string("out.s"));
+  parser.add_argument("-v", "--verbose")
+      .help("Set verbosity")
+      .default_value(false)
+      .implicit_value(true);
+  parser.add_argument("-d", "--pass-diff")
+      .help("Show code difference after each pass")
+      .default_value(false)
+      .implicit_value(true);
+  parser.add_argument("-r", "--run-pass").help("Only run pass");
+  parser.add_argument("-s", "--skip-pass").help("Skip pass");
+  parser.add_argument("-S", "--asm")
+      .help("Emit assembly code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
+  parser.add_argument("-O", "--optimize")
+      .help("Optimize code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
+  parser.add_argument("-O2", "--optimize-2")
+      .help("Optimize code (no effect)")
+      .implicit_value(true)
+      .default_value(false);
 
-  if (err) {
-    std::cout << err << endl;
-    exit(1);
-  }
-
-  if (parser.exists("help")) {
-    parser.print_help();
+  try {
+    parser.parse_args(argc, argv);
+  } catch (const std::runtime_error& err) {
+    std::cout << err.what() << std::endl;
+    std::cout << parser;
     exit(0);
   }
 
-  Options options;
-
   options.in_file = parser.get<std::string>("input");
+  options.out_file = parser.get<std::string>("--output");
 
-  if (parser.exists("output")) {
-    auto out = parser.get<std::string>("output");
-    options.out_file = out;
+  options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
+
+  if (parser.present("--run-pass")) {
+    auto out = parser.get<std::vector<string>>("run-pass");
+    std::set<std::string> run_pass(out.begin(), out.end());
+    {
+      std::stringstream pass_name;
+      for (auto i = run_pass.cbegin(); i != run_pass.cend(); i++) {
+        if (i != run_pass.cbegin()) pass_name << ", ";
+        pass_name << *i;
+      }
+      spdlog::info("Only running the following passes: {}", pass_name.str());
+    }
+    options.run_pass = {std::move(run_pass)};
   } else {
-    options.out_file = "out.s";
+    options.run_pass = {};
   }
 
-  options.show_code_after_each_pass = parser.exists("pass-diff");
-
-  if (parser.exists("verbosity")) {
+  if (parser.present("--skip-pass")) {
+    auto out = parser.get<std::vector<string>>("skip-pass");
+    std::set<std::string> skip_pass(out.begin(), out.end());
+    {
+      std::stringstream pass_name;
+      for (auto i = skip_pass.cbegin(); i != skip_pass.cend(); i++) {
+        if (i != skip_pass.cbegin()) pass_name << ", ";
+        pass_name << *i;
+      }
+      spdlog::info("Skipping the following passes: {}", pass_name.str());
+    }
+    options.skip_pass = std::move(skip_pass);
   } else {
-    spdlog::set_level(spdlog::level::warn);
+    options.skip_pass = {};
   }
-  spdlog::set_level(spdlog::level::trace);
+
   spdlog::set_default_logger(spdlog::stdout_logger_st("console"));
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
 
