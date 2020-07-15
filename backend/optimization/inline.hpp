@@ -322,6 +322,17 @@ class Inline_Func : public backend::MirOptimizePass {
             cur_blk.inst.push_back(std::move(j));
           }
           cur_blk.preceding = end_blk.preceding;
+
+          for (auto blkId : start_blk.preceding) {
+            auto& blk = func.basic_blks.at(blkId);
+            auto& jump = blk.jump;
+            if (jump.bb_true == cur_blk.id) {
+              jump.bb_true = start_blk.id;
+            }
+            if (jump.bb_false == cur_blk.id) {
+              jump.bb_false = start_blk.id;
+            }
+          }
           func.basic_blks.erase(sub_end_id);
           flag = true;
           break;
