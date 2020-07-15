@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "../../arm_code/regmanager.hpp"
-#include "spdlog/fmt/bundled/core.h"
 
 namespace backend::codegen {
 using namespace arm;
@@ -272,7 +271,6 @@ void RegAllocator::write_store(Reg r, Reg rs) {
     return;
   }
 
-  fmt::print("store {} to {}\n", r, pos);
   inst_sink.push_back(std::make_unique<LoadStoreInst>(
       OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
 }

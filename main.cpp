@@ -15,14 +15,12 @@
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
+#include "include/aixlog.hpp"
 #include "include/argparse/argparse.hpp"
 #include "mir/mir.hpp"
 #include "opt.hpp"
 #include "prelude/fake_mir_generate.hpp"
-#include "spdlog/common.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-#include "spdlog/sinks/stdout_sinks.h"
-#include "spdlog/spdlog.h"
+
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -57,14 +55,14 @@ int main(int argc, const char** argv) {
       irgenerator.getfuncNameToInstructions();
   mir::inst::MirPackage& package = irgenerator.getPackage();
 
-  spdlog::info("generating SSA");
+  LOG(INFO) << "generating SSA";
 
   gen_ssa(inst, package, irgenerator);
 
   // std::cout << "Mir" << std::endl << package << std::endl;
-  spdlog::info("Mir_Before");
+  LOG(INFO) << ("Mir_Before");
   std::cout << package << std::endl;
-  spdlog::info("generating ARM code");
+  LOG(INFO) << ("generating ARM code");
 
   backend::Backend backend(package, options);
 
@@ -81,7 +79,7 @@ int main(int argc, const char** argv) {
   auto code = backend.generate_code();
   std::cout << "CODE:" << std::endl << code;
 
-  spdlog::info("writing to output file: {}", options.out_file);
+  LOG(INFO) << "writing to output file: " << options.out_file;
 
   ofstream output_file(options.out_file);
   output_file << code << std::endl;
@@ -138,6 +136,9 @@ Options parse_options(int argc, const char** argv) {
     exit(0);
   }
 
+  AixLog::Log::init<AixLog::SinkCout>(AixLog::Severity::info);
+  LOG(WARNING) << "Hello!\n";
+
   options.in_file = parser.get<std::string>("input");
   options.out_file = parser.get<std::string>("--output");
 
@@ -152,7 +153,8 @@ Options parse_options(int argc, const char** argv) {
         if (i != run_pass.cbegin()) pass_name << ", ";
         pass_name << *i;
       }
-      spdlog::info("Only running the following passes: {}", pass_name.str());
+      LOG(INFO) << "Only running the following passes: {}" << pass_name.str()
+                << "\n";
     }
     options.run_pass = {std::move(run_pass)};
   } else {
@@ -168,18 +170,16 @@ Options parse_options(int argc, const char** argv) {
         if (i != skip_pass.cbegin()) pass_name << ", ";
         pass_name << *i;
       }
-      spdlog::info("Skipping the following passes: {}", pass_name.str());
+      LOG(INFO) << "Skipping the following passes: {}" << pass_name.str()
+                << "\n";
     }
     options.skip_pass = std::move(skip_pass);
   } else {
     options.skip_pass = {};
   }
 
-  spdlog::set_default_logger(spdlog::stdout_logger_st("console"));
-  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] %^[%l]%$ %v");
-
-  spdlog::info("input file is {}", options.in_file);
-  spdlog::info("output file is {}", options.out_file);
+  LOG(INFO) << "input file is " << options.in_file << "\n";
+  LOG(INFO) << "output file is " << options.out_file << "\n";
 
   return std::move(options);
 }
