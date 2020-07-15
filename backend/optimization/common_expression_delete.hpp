@@ -83,10 +83,21 @@ class Node {
       //     local_vars.erase(iter);
       //   }
       // }
+      bool has_main_var = false;
       if (live_vars.size()) {
-        mainVar = live_vars.front();
-        live_vars.pop_front();
-      } else if (local_vars.size()) {
+        auto iter = live_vars.begin();
+        for (; iter != live_vars.end(); ++iter) {
+          if (iter->id != 0) {
+            break;
+          }
+        }
+        if (iter != live_vars.end()) {
+          mainVar = *iter;
+          has_main_var = true;
+          live_vars.erase(iter);
+        }
+      }
+      if (!has_main_var && local_vars.size()) {
         // assert(local_vars.size()); store inst has no dest
         mainVar = local_vars.front();
         local_vars.pop_front();
@@ -384,12 +395,23 @@ class BlockNodes {
       }
       if (node->live_vars.size()) {
         for (auto var : node->live_vars) {
-          auto assignInst =
-              std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
-          inst.push_back(std::move(assignInst));
+          if (var.id != 0) {  //$0 means ret value, $0 should be assigned at the
+                              // end of block
+            auto assignInst =
+                std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
+            inst.push_back(std::move(assignInst));
+          }
         }
       }
     }
+    mir::inst::VarId ret(0);
+    if (var_map.count(ret)) {
+      auto node = nodes[var_map.at(ret).id];
+      auto assignInst =
+          std::make_unique<mir::inst::AssignInst>(ret, node->mainVar);
+      inst.push_back(std::move(assignInst));
+    }
+
     auto& jump = block.jump;
     if (!jump.cond_or_ret.has_value() || jump.cond_or_ret.value().id == 0) {
       return;
