@@ -222,7 +222,8 @@ class Inline_Func : public backend::MirOptimizePass {
  public:
   std::set<std::string> uninlineable_funcs;
   std::string name = "InlineFunction";
-
+  bool recursively;
+  Inline_Func(bool recursively = true) : recursively(recursively) {}
   std::string pass_name() const { return name; }
 
   void init(mir::inst::MirPackage& package) {
@@ -264,7 +265,8 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId) {
+        if (iter->first < cur_blkId ||
+            !base_labels.count(iter->first) && !recursively) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
