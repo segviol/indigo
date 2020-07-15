@@ -265,8 +265,7 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId ||
-            !base_labels.count(iter->first)) {
+        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
@@ -287,7 +286,7 @@ class Inline_Func : public backend::MirOptimizePass {
           if (subfunc.type->is_extern) {
             continue;
           }
-          if (subfunc.variables.size() + func.variables.size() >= 1024) {
+          if (subfunc.variables.size() + func.variables.size() >= 256) {
             continue;
           }
           //  Then this func is inlineable
