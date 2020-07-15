@@ -150,7 +150,7 @@ class Rewriter {
         }
         case mir::inst::InstKind::Store: {
           auto storeInst = dynamic_cast<mir::inst::StoreInst*>(&i);
-          new_blk.inst.push_back(std::make_unique<mir::inst::LoadInst>(
+          new_blk.inst.push_back(std::make_unique<mir::inst::StoreInst>(
               cast_value(storeInst->val), cast_varId(storeInst->dest)));
           break;
         }
