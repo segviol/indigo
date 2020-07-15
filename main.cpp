@@ -16,13 +16,13 @@
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
 #include "include/argparse/argparse.hpp"
-#include "include/spdlog/include/spdlog/spdlog.h"
 #include "mir/mir.hpp"
 #include "opt.hpp"
 #include "prelude/fake_mir_generate.hpp"
 #include "spdlog/common.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/stdout_sinks.h"
+#include "spdlog/spdlog.h"
 using std::cout;
 using std::endl;
 using std::ifstream;

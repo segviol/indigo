@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "include/spdlog/include/spdlog/common.h"
-#include "include/spdlog/include/spdlog/spdlog.h"
+#include "spdlog/common.h"
+#include "spdlog/spdlog.h"
 
 struct Options {
   std::string in_file;
