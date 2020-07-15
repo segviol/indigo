@@ -239,9 +239,9 @@ class Inline_Func : public backend::MirOptimizePass {
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func,
                      std::map<std::string, mir::inst::MirFunction>& funcTable) {
-    // if (func.name == "main") {
-    //   return;
-    // }
+    if (func.name == "main") {
+      return;
+    }
     int cur_blkId = func.basic_blks.begin()->first;
     std::set<mir::types::LabelId> base_labels;
     for (auto& iter : func.basic_blks) {
@@ -251,7 +251,9 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
+        if (iter->first < cur_blkId) {
+          // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
+
           continue;
         }
         auto& insts = iter->second.inst;
