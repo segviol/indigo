@@ -5,8 +5,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "../spdlog/fmt/bundled/core.h"
-
 namespace prelude {
 
 static inline uint32_t rotl32(uint32_t n, unsigned int c) {
