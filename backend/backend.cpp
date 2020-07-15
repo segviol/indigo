@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include "../spdlog/spdlog.h"
+#include "../include/aixlog.hpp"
 #include "codegen/codegen.hpp"
 
 namespace backend {
@@ -33,14 +33,14 @@ bool Backend::should_run_pass(std::string& pass_name) {
 void Backend::do_mir_optimization() {
   for (auto& pass : mir_passes) {
     if (!should_run_pass(pass->pass_name())) {
-      spdlog::info("Skipping MIR pass: {}", pass->pass_name());
+      LOG(INFO) << "Skipping MIR pass: " << pass->pass_name() << "\n";
       continue;
     }
 
-    spdlog::info("Running MIR pass: {}", pass->pass_name());
+    LOG(INFO) << "Running MIR pass: " << pass->pass_name() << "\n";
     pass->optimize_mir(package, extra_data);
     if (options.show_code_after_each_pass) {
-      spdlog::info("Code after pass: {}", pass->pass_name());
+      LOG(INFO) << "Code after pass: " << pass->pass_name() << "\n";
       std::cout << package << std::endl;
     }
   }
@@ -49,21 +49,21 @@ void Backend::do_mir_optimization() {
 void Backend::do_arm_optimization() {
   for (auto& pass : arm_passes) {
     if (!should_run_pass(pass->pass_name())) {
-      spdlog::info("Skipping ARM pass: {}", pass->pass_name());
+      LOG(INFO) << "Skipping ARM pass: " << pass->pass_name() << "\n";
       continue;
     }
 
-    spdlog::info("Running ARM pass: {}", pass->pass_name());
+    LOG(INFO) << "Running ARM pass: " << pass->pass_name() << "\n";
     pass->optimize_arm(arm_code.value(), extra_data);
     if (options.show_code_after_each_pass) {
-      spdlog::info("Code after pass: {}", pass->pass_name());
+      LOG(INFO) << "Code after pass: " << pass->pass_name() << "\n";
       std::cout << arm_code.value() << std::endl;
     }
   }
 }
 
 void Backend::do_mir_to_arm_transform() {
-  spdlog::info("Doing  mir->arm  transform");
+  LOG(INFO) << ("Doing  mir->arm  transform\n");
   auto code = arm::ArmCode();
   for (auto& f : package.functions) {
     if (f.second.type->is_extern) continue;
@@ -76,7 +76,7 @@ void Backend::do_mir_to_arm_transform() {
   }
   arm_code.emplace(std::move(code));
   if (options.show_code_after_each_pass) {
-    spdlog::info("Code after transformation");
+    LOG(INFO) << ("Code after transformation\n");
     std::cout << arm_code.value() << std::endl;
   }
 }

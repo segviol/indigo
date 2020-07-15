@@ -7,7 +7,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "../../spdlog/spdlog.h"
+#include "../../include/aixlog.hpp"
 #include "err.hpp"
 
 namespace backend::codegen {
