@@ -52,7 +52,7 @@ add_library(src ${backend_files} ${frontend_files} ${mir_files} ${arm_files})
 
 add_executable(compiler main.cpp)
 
-target_include_directories(src PRIVATE .)
+target_include_directories(src PRIVATE include)
 
 if(STATIC_LINK_ARTIFACTS)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -g")
