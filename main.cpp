@@ -11,6 +11,7 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
+#include "backend/optimization/inline.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
