@@ -1,3 +1,5 @@
+!test_codes/libsysy.a
+!test_codes/*
 /build
 /CMakeFiles
 compile_commands.json
@@ -10,7 +12,6 @@ cmake_install.cmake
 Makefile
 CMakeCache.txt
 compiler
-*.a
-!test_codes/*
+
 tmp
 *.log
