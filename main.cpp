@@ -90,9 +90,12 @@ int main(int argc, const char** argv) {
 string read_input(std::string& input_filename) {
   ifstream input;
   input.open(input_filename);
-  auto in = std::string();
-  input >> in;
-  return std::move(in);
+  input.seekg(0, std::ios::end);
+  size_t size = input.tellg();
+  std::string buffer(size, ' ');
+  input.seekg(0);
+  input.read(&buffer[0], size);
+  return std::move(buffer);
 }
 
 Options parse_options(int argc, const char** argv) {
