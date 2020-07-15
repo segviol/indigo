@@ -41,19 +41,20 @@ class Merge_Block : public backend::MirOptimizePass {
             preBlk.jump = mir::inst::JumpInstruction(
                 blk.jump.kind, blk.jump.bb_true, blk.jump.bb_false,
                 blk.jump.cond_or_ret, blk.jump.jump_kind);
-            if (preBlk.jump.bb_true != -1) {
+            if (func.basic_blks.count(preBlk.jump.bb_true)) {
               auto& subBlk = func.basic_blks.at(preBlk.jump.bb_true);
               subBlk.preceding.erase(blk.id);
               subBlk.preceding.insert(preBlk.id);
             }
-            if (preBlk.jump.bb_false != -1) {
+            if (func.basic_blks.count(preBlk.jump.bb_false)) {
               auto& subBlk = func.basic_blks.at(preBlk.jump.bb_false);
               subBlk.preceding.erase(blk.id);
               subBlk.preceding.insert(preBlk.id);
             }
+            flag = true;
+            func.basic_blks.erase(blk.id);
+            break;
           }
-          flag = true;
-          break;
         }
       }
       if (!flag) {
