@@ -48,11 +48,11 @@ set(arm_files
 
 add_library(src ${backend_files} ${frontend_files} ${mir_files} ${arm_files})
 
-add_subdirectory(include/spdlog)
+# add_subdirectory(include/spdlog)
 
 add_executable(compiler main.cpp)
 
-target_include_directories(src PRIVATE include/spdlog/include)
+target_include_directories(src PRIVATE .)
 
 if(STATIC_LINK_ARTIFACTS)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -g")
@@ -69,5 +69,5 @@ endif()
 
 target_link_libraries(
     compiler
-    spdlog::spdlog
+    # spdlog::spdlog
     src)
