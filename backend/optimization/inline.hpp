@@ -51,6 +51,7 @@ class Rewriter {
       if (callInst.params[i].index() == 0) {
         auto imm = std::get<int>(callInst.params[i]);
         auto destId = get_new_varId();
+        func.variables[destId] = subfunc.variables.at(para);
         init_inst_before.push_back(
             std::make_unique<mir::inst::AssignInst>(destId, imm));
         var_cast_map[para] = destId.id;
