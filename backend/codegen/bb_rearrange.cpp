@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "../optimization/optimization.hpp"
-#include "spdlog/fmt/bundled/core.h"
 
 namespace backend::codegen {
 
@@ -99,13 +98,8 @@ std::vector<uint32_t> BasicBlkRearrange::optimize_func(
     bfs.pop_front();
     int& cnt = input_count[id];
     if (cnt > 0) cnt--;
-    fmt::print("cyclesolver {}: count {}", id, cnt);
     auto x = cycles.find(id);
 
-    if (x == cycles.end())
-      fmt::print("cycle {}\n", x->second);
-    else
-      fmt::print("cycle 0\n");
     if ((x != cycles.end() && cnt > x->second) ||
         (x == cycles.end() && cnt > 0))
       continue;
