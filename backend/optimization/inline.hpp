@@ -206,6 +206,7 @@ class Rewriter {
 
     if (blk.jump.cond_or_ret.has_value()) {
       cond_or_ret = blk.jump.cond_or_ret.value();
+      cond_or_ret = mir::inst::VarId(var_cast_map.at(cond_or_ret.value().id));
     }
     new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
                                               cond_or_ret);
