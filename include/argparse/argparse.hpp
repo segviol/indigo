@@ -178,7 +178,7 @@ inline auto do_from_chars(std::string_view s) -> float {
 template <auto Param>
 inline auto do_from_chars(std::string_view s) -> int {
   std::string s_(s);
-  return std::stoi(s_);
+  return std::stoi(s_, Param);
 }
 
 template <class T, auto Param = 0>
