@@ -5,7 +5,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "../include/spdlog/include/spdlog/fmt/bundled/core.h"
+#include "../spdlog/fmt/bundled/core.h"
 
 namespace prelude {
 

@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include "../include/spdlog/include/spdlog/spdlog.h"
+#include "../spdlog/spdlog.h"
 #include "codegen/codegen.hpp"
 
 namespace backend {
