@@ -312,7 +312,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
 
     if (kind == symbol::SymbolKind::Array) {
       RightVal right;
-      right.emplace<0>(len * mir::types::INT_SIZE);
+      right.emplace<0>(len * ty->size().value());
       ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right});
       _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
     }
