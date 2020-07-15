@@ -210,7 +210,7 @@ class Rewriter {
       cond_or_ret = mir::inst::VarId(var_cast_map.at(cond_or_ret.value().id));
     }
     new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
-                                              cond_or_ret);
+                                              cond_or_ret, blk.jump.jump_kind);
   }
 
   mir::inst::VarId get_new_varId() { return mir::inst::VarId(++varId); }
@@ -265,8 +265,7 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId ||
-            !base_labels.count(iter->first)) {
+        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
