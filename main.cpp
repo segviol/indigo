@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -68,10 +69,10 @@ int main(int argc, const char** argv) {
   backend::Backend backend(package, options);
 
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>());
-  backend.add_pass(
-      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(
-      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
@@ -90,12 +91,9 @@ int main(int argc, const char** argv) {
 string read_input(std::string& input_filename) {
   ifstream input;
   input.open(input_filename);
-  input.seekg(0, std::ios::end);
-  size_t size = input.tellg();
-  std::string buffer(size, ' ');
-  input.seekg(0);
-  input.read(&buffer[0], size);
-  return std::move(buffer);
+  auto in = std::string(istreambuf_iterator<char>(input),
+                        istreambuf_iterator<char>());
+  return std::move(in);
 }
 
 Options parse_options(int argc, const char** argv) {
@@ -108,7 +106,7 @@ Options parse_options(int argc, const char** argv) {
   parser.add_argument("-o", "--output")
       .help("Output file")
       .nargs(1)
-      .default_value(std::string("out.s"));
+      .default_value("out.s");
   parser.add_argument("-v", "--verbose")
       .help("Set verbosity")
       .default_value(false)
