@@ -266,7 +266,7 @@ class Inline_Func : public backend::MirOptimizePass {
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
         if (iter->first < cur_blkId ||
-            !base_labels.count(iter->first) && !recursively) {
+            !base_labels.count(iter->first)) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
