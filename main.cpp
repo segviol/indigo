@@ -1,4 +1,3 @@
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -91,8 +90,8 @@ int main(int argc, const char** argv) {
 string read_input(std::string& input_filename) {
   ifstream input;
   input.open(input_filename);
-  auto in = std::string(istreambuf_iterator<char>(input),
-                        istreambuf_iterator<char>());
+  auto in = std::string();
+  input >> in;
   return std::move(in);
 }
 
