@@ -225,17 +225,30 @@ class Inline_Func : public backend::MirOptimizePass {
 
   std::string pass_name() const { return name; }
 
-  // void init_map(mir::inst::MirPackage& package) {
-  //   for (auto iter = package.functions.begin(); iter !=
-  //   package.functions.end();
-  //        iter++) {
-  //     for (auto blkiter = iter->second.basic_blks.begin();
-  //          blkiter != iter->second.basic_blks.end(); ++blkiter) {
-  //       auto& insts = blkiter->second.inst;
-  //       for(auto )
-  //     }
-  //   }
-  // }
+  void init(mir::inst::MirPackage& package) {
+    for (auto iter = package.functions.begin(); iter != package.functions.end();
+         iter++) {
+      bool flag = false;
+      for (auto& blkpair : iter->second.basic_blks) {
+        auto& insts = blkpair.second.inst;
+        for (auto& inst : insts) {
+          if (inst->inst_kind() != mir::inst::InstKind::Call) {
+            continue;
+          }
+          auto& iptr = *inst;
+          auto callInst = dynamic_cast<mir::inst::CallInst*>(&iptr);
+          if (callInst->func == iter->first) {
+            uninlineable_funcs.insert(iter->first);
+            flag = true;
+            break;
+          }
+        }
+        if (flag) {
+          break;
+        }
+      }
+    }
+  }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func,
                      std::map<std::string, mir::inst::MirFunction>& funcTable) {
@@ -266,17 +279,13 @@ class Inline_Func : public backend::MirOptimizePass {
           auto& iptr = *inst;
           auto callInst = dynamic_cast<mir::inst::CallInst*>(&iptr);
           auto& subfunc = funcTable.at(callInst->func);
-          if (uninlineable_funcs.count(func.name)) {
+          if (uninlineable_funcs.count(subfunc.name)) {
             continue;
           }
           if (subfunc.type->is_extern) {
             continue;
           }
           if (subfunc.variables.size() + func.variables.size() >= 1024) {
-            continue;
-          }
-          if (callInst->func == func.name) {
-            uninlineable_funcs.insert(func.name);
             continue;
           }
           //  Then this func is inlineable
@@ -352,6 +361,7 @@ class Inline_Func : public backend::MirOptimizePass {
 
   void optimize_mir(mir::inst::MirPackage& package,
                     std::map<std::string, std::any>& extra_data_repo) {
+    init(package);
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          iter++) {
       optimize_func(iter->first, iter->second, package.functions);
