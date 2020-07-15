@@ -7,7 +7,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "../../include/spdlog/include/spdlog/spdlog.h"
+#include "../../include/aixlog.hpp"
 #include "err.hpp"
 
 namespace backend::codegen {
@@ -80,7 +80,6 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       throw new std::bad_cast();
     }
   }
-  emit_phi_move(blk.id);
   translate_branch(blk.jump);
 }
 
@@ -111,8 +110,8 @@ void Codegen::generate_startup() {
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
-arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   // If it's param, load before use
   if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -141,8 +140,8 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -155,8 +154,8 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -167,20 +166,8 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
-  auto found = phi_reg.find(v);
-  if (found != phi_reg.end()) {
-    return found->second;
-  } else {
-    // TODO: Allow other types of register to be phi register
-    auto gp = alloc_vgp();
-    phi_reg.insert({v, gp});
-    return gp;
-  }
-}
-
 mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  std::cout << i << ": ";
   auto res = this->var_collapse.find(i);
   if (res != var_collapse.end()) {
     std::set<mir::inst::VarId> path;
@@ -189,30 +176,30 @@ mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
       if (res_ == var_collapse.end() || path.find(res_->second) != path.end()) {
         auto min = *path.begin();
         for (auto i : path) {
+          std::cout << i << " ";
           var_collapse.insert_or_assign(i, min);
         }
+        std::cout << std::endl;
         return min;
       } else {
         path.insert(res_->second);
       }
     }
   } else {
+    std::cout << i << std::endl;
     return i;
   }
 }
 
 void Codegen::scan() {
   for (auto& bb : func.basic_blks) {
-    std::set<mir::inst::VarId> bb_var_use;
     for (auto& inst : bb.second.inst) {
       if (auto x = dynamic_cast<mir::inst::PhiInst*>(&*inst)) {
         deal_phi(*x);
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&*inst)) {
         deal_call(*x);
       }
-      bb_var_use.insert(inst->dest);
     }
-    var_use.insert({bb.first, std::move(bb_var_use)});
   }
 
   // #pragma region CollapseShow
@@ -367,9 +354,7 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
-  auto phi_reg = get_or_alloc_phi_reg(i.dest);
-  inst.push_back(std::make_unique<Arith2Inst>(
-      arm::OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(phi_reg)));
+  // noop
 }
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
@@ -604,15 +589,6 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
       OpCode::Mov, translate_var_reg(dest), Operand2(0)));
   inst.push_back(std::make_unique<Arith2Inst>(
       OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
-}
-
-void Codegen::emit_phi_move(mir::types::LabelId i) {
-  auto& bb_var_use = var_use.at(i);
-  for (auto id : bb_var_use) {
-    auto dest_reg = get_or_alloc_phi_reg(id);
-    inst.push_back(std::make_unique<Arith2Inst>(
-        OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
-  }
 }
 
 void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
