@@ -48,7 +48,7 @@ int main(int argc, const char** argv) {
   front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
   syntax_analyze.gm_comp_unit();
 
-  syntax_analyze.outputInstructions(std::cout);
+  if (options.verbose) syntax_analyze.outputInstructions(std::cout);
 
   front::irGenerator::irGenerator& irgenerator =
       syntax_analyze.getIrGenerator();
@@ -60,9 +60,9 @@ int main(int argc, const char** argv) {
 
   gen_ssa(inst, package, irgenerator);
 
-  // std::cout << "Mir" << std::endl << package << std::endl;
+  // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before");
-  std::cout << package << std::endl;
+  if (options.verbose) std::cout << package << std::endl;
   LOG(INFO) << ("generating ARM code");
 
   backend::Backend backend(package, options);
@@ -78,7 +78,10 @@ int main(int argc, const char** argv) {
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
 
   auto code = backend.generate_code();
-  std::cout << "CODE:" << std::endl << code;
+  if (options.verbose) {
+    LOG(TRACE) << "CODE:" << std::endl;
+    std::cout << code;
+  }
 
   LOG(INFO) << "writing to output file: " << options.out_file;
 
