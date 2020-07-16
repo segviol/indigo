@@ -1168,6 +1168,16 @@ void generate_SSA(map<int, BasicBlock*> nodes,
     }
 }
 
+mir::inst::VarId refill(map<mir::inst::VarId, mir::inst::VarId> redundantphi, mir::inst::VarId name) {
+    map<mir::inst::VarId, mir::inst::VarId>::iterator it = redundantphi.find(name);
+    if (it == redundantphi.end()) {
+        return name;
+    }
+    else {
+        return it->second;
+    }
+}
+
 void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
     mir::inst::MirPackage& p, front::irGenerator::irGenerator& irgenerator) {
     map<string, mir::inst::MirFunction>::iterator it;
@@ -1181,6 +1191,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 mir::inst::VarId s(i);
                 notRename.push_back(s);
             }
+            map<mir::inst::VarId, mir::inst::VarId> redundantphi;
             map<int, BasicBlock*> nodes = generate_CFG(iter->second, irgenerator);
             map<mir::inst::VarId, set<int>> blocks = active_var(nodes);
             map<int, int> dom = find_idom(nodes);
@@ -1196,29 +1207,20 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             for (int i = 0; i < order.size(); i++) {
                 map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
                 mir::types::LabelId id = iit->first;
-                mir::inst::BasicBlk bb(id);
-                for (int j = 0; j < iit->second->preBlock.size(); j++) {
-                    if (iit->second->preBlock[j]->id >= 0) {
-                        bb.preceding.insert(iit->second->preBlock[j]->id);
-                    }
-                    if (iit->second->preBlock[j]->id == -2) {
-                        bb.preceding.insert(exitid);
-                    }
-                }
                 for (int j = 1; j < iit->second->inst.size() - 1; j++) {
                     shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
                     if (inst->inst_kind() == mir::inst::InstKind::Assign) {
                         shared_ptr<mir::inst::AssignInst> in =
                             static_pointer_cast<mir::inst::AssignInst>(inst);
                         defined.push_back(in->dest);
-                    } 
+                    }
                     else if (inst->inst_kind() == mir::inst::InstKind::Call) {
                         shared_ptr<mir::inst::CallInst> in =
                             static_pointer_cast<mir::inst::CallInst>(inst);
                         if (in->dest != 1048576) {
                             defined.push_back(in->dest);
                         }
-                    } 
+                    }
                     else if (inst->inst_kind() == mir::inst::InstKind::Op) {
                         shared_ptr<mir::inst::OpInst> in =
                             static_pointer_cast<mir::inst::OpInst>(inst);
@@ -1247,9 +1249,218 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                     else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
                         shared_ptr<mir::inst::PhiInst> in =
                             static_pointer_cast<mir::inst::PhiInst>(inst);
-                        defined.push_back(in->dest);
+                        set<mir::inst::VarId> vars;
+                        for (int k = 0; k < in->vars.size(); k++) {
+                            vars.insert(in->vars[k]);
+                        }
+                        if (vars.size() == 1) {
+                            redundantphi.insert(map<mir::inst::VarId, mir::inst::VarId>::value_type(in->dest, *vars.begin()));
+                        }
+                        else {
+                            defined.push_back(in->dest);
+                        }
                     }
-                    bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                }
+            }
+            //refill
+            for (int i = 0; i < order.size(); i++) {
+                map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
+                mir::types::LabelId id = iit->first;
+                for (int j = 1; j < iit->second->inst.size() - 1; j++) {
+                    shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+                        shared_ptr<mir::inst::AssignInst> in =
+                            static_pointer_cast<mir::inst::AssignInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        if (in->src.index() == 1) {
+                            in->src.emplace<1>(refill(redundantphi, get<1>(in->src)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Call) {
+                        shared_ptr<mir::inst::CallInst> in =
+                            static_pointer_cast<mir::inst::CallInst>(inst);
+                        if (in->dest != 1048576) {
+                            in->dest = refill(redundantphi, in->dest);
+                        }
+                        for (int k = 0; k < in->params.size(); k++) {
+                            if (in->params[k].index() == 1) {
+                                in->params[k].emplace<1>(refill(redundantphi, get<1>(in->params[k])));
+                            }
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Op) {
+                        shared_ptr<mir::inst::OpInst> in =
+                            static_pointer_cast<mir::inst::OpInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        if (in->lhs.index() == 1) {
+                            in->lhs.emplace<1>(refill(redundantphi, get<1>(in->lhs)));
+                        }
+                        if (in->rhs.index() == 1) {
+                            in->rhs.emplace<1>(refill(redundantphi, get<1>(in->rhs)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Load) {
+                        shared_ptr<mir::inst::LoadInst> in =
+                            static_pointer_cast<mir::inst::LoadInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        if (in->src.index() == 1) {
+                            in->src.emplace<1>(refill(redundantphi, get<1>(in->src)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Store) {
+                        shared_ptr<mir::inst::StoreInst> in =
+                            static_pointer_cast<mir::inst::StoreInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        if (in->val.index() == 1) {
+                            in->val.emplace<1>(refill(redundantphi, get<1>(in->val)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::PtrOffset) {
+                        shared_ptr<mir::inst::PtrOffsetInst> in =
+                            static_pointer_cast<mir::inst::PtrOffsetInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        in->ptr = refill(redundantphi, in->ptr);
+                        if (in->offset.index() == 1) {
+                            in->offset.emplace<1>(refill(redundantphi, get<1>(in->offset)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+                        shared_ptr<mir::inst::RefInst> in =
+                            static_pointer_cast<mir::inst::RefInst>(inst);
+                        in->dest = refill(redundantphi, in->dest);
+                        if (in->val.index() == 0) {
+                            in->val.emplace<0>(refill(redundantphi, get<0>(in->val)));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        //in->dest = refill(redundantphi, in->dest);
+                        for (int k = 0; k < in->vars.size(); k++) {
+                            in->vars[k] = refill(redundantphi, in->vars[k]);
+                        }
+                    }
+                }
+            }
+            redundantphi.clear();
+            for (int i = 0; i < order.size(); i++) {
+                map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
+                for (int j = 1; j < iit->second->inst.size() - 1; j++) {
+                    shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            set<mir::inst::VarId> vars;
+                            for (int k = 0; k < in->vars.size(); k++) {
+                                fi = find(defined.begin(), defined.end(), in->vars[k]);
+                                //cout << in->vars[k] << " " << (fi != defined.end()) << endl;
+                                if (fi != defined.end()) {
+                                    vars.insert(in->vars[k]);
+                                }
+                            }
+                            if (vars.size() == 1) {
+                                redundantphi.insert(map<mir::inst::VarId, mir::inst::VarId>::value_type(in->dest, *vars.begin()));
+                            }
+                        }
+                    }
+                }
+            }
+            //delete define
+            map<mir::inst::VarId, mir::inst::VarId>::iterator iet;
+            for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
+                vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), iet->first);
+                if (fi != defined.end()) {
+                    defined.erase(fi);
+                }
+            }
+            for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
+                map<mir::inst::VarId, mir::inst::VarId>::iterator iet1;
+                for (iet1 = redundantphi.begin(); iet1 != redundantphi.end(); iet1++) {
+                    if (iet->first == iet1->second) {
+                        redundantphi[iet1->first] = iet->second;
+                    }
+                }
+            }
+            for (int i = 0; i < order.size(); i++) {
+                map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
+                mir::types::LabelId id = iit->first;
+                mir::inst::BasicBlk bb(id);
+                for (int j = 0; j < iit->second->preBlock.size(); j++) {
+                    if (iit->second->preBlock[j]->id >= 0) {
+                        bb.preceding.insert(iit->second->preBlock[j]->id);
+                    }
+                    if (iit->second->preBlock[j]->id == -2) {
+                        bb.preceding.insert(exitid);
+                    }
+                }
+                for (int j = 1; j < iit->second->inst.size() - 1; j++) {
+                    shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+                        shared_ptr<mir::inst::AssignInst> in =
+                            static_pointer_cast<mir::inst::AssignInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Call) {
+                        shared_ptr<mir::inst::CallInst> in =
+                            static_pointer_cast<mir::inst::CallInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Op) {
+                        shared_ptr<mir::inst::OpInst> in =
+                            static_pointer_cast<mir::inst::OpInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Load) {
+                        shared_ptr<mir::inst::LoadInst> in =
+                            static_pointer_cast<mir::inst::LoadInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Store) {
+                        shared_ptr<mir::inst::StoreInst> in =
+                            static_pointer_cast<mir::inst::StoreInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::PtrOffset) {
+                        shared_ptr<mir::inst::PtrOffsetInst> in =
+                            static_pointer_cast<mir::inst::PtrOffsetInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+                        shared_ptr<mir::inst::RefInst> in =
+                            static_pointer_cast<mir::inst::RefInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), in->dest);
+                        if (fi != defined.end()) {
+                            bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                        }
+                    }
                 }
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
                 if (jump->bb_true != -2) {
@@ -1257,6 +1468,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 }
                 it->second.basic_blks.insert({ id, move(bb) });
             }
+            
             map<uint32_t, mir::inst::Variable>::iterator itt;
             for (itt = it->second.variables.begin(); itt != it->second.variables.end(); itt++) {
                 map<mir::inst::VarId, vector< mir::inst::VarId>>::iterator ite = name_map.find(itt->first);
