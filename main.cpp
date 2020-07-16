@@ -57,14 +57,14 @@ int main(int argc, const char** argv) {
       irgenerator.getfuncNameToInstructions();
   mir::inst::MirPackage& package = irgenerator.getPackage();
 
-  LOG(INFO) << "generating SSA";
+  LOG(INFO) << "generating SSA" << std::endl;
 
   gen_ssa(inst, package, irgenerator);
 
   // std::cout << "Mir" << std::endl << package << std::endl;
-  LOG(INFO) << ("Mir_Before");
+  LOG(INFO) << ("Mir_Before") << std::endl;
   std::cout << package << std::endl;
-  LOG(INFO) << ("generating ARM code");
+  LOG(INFO) << ("generating ARM code") << std::endl;
 
   backend::Backend backend(package, options);
 
@@ -73,8 +73,12 @@ int main(int argc, const char** argv) {
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(
   //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
