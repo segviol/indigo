@@ -18,21 +18,89 @@
 
 namespace optimization::graph_color {
 
-typedef u_int32_t color;  // 0 means illegal register
+typedef u_int32_t color;  //
 typedef std::map<mir::inst::VarId, color> Color_Map;
 class Conflict_Map {
  public:
   std::map<mir::inst::VarId, std::set<mir::inst::VarId>> static_Map;
   std::map<mir::inst::VarId, std::set<mir::inst::VarId>> dynamic_Map;
+  std::map<mir::inst::VarId, mir::inst::VarId> merged_var_Map;
+  std::map<mir::inst::VarId, std::set<mir::inst::VarId>> merged_Map;
   std::map<u_int, std::set<mir::inst::VarId>> edge_vars;
   std::stack<mir::inst::VarId> remove_Nodes;
   std::shared_ptr<Color_Map> color_map;
+  mir::inst::MirFunction& func;
+  int varId;
   u_int color_num = 8;
-  Conflict_Map(std::shared_ptr<Color_Map> color_map, u_int color_num = 8)
-      : color_num(color_num), color_map(color_map) {}
+  Conflict_Map(std::shared_ptr<Color_Map> color_map,
+               mir::inst::MirFunction& func, u_int color_num = 8)
+      : color_num(color_num), color_map(color_map), func(func) {
+    if (func.variables.size()) {
+      auto end_iter = func.variables.end();
+      end_iter--;
+      varId = end_iter->first;
+    } else {
+      varId = mir::inst::VarId(65535);
+    }
+    for (auto& blkiter : func.basic_blks) {
+      for (auto& inst : blkiter.second.inst) {
+        if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+          mir::inst::VarId new_VarId(0);
+          for (auto var : inst->useVars()) {
+            if (merged_var_Map.count(var)) {
+              new_VarId = merged_var_Map.at(var);
+              break;
+            }
+          }
+          if (new_VarId.id == 0) {
+            if (merged_var_Map.count(inst->dest)) {
+              new_VarId = merged_var_Map.at(inst->dest);
+            } else {
+              new_VarId = get_new_VarId();
+            }
+          }
+          merge(inst->dest, new_VarId);
+          for (auto var : inst->useVars()) {
+            merge(var, new_VarId);
+          }
+        }
+      }
+    }
+  }
+
+  void merge(mir::inst::VarId var1, mir::inst::VarId var2) {
+    if (!merged_Map.count(var2)) {
+      merged_Map[var2] = std::set<mir::inst::VarId>();
+    }
+    if (merged_var_Map.count(var1)) {
+      auto old_merged_var = merged_var_Map.at(var1);
+      if (old_merged_var == var2) {
+        return;
+      }
+      for (auto& var : merged_Map.at(old_merged_var)) {
+        merged_var_Map[var] = var2;
+        merged_Map[var2].insert(var);
+      }
+      merged_Map.erase(old_merged_var);
+    } else {
+      merged_var_Map[var1] = var2;
+      merged_Map[var2].insert(var1);
+    }
+  }
+
+  mir::inst::VarId get_new_VarId() { return mir::inst::VarId(++varId); }
   void add_conflict(mir::inst::VarId defVar,
                     std::set<mir::inst::VarId> useVars) {
+    if (merged_var_Map.count(defVar)) {
+      defVar = merged_var_Map.at(defVar);
+    }
     for (auto useVar : useVars) {
+      if (merged_var_Map.count(useVar)) {
+        useVar = merged_var_Map.at(useVar);
+      }
+      if (defVar == useVar) {
+        continue;
+      }
       if (!static_Map.count(defVar)) {
         static_Map[defVar] = std::set<mir::inst::VarId>();
         dynamic_Map[defVar] = std::set<mir::inst::VarId>();
@@ -58,39 +126,44 @@ class Conflict_Map {
     }
   }
 
-  void delete_edge(mir::inst::VarId var) {
-    assert(dynamic_Map.count(var));
-    auto size = dynamic_Map[var].size();
-    edge_vars[size].erase(var);
-    if (!edge_vars[size].size()) {
-      edge_vars.erase(size);
+  void delete_edge(mir::inst::VarId var1, mir::inst::VarId var2) {
+    assert(dynamic_Map.count(var1) && dynamic_Map.count(var2));
+    auto size1 = dynamic_Map[var1].size();
+    auto size2 = dynamic_Map[var2].size();
+    edge_vars[size1].erase(var1);
+    edge_vars[size2].erase(var2);
+    if (!edge_vars[size1].size()) {
+      edge_vars.erase(size1);
     }
-    size--;
-    if (!size && !dynamic_Map.count(var)) {
-      return;
+    if (edge_vars.count(size2) && !edge_vars[size2].size()) {
+      edge_vars.erase(size2);
     }
-    if (!edge_vars.count(size)) {
-      edge_vars[size] = std::set<mir::inst::VarId>();
+    dynamic_Map[var1].erase(var2);
+    dynamic_Map[var2].erase(var1);
+    if (size1 >= 1) {
+      if (!edge_vars.count(size1 - 1)) {
+        edge_vars[size1 - 1] = std::set<mir::inst::VarId>();
+      }
+      edge_vars[size1 - 1].insert(var1);
     }
-    edge_vars[size].insert(var);
+    if (size2 >= 1) {
+      if (!edge_vars.count(size2 - 1)) {
+        edge_vars[size2 - 1] = std::set<mir::inst::VarId>();
+      }
+      edge_vars[size2 - 1].insert(var2);
+    }
   }
 
   void remove_node(mir::inst::VarId var, bool temporarily = true) {
-    if (!dynamic_Map.count(var)) {
-      return;
-    }
     auto neighbors = dynamic_Map[var];
-    if (edge_vars.count(neighbors.size())) {
-      auto size = dynamic_Map[var].size();
-      edge_vars[size].erase(var);
-      if (!edge_vars[size].size()) {
-        edge_vars.erase(size);
-      }
+    for (auto iter = neighbors.begin(); iter != neighbors.end(); ++iter) {
+      delete_edge(*iter, var);
     }
     dynamic_Map.erase(var);
-    for (auto iter = neighbors.begin(); iter != neighbors.end(); ++iter) {
-      delete_edge(*iter);
-      dynamic_Map[*iter].erase(var);
+    if (edge_vars[0].size() == 1) {
+      edge_vars.erase(0);
+    } else {
+      edge_vars[0].erase(var);
     }
     if (temporarily) {
       remove_Nodes.push(var);
@@ -172,6 +245,15 @@ class Conflict_Map {
       add_node(remove_Nodes.top());
       remove_Nodes.pop();
     }
+    for (auto& pair : merged_Map) {
+      if (color_map->count(pair.first)) {
+        auto color = color_map->at(pair.first);
+        for (auto var : pair.second) {
+          color_map->insert(std::make_pair(var, color));
+        }
+        color_map->erase(pair.first);
+      }
+    }
   }
 };
 
@@ -219,11 +301,14 @@ class Graph_Color : public backend::MirOptimizePass {
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
+    if (func.type->is_extern) {
+      return;
+    }
     std::set<mir::inst::VarId> cross_blk_vars;
     func_color_map[funcId] =
         std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
-        Conflict_Map(func_color_map[funcId], color_num));
+        Conflict_Map(func_color_map[funcId], func, color_num));
     auto conflict_map = func_conflict_map[funcId];
     livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
