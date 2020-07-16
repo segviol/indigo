@@ -28,6 +28,7 @@ build:
         paths:
             - build/compiler
         expire_in: 1 week
+    timeout: 8m
 test:
     stage: test
     dependencies:
@@ -44,3 +45,4 @@ test:
             - test.log
             - output/
         expire_in: 1 month
+    timeout: 15m

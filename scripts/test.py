@@ -99,7 +99,8 @@ def test_dir(dir):
             try:
                 compiler_output = subprocess.run(
                     [args.compiler_path, new_path, "-d", "-o", "tmp.s"],
-                    capture_output=True)
+                    capture_output=True,
+                    timeout=15)
 
                 # compiler error
                 if compiler_output.returncode != 0:
@@ -147,6 +148,28 @@ def test_dir(dir):
                     })
                     continue
 
+            except subprocess.TimeoutExpired as t:
+                logger.error(
+                    f"{prefix} compiler time out!(longer than {t.timeout} seconds)"
+                )
+                stdout = t.stdout
+                if stdout != None:
+                    str_stdout = stdout.decode("utf-8")
+                else:
+                    str_stdout = ""
+
+                with open(format_compiler_output_file_name(new_path, 'stdout'),
+                          "w") as f:
+                    f.write(stdout)
+
+                fail_list.append({
+                    "file": new_path,
+                    "reason": "compiler_timeout",
+                })
+
+                continue
+
+            try:
                 if os.path.exists(os.path.join(dir, f"{prefix}.in")):
                     f = open(os.path.join(dir, f"{prefix}.in"), 'r')
                     process = subprocess.run(["./tmp"],
