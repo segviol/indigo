@@ -56,14 +56,14 @@ int main(int argc, const char** argv) {
       irgenerator.getfuncNameToInstructions();
   mir::inst::MirPackage& package = irgenerator.getPackage();
 
-  LOG(INFO) << "generating SSA";
+  LOG(INFO) << "generating SSA" << std::endl;
 
   gen_ssa(inst, package, irgenerator);
 
   // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
-  LOG(INFO) << ("Mir_Before");
+  LOG(INFO) << ("Mir_Before") << std::endl;
   if (options.verbose) std::cout << package << std::endl;
-  LOG(INFO) << ("generating ARM code");
+  LOG(INFO) << ("generating ARM code") << std::endl;
 
   backend::Backend backend(package, options);
 
@@ -83,7 +83,7 @@ int main(int argc, const char** argv) {
     std::cout << code;
   }
 
-  LOG(INFO) << "writing to output file: " << options.out_file;
+  LOG(INFO) << "writing to output file: " << options.out_file << std::endl;
 
   ofstream output_file(options.out_file);
   output_file << code << std::endl;
