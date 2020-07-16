@@ -14,6 +14,7 @@
 #include <variant>
 #include <vector>
 
+#include "../../include/aixlog.hpp"
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 
@@ -184,7 +185,7 @@ class Rewriter {
         }
 
         default:
-          std::cout << "error!" << std::endl;
+          LOG(TRACE) << "error!" << std::endl;
       }
     }
 
@@ -265,8 +266,7 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId ||
-            !base_labels.count(iter->first)) {
+        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
