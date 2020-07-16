@@ -1,5 +1,7 @@
 #include "syntax_analyze.hpp"
 
+#include "../include/aixlog.hpp"
+
 using namespace front::syntax;
 
 vector<Word> tmp_vect_word;
@@ -210,13 +212,10 @@ void SyntaxAnalyze::gm_var_def() {
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
 
-      if (inGlobalLayer())
-      {
-          irGenerator.ir_ref(initPtr, valueName);
-      }
-      else
-      {
-          irGenerator.ir_assign(initPtr, valueName);
+      if (inGlobalLayer()) {
+        irGenerator.ir_ref(initPtr, valueName);
+      } else {
+        irGenerator.ir_assign(initPtr, valueName);
       }
 
       for (auto var : init_values) {
@@ -323,14 +322,14 @@ SharedExNdPtr SyntaxAnalyze::gm_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::PLUS:
-        father->_value = first->_value + second->_value;
-        break;
-      case OperationType::MINU:
-        father->_value = first->_value - second->_value;
-        break;
-      default:
-        break;
+        case OperationType::PLUS:
+          father->_value = first->_value + second->_value;
+          break;
+        case OperationType::MINU:
+          father->_value = first->_value - second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -378,17 +377,17 @@ SharedExNdPtr SyntaxAnalyze::gm_mul_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::MUL:
-        father->_value = first->_value * second->_value;
-        break;
-      case OperationType::DIV:
-        father->_value = first->_value / second->_value;
-        break;
-      case OperationType::MOD:
-        father->_value = first->_value % second->_value;
-        break;
-      default:
-        break;
+        case OperationType::MUL:
+          father->_value = first->_value * second->_value;
+          break;
+        case OperationType::DIV:
+          father->_value = first->_value / second->_value;
+          break;
+        case OperationType::MOD:
+          father->_value = first->_value % second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -452,14 +451,14 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp() {
       if (child->_type == NodeType::CONST) {
         node->_type = NodeType::CONST;
         switch (node->_operation) {
-        case OperationType::UN_MINU:
-          node->_value = -child->_value;
-          break;
-        case OperationType::UN_NOT:
-          node->_value = !child->_value;
-          break;
-        default:
-          break;
+          case OperationType::UN_MINU:
+            node->_value = -child->_value;
+            break;
+          case OperationType::UN_NOT:
+            node->_value = !child->_value;
+            break;
+          default:
+            break;
         }
       } else {
         SharedExNdPtr tmp;
@@ -879,16 +878,16 @@ void SyntaxAnalyze::gm_func_param(
 
   symbolTable.push_symbol(symbol);
   switch (symbol->kind()) {
-  case SymbolKind::Array:
-    irGenerator.ir_declare_param(symbol->getName(), SymbolKind::Ptr,
-                                 symbol->getId());
-    break;
-  case SymbolKind::INT:
-    irGenerator.ir_declare_param(symbol->getName(), SymbolKind::INT,
-                                 symbol->getId());
-    break;
-  default:
-    break;
+    case SymbolKind::Array:
+      irGenerator.ir_declare_param(symbol->getName(), SymbolKind::Ptr,
+                                   symbol->getId());
+      break;
+    case SymbolKind::INT:
+      irGenerator.ir_declare_param(symbol->getName(), SymbolKind::INT,
+                                   symbol->getId());
+      break;
+    default:
+      break;
   }
 }
 
@@ -1179,14 +1178,14 @@ SharedExNdPtr SyntaxAnalyze::gm_eq_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::EQL:
-        father->_value = first->_value == second->_value;
-        break;
-      case OperationType::NEQ:
-        father->_value = first->_value != second->_value;
-        break;
-      default:
-        break;
+        case OperationType::EQL:
+          father->_value = first->_value == second->_value;
+          break;
+        case OperationType::NEQ:
+          father->_value = first->_value != second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -1238,20 +1237,20 @@ SharedExNdPtr SyntaxAnalyze::gm_rel_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::LSS:
-        father->_value = first->_value < second->_value;
-        break;
-      case OperationType::LEQ:
-        father->_value = first->_value <= second->_value;
-        break;
-      case OperationType::GRE:
-        father->_value = first->_value > second->_value;
-        break;
-      case OperationType::GEQ:
-        father->_value = first->_value >= second->_value;
-        break;
-      default:
-        break;
+        case OperationType::LSS:
+          father->_value = first->_value < second->_value;
+          break;
+        case OperationType::LEQ:
+          father->_value = first->_value <= second->_value;
+          break;
+        case OperationType::GRE:
+          father->_value = first->_value > second->_value;
+          break;
+        case OperationType::GEQ:
+          father->_value = first->_value >= second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -1313,7 +1312,7 @@ bool SyntaxAnalyze::match_one_word(Token tk) {
   bool return_value = false;
   if (matched_index + 1 < word_list.size()) {
     if (word_list[matched_index + 1].match_token(tk)) {
-      std::cout << word_list[matched_index + 1].get_self() << std::endl;
+      LOG(TRACE) << word_list[matched_index + 1].get_self() << std::endl;
       matched_index++;
       return_value = true;
     }
