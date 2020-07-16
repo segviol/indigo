@@ -156,8 +156,20 @@ Options parse_options(int argc, const char** argv) {
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
   if (parser.present("--run-pass")) {
-    auto out = parser.get<std::vector<string>>("--run-pass");
-    std::set<std::string> run_pass(out.begin(), out.end());
+    auto out = parser.get<std::string>("--run-pass");
+    std::set<std::string> run_pass;
+    {
+      int low = 0;
+      for (int i = 0; i < out.size(); i++) {
+        if (out[i] == ',') {
+          std::string item = out.substr(low, i);
+          run_pass.insert(item);
+          low = i + 1;
+        }
+      }
+      std::string item = out.substr(low, out.size());
+      run_pass.insert(item);
+    }
     {
       std::stringstream pass_name;
       for (auto i = run_pass.cbegin(); i != run_pass.cend(); i++) {
@@ -173,8 +185,20 @@ Options parse_options(int argc, const char** argv) {
   }
 
   if (parser.present("--skip-pass")) {
-    auto out = parser.get<std::vector<string>>("--skip-pass");
-    std::set<std::string> skip_pass(out.begin(), out.end());
+    auto out = parser.get<std::string>("--skip-pass");
+    std::set<std::string> skip_pass;
+    {
+      int low = 0;
+      for (int i = 0; i < out.size(); i++) {
+        if (out[i] == ',') {
+          std::string item = out.substr(low, i);
+          skip_pass.insert(item);
+          low = i + 1;
+        }
+      }
+      std::string item = out.substr(low, out.size());
+      skip_pass.insert(item);
+    }
     {
       std::stringstream pass_name;
       for (auto i = skip_pass.cbegin(); i != skip_pass.cend(); i++) {
