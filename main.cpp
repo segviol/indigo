@@ -11,6 +11,7 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
+#include "backend/optimization/inline.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
@@ -47,7 +48,7 @@ int main(int argc, const char** argv) {
   front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
   syntax_analyze.gm_comp_unit();
 
-  syntax_analyze.outputInstructions(std::cout);
+  if (options.verbose) syntax_analyze.outputInstructions(std::cout);
 
   front::irGenerator::irGenerator& irgenerator =
       syntax_analyze.getIrGenerator();
@@ -59,25 +60,28 @@ int main(int argc, const char** argv) {
 
   gen_ssa(inst, package, irgenerator);
 
-  // std::cout << "Mir" << std::endl << package << std::endl;
+  // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before");
-  std::cout << package << std::endl;
+  if (options.verbose) std::cout << package << std::endl;
   LOG(INFO) << ("generating ARM code");
 
   backend::Backend backend(package, options);
 
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
 
   auto code = backend.generate_code();
-  std::cout << "CODE:" << std::endl << code;
+  if (options.verbose) {
+    LOG(TRACE) << "CODE:" << std::endl;
+    std::cout << code;
+  }
 
   LOG(INFO) << "writing to output file: " << options.out_file;
 
@@ -136,8 +140,15 @@ Options parse_options(int argc, const char** argv) {
     exit(0);
   }
 
-  AixLog::Log::init<AixLog::SinkCout>(AixLog::Severity::info);
-  LOG(WARNING) << "Hello!\n";
+  AixLog::Severity lvl;
+  if (parser.get<bool>("--verbose")) {
+    lvl = AixLog::Severity::trace;
+    options.verbose = true;
+  } else {
+    lvl = AixLog::Severity::info;
+    options.verbose = false;
+  }
+  AixLog::Log::init<AixLog::SinkCout>(lvl);
 
   options.in_file = parser.get<std::string>("input");
   options.out_file = parser.get<std::string>("--output");
@@ -145,7 +156,7 @@ Options parse_options(int argc, const char** argv) {
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
   if (parser.present("--run-pass")) {
-    auto out = parser.get<std::vector<string>>("run-pass");
+    auto out = parser.get<std::vector<string>>("--run-pass");
     std::set<std::string> run_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;
@@ -162,7 +173,7 @@ Options parse_options(int argc, const char** argv) {
   }
 
   if (parser.present("--skip-pass")) {
-    auto out = parser.get<std::vector<string>>("skip-pass");
+    auto out = parser.get<std::vector<string>>("--skip-pass");
     std::set<std::string> skip_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;

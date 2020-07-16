@@ -1188,6 +1188,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             vector<mir::inst::VarId> vars = get_vars(iter->second);
             generate_SSA(nodes, blocks, df, vars, dom);
             mir::types::LabelId exitid = irgenerator.getNewLabelId();
+            vector<uint32_t> defined;
+            for (int i = 0; i <= n; i++) {
+                mir::inst::VarId s(i);
+                defined.push_back(s);
+            }
             for (int i = 0; i < order.size(); i++) {
                 map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
                 mir::types::LabelId id = iit->first;
@@ -1202,6 +1207,48 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 }
                 for (int j = 1; j < iit->second->inst.size() - 1; j++) {
                     shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+                        shared_ptr<mir::inst::AssignInst> in =
+                            static_pointer_cast<mir::inst::AssignInst>(inst);
+                        defined.push_back(in->dest);
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Call) {
+                        shared_ptr<mir::inst::CallInst> in =
+                            static_pointer_cast<mir::inst::CallInst>(inst);
+                        if (in->dest != 1048576) {
+                            defined.push_back(in->dest);
+                        }
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Op) {
+                        shared_ptr<mir::inst::OpInst> in =
+                            static_pointer_cast<mir::inst::OpInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Load) {
+                        shared_ptr<mir::inst::LoadInst> in =
+                            static_pointer_cast<mir::inst::LoadInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Store) {
+                        shared_ptr<mir::inst::StoreInst> in =
+                            static_pointer_cast<mir::inst::StoreInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::PtrOffset) {
+                        shared_ptr<mir::inst::PtrOffsetInst> in =
+                            static_pointer_cast<mir::inst::PtrOffsetInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+                        shared_ptr<mir::inst::RefInst> in =
+                            static_pointer_cast<mir::inst::RefInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        defined.push_back(in->dest);
+                    }
                     bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
                 }
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
@@ -1215,7 +1262,22 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 map<mir::inst::VarId, vector< mir::inst::VarId>>::iterator ite = name_map.find(itt->first);
                 if (ite != name_map.end()) {
                     for (int j = 0; j < ite->second.size(); j++) {
-                        it->second.variables.insert(map<uint32_t, mir::inst::Variable>::value_type(ite->second[j], itt->second));
+                        vector<uint32_t>::iterator fi = find(defined.begin(), defined.end(), ite->second[j]);
+                        if (fi != defined.end()) {
+                            it->second.variables.insert(map<uint32_t, mir::inst::Variable>::value_type(ite->second[j], itt->second));
+                        }
+                    }
+                }
+            }
+            int si = it->second.variables.size();
+            bool flag = true;
+            while (flag) {
+                flag = false;
+                for (itt = it->second.variables.begin(); itt != it->second.variables.end(); itt++) {
+                    if (itt->first > n && itt->first < 65535 || itt->first == 1048576) {
+                        it->second.variables.erase(itt);
+                        flag = true;
+                        break;
                     }
                 }
             }
