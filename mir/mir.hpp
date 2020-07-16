@@ -174,7 +174,24 @@ namespace mir::inst {
 
 enum class InstKind { Assign, Op, Ref, Load, Store, PtrOffset, Call, Phi };
 
-enum class Op { Add, Sub, Mul, Div, Rem, Gt, Lt, Gte, Lte, Eq, Neq, And, Or };
+enum class Op {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Rem,
+  Gt,
+  Lt,
+  Gte,
+  Lte,
+  Eq,
+  Neq,
+  And,
+  Or,
+  Shl,
+  Shr,
+  ShrA
+};
 
 enum class ValueKind { Imm, Void, Variable };
 
