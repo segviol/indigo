@@ -132,8 +132,7 @@ class Block_Live_Var {
       live_vars_out_ignoring_jump->insert(iter->get()->begin(),
                                           iter->get()->end());
     }
-    // LOG(TRACE) << live_vars_out_before.size() << "  " <<
-    // live_vars_out->size()
+    // std::cout << live_vars_out_before.size() << "  " << live_vars_out->size()
     //           << std::endl;
     if (!first_build &&
         *live_vars_out_ignoring_jump ==
