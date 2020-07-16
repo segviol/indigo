@@ -144,8 +144,15 @@ Options parse_options(int argc, const char** argv) {
     exit(0);
   }
 
-  AixLog::Log::init<AixLog::SinkCout>(AixLog::Severity::info);
-  LOG(WARNING) << "Hello!\n";
+  AixLog::Severity lvl;
+  if (parser.get<bool>("--verbose")) {
+    lvl = AixLog::Severity::trace;
+    options.verbose = true;
+  } else {
+    lvl = AixLog::Severity::info;
+    options.verbose = false;
+  }
+  AixLog::Log::init<AixLog::SinkCout>(lvl);
 
   options.in_file = parser.get<std::string>("input");
   options.out_file = parser.get<std::string>("--output");
@@ -153,7 +160,7 @@ Options parse_options(int argc, const char** argv) {
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
   if (parser.present("--run-pass")) {
-    auto out = parser.get<std::vector<string>>("run-pass");
+    auto out = parser.get<std::vector<string>>("--run-pass");
     std::set<std::string> run_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;
@@ -170,7 +177,7 @@ Options parse_options(int argc, const char** argv) {
   }
 
   if (parser.present("--skip-pass")) {
-    auto out = parser.get<std::vector<string>>("skip-pass");
+    auto out = parser.get<std::vector<string>>("--skip-pass");
     std::set<std::string> skip_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;
