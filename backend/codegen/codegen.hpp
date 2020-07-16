@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "../../arm_code/arm.hpp"
+#include "../../include/aixlog.hpp"
 #include "../../prelude/prelude.hpp"
 #include "../backend.hpp"
 #include "../optimization/optimization.hpp"
@@ -59,21 +60,21 @@ class Codegen final {
             any_ordering->second);
         auto o = order_map.find(func.name);
         if (o != order_map.end()) {
-          std::cout << "Found order map for " << func.name << " with "
-                    << o->second.size() << " elements" << std::endl;
+          LOG(TRACE) << "Found order map for " << func.name << " with "
+                     << o->second.size() << " elements" << std::endl;
           auto& ordering = o->second;
           this->bb_ordering.insert(bb_ordering.end(), ordering.begin(),
                                    ordering.end());
         } else {
-          std::cout << "Cannot find order map for " << func.name << " (1)"
-                    << std::endl;
+          LOG(TRACE) << "Cannot find order map for " << func.name << " (1)"
+                     << std::endl;
           for (auto& a : func.basic_blks) {
             bb_ordering.push_back(a.first);
           }
         }
       } else {
-        std::cout << "Cannot find order map for " << func.name << " (2)"
-                  << std::endl;
+        LOG(TRACE) << "Cannot find order map for " << func.name << " (2)"
+                   << std::endl;
         for (auto& a : func.basic_blks) {
           bb_ordering.push_back(a.first);
         }
