@@ -49,7 +49,7 @@ int main(int argc, const char** argv) {
   front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
   syntax_analyze.gm_comp_unit();
 
-  if (options.verbose) syntax_analyze.outputInstructions(std::cout);
+  syntax_analyze.outputInstructions(std::cout);
 
   front::irGenerator::irGenerator& irgenerator =
       syntax_analyze.getIrGenerator();
@@ -61,9 +61,9 @@ int main(int argc, const char** argv) {
 
   gen_ssa(inst, package, irgenerator);
 
-  // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
+  // std::cout << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before") << std::endl;
-  if (options.verbose) std::cout << package << std::endl;
+  std::cout << package << std::endl;
   LOG(INFO) << ("generating ARM code") << std::endl;
 
   backend::Backend backend(package, options);
@@ -85,12 +85,9 @@ int main(int argc, const char** argv) {
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
 
   auto code = backend.generate_code();
-  if (options.verbose) {
-    LOG(TRACE) << "CODE:" << std::endl;
-    std::cout << code;
-  }
+  std::cout << "CODE:" << std::endl << code;
 
-  LOG(INFO) << "writing to output file: " << options.out_file << std::endl;
+  LOG(INFO) << "writing to output file: " << options.out_file;
 
   ofstream output_file(options.out_file);
   output_file << code << std::endl;
@@ -147,15 +144,8 @@ Options parse_options(int argc, const char** argv) {
     exit(0);
   }
 
-  AixLog::Severity lvl;
-  if (parser.get<bool>("--verbose")) {
-    lvl = AixLog::Severity::trace;
-    options.verbose = true;
-  } else {
-    lvl = AixLog::Severity::info;
-    options.verbose = false;
-  }
-  AixLog::Log::init<AixLog::SinkCout>(lvl);
+  AixLog::Log::init<AixLog::SinkCout>(AixLog::Severity::info);
+  LOG(WARNING) << "Hello!\n";
 
   options.in_file = parser.get<std::string>("input");
   options.out_file = parser.get<std::string>("--output");
@@ -163,20 +153,8 @@ Options parse_options(int argc, const char** argv) {
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
   if (parser.present("--run-pass")) {
-    auto out = parser.get<std::string>("--run-pass");
-    std::set<std::string> run_pass;
-    {
-      int low = 0;
-      for (int i = 0; i < out.size(); i++) {
-        if (out[i] == ',') {
-          std::string item = out.substr(low, i);
-          run_pass.insert(item);
-          low = i + 1;
-        }
-      }
-      std::string item = out.substr(low, out.size());
-      run_pass.insert(item);
-    }
+    auto out = parser.get<std::vector<string>>("run-pass");
+    std::set<std::string> run_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;
       for (auto i = run_pass.cbegin(); i != run_pass.cend(); i++) {
@@ -192,20 +170,8 @@ Options parse_options(int argc, const char** argv) {
   }
 
   if (parser.present("--skip-pass")) {
-    auto out = parser.get<std::string>("--skip-pass");
-    std::set<std::string> skip_pass;
-    {
-      int low = 0;
-      for (int i = 0; i < out.size(); i++) {
-        if (out[i] == ',') {
-          std::string item = out.substr(low, i);
-          skip_pass.insert(item);
-          low = i + 1;
-        }
-      }
-      std::string item = out.substr(low, out.size());
-      skip_pass.insert(item);
-    }
+    auto out = parser.get<std::vector<string>>("skip-pass");
+    std::set<std::string> skip_pass(out.begin(), out.end());
     {
       std::stringstream pass_name;
       for (auto i = skip_pass.cbegin(); i != skip_pass.cend(); i++) {
