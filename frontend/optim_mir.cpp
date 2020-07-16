@@ -1244,6 +1244,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                             static_pointer_cast<mir::inst::RefInst>(inst);
                         defined.push_back(in->dest);
                     }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        defined.push_back(in->dest);
+                    }
                     bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
                 }
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
