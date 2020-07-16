@@ -1155,6 +1155,7 @@ void generate_SSA(map<int, BasicBlock*> nodes,
 }
 
 void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
+<<<<<<< HEAD
              mir::inst::MirPackage& p,
              front::irGenerator::irGenerator& irgenerator) {
   map<string, mir::inst::MirFunction>::iterator it;
@@ -1204,6 +1205,48 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 static_pointer_cast<mir::inst::CallInst>(inst);
             if (in->dest != 1048576) {
               defined.push_back(in->dest);
+=======
+    mir::inst::MirPackage& p, front::irGenerator::irGenerator& irgenerator) {
+    map<string, mir::inst::MirFunction>::iterator it;
+    for (it = p.functions.begin(); it != p.functions.end(); it++) {
+        map<string, vector<front::irGenerator::Instruction>>::iterator iter = f.find(it->first);
+        if (iter != f.end()) {
+            shared_ptr<mir::types::FunctionTy> type = it->second.type;
+            int n = type->params.size();
+            notRename.clear();
+            for (int i = 0; i <= n; i++) {
+                mir::inst::VarId s(i);
+                notRename.push_back(s);
+            }
+            map<int, BasicBlock*> nodes = generate_CFG(iter->second, irgenerator);
+            map<mir::inst::VarId, set<int>> blocks = active_var(nodes);
+            map<int, int> dom = find_idom(nodes);
+            map<int, vector<int>> df = dominac_frontier(dom, nodes);
+            vector<mir::inst::VarId> vars = get_vars(iter->second);
+            generate_SSA(nodes, blocks, df, vars, dom);
+            mir::types::LabelId exitid = irgenerator.getNewLabelId();
+            for (int i = 0; i < order.size(); i++) {
+                map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
+                mir::types::LabelId id = iit->first;
+                mir::inst::BasicBlk bb(id);
+                for (int j = 0; j < iit->second->preBlock.size(); j++) {
+                    if (iit->second->preBlock[j]->id >= 0) {
+                        bb.preceding.insert(iit->second->preBlock[j]->id);
+                    }
+                    if (iit->second->preBlock[j]->id == -2) {
+                        bb.preceding.insert(exitid);
+                    }
+                }
+                for (int j = 1; j < iit->second->inst.size() - 1; j++) {
+                    shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
+                }
+                shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);
+                if (jump->bb_true != -2) {
+                    bb.jump = move(*jump);
+                }
+                it->second.basic_blks.insert({ id, move(bb) });
+>>>>>>> parent of 7468751... Merge branch 'develop' into 'zb_blk_merge'
             }
           } else if (inst->inst_kind() == mir::inst::InstKind::Op) {
             shared_ptr<mir::inst::OpInst> in =

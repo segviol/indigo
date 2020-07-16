@@ -3,7 +3,6 @@
 #include <deque>
 #include <vector>
 
-#include "../include/aixlog.hpp"
 #include "../optimization/optimization.hpp"
 
 namespace backend::codegen {
@@ -59,11 +58,11 @@ void BasicBlkRearrange::optimize_mir(
     if (f.second.type->is_extern) continue;
     auto res = optimize_func(f.second);
 
-    LOG(TRACE) << "bb arrangement for " << f.second.name << " is:" << std::endl;
+    std::cout << "bb arrangement for " << f.second.name << " is:" << std::endl;
     for (auto i : res) {
-      LOG(TRACE) << i << " ";
+      std::cout << i << " ";
     }
-    LOG(TRACE) << std::endl;
+    std::cout << std::endl;
 
     ordering_map.insert({f.second.name, std::move(res)});
   }
@@ -85,12 +84,12 @@ std::vector<uint32_t> BasicBlkRearrange::optimize_func(
   }
   input_count.insert_or_assign(f.basic_blks.begin()->first, 1);
 
-  LOG(TRACE) << "func: " << f.name << std::endl;
+  std::cout << "func: " << f.name << std::endl;
   for (auto& x : input_count) {
-    LOG(TRACE) << x.first << " " << x.second;
+    std::cout << x.first << " " << x.second;
     auto cycle = cycles.find(x.first);
-    if (cycle != cycles.end()) LOG(TRACE) << " " << cycle->second;
-    LOG(TRACE) << std::endl;
+    if (cycle != cycles.end()) std::cout << " " << cycle->second;
+    std::cout << std::endl;
   }
 
   bfs.push_back(f.basic_blks.begin()->first);
