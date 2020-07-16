@@ -1,5 +1,7 @@
 #include "syntax_analyze.hpp"
 
+#include "../include/aixlog.hpp"
+
 using namespace front::syntax;
 
 vector<Word> tmp_vect_word;
