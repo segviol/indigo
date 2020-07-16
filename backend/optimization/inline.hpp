@@ -14,7 +14,6 @@
 #include <variant>
 #include <vector>
 
-#include "../../include/aixlog.hpp"
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 
@@ -185,7 +184,7 @@ class Rewriter {
         }
 
         default:
-          LOG(TRACE) << "error!" << std::endl;
+          std::cout << "error!" << std::endl;
       }
     }
 
@@ -211,7 +210,7 @@ class Rewriter {
       cond_or_ret = mir::inst::VarId(var_cast_map.at(cond_or_ret.value().id));
     }
     new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
-                                              cond_or_ret);
+                                              cond_or_ret, blk.jump.jump_kind);
   }
 
   mir::inst::VarId get_new_varId() { return mir::inst::VarId(++varId); }
@@ -254,8 +253,11 @@ class Inline_Func : public backend::MirOptimizePass {
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func,
                      std::map<std::string, mir::inst::MirFunction>& funcTable) {
-    if (func.name == "main") {
+    if (func.name == "main" || func.type->is_extern) {
       return;
+    }
+    if (func.name == "$$5_heap_ajust" || func.name == "$$5_swap") {
+      std::cout << "as";
     }
     int cur_blkId = func.basic_blks.begin()->first;
     std::set<mir::types::LabelId> base_labels;
@@ -287,7 +289,7 @@ class Inline_Func : public backend::MirOptimizePass {
           if (subfunc.type->is_extern) {
             continue;
           }
-          if (subfunc.variables.size() + func.variables.size() >= 1024) {
+          if (subfunc.variables.size() + func.variables.size() >= 256) {
             continue;
           }
           //  Then this func is inlineable

@@ -48,6 +48,15 @@ void display_op(std::ostream& o, Op val) {
     case Op::Or:
       o << "||";
       break;
+    case Op::Shl:
+      o << "<<";
+      break;
+    case Op::Shr:
+      o << ">>>";
+      break;
+    case Op::ShrA:
+      o << ">>";
+      break;
   }
 }
 
