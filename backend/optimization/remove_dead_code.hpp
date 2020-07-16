@@ -67,7 +67,7 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
     if (funcId == "main") {
-      std::cout << 'a' << std::endl;
+      LOG(TRACE) << 'a' << std::endl;
     }
     func_livevar_analyse[funcId] =
         std::make_shared<livevar_analyse::Livevar_Analyse>(func);
