@@ -16,7 +16,9 @@
 
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
+#include "../../include/aixlog.hpp"
 #include "livevar_analyse.hpp"
+
 namespace optimization::common_expr_del {
 class Node;
 
@@ -558,7 +560,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
         }
 
         default:
-          std::cout << "error!" << std::endl;
+          LOG(TRACE) << "error!" << std::endl;
       }
     }
     if (block.jump.cond_or_ret.has_value()) {
@@ -575,7 +577,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
       if (iter->first == 5) {
-        std::cout << "sasq" << std::endl;
+        LOG(TRACE) << "sasq" << std::endl;
       }
       optimize_block(iter->second, lva.livevars[iter->first], func.variables);
     }
