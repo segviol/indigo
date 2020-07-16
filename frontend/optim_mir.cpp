@@ -1202,6 +1202,48 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
                 }
                 for (int j = 1; j < iit->second->inst.size() - 1; j++) {
                     shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+                    if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+                        shared_ptr<mir::inst::AssignInst> in =
+                            static_pointer_cast<mir::inst::AssignInst>(inst);
+                        defined.push_back(in->dest);
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Call) {
+                        shared_ptr<mir::inst::CallInst> in =
+                            static_pointer_cast<mir::inst::CallInst>(inst);
+                        if (in->dest != 1048576) {
+                            defined.push_back(in->dest);
+                        }
+                    } 
+                    else if (inst->inst_kind() == mir::inst::InstKind::Op) {
+                        shared_ptr<mir::inst::OpInst> in =
+                            static_pointer_cast<mir::inst::OpInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Load) {
+                        shared_ptr<mir::inst::LoadInst> in =
+                            static_pointer_cast<mir::inst::LoadInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Store) {
+                        shared_ptr<mir::inst::StoreInst> in =
+                            static_pointer_cast<mir::inst::StoreInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::PtrOffset) {
+                        shared_ptr<mir::inst::PtrOffsetInst> in =
+                            static_pointer_cast<mir::inst::PtrOffsetInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+                        shared_ptr<mir::inst::RefInst> in =
+                            static_pointer_cast<mir::inst::RefInst>(inst);
+                        defined.push_back(in->dest);
+                    }
+                    else if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+                        shared_ptr<mir::inst::PhiInst> in =
+                            static_pointer_cast<mir::inst::PhiInst>(inst);
+                        defined.push_back(in->dest);
+                    }
                     bb.inst.push_back(unique_ptr<mir::inst::Inst>(inst.get()));
                 }
                 shared_ptr<mir::inst::JumpInstruction> jump = get<1>(iit->second->inst[iit->second->inst.size() - 1]);

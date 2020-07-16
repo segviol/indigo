@@ -1,5 +1,7 @@
 #include "syntax_analyze.hpp"
 
+#include "../include/aixlog.hpp"
+
 using namespace front::syntax;
 
 vector<Word> tmp_vect_word;
@@ -210,13 +212,10 @@ void SyntaxAnalyze::gm_var_def() {
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
 
-      if (inGlobalLayer())
-      {
-          irGenerator.ir_ref(initPtr, valueName);
-      }
-      else
-      {
-          irGenerator.ir_assign(initPtr, valueName);
+      if (inGlobalLayer()) {
+        irGenerator.ir_ref(initPtr, valueName);
+      } else {
+        irGenerator.ir_assign(initPtr, valueName);
       }
 
       for (auto var : init_values) {
@@ -519,7 +518,15 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
 
     SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
     SharedExNdPtr addNode = SharedExNdPtr(new ExpressNode());
-    SharedExNdPtr index2 = node->_children.at(i);
+    SharedExNdPtr index2 = SharedExNdPtr(new ExpressNode());
+
+    if (i < node->_children.size()) {
+      index2 = node->_children.at(i);
+    } else {
+      index2->_type = NodeType::CONST;
+      index2->_operation = OperationType::NUMBER;
+      index2->_value = 0;
+    }
 
     mulNode->_operation = OperationType::MUL;
     if (index->_type == NodeType::CONST && d->_type == NodeType::CONST) {
@@ -609,7 +616,9 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
 
     addr = computeIndex(arr, node);
 
-    if (mode == ValueMode::left) {
+    if (mode == ValueMode::left ||
+        node->_children.size() <
+            std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
     } else {
       SharedExNdPtr loadValue;
@@ -1313,7 +1322,7 @@ bool SyntaxAnalyze::match_one_word(Token tk) {
   bool return_value = false;
   if (matched_index + 1 < word_list.size()) {
     if (word_list[matched_index + 1].match_token(tk)) {
-      std::cout << word_list[matched_index + 1].get_self() << std::endl;
+      LOG(TRACE) << word_list[matched_index + 1].get_self() << std::endl;
       matched_index++;
       return_value = true;
     }
