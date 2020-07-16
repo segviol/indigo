@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "../../include/aixlog.hpp"
 #include "../backend.hpp"
 #include "livevar_analyse.hpp"
 
@@ -242,8 +243,8 @@ class Graph_Color : public backend::MirOptimizePass {
     conflict_map->rebuild();
     for (auto iter = conflict_map->color_map->begin();
          iter != conflict_map->color_map->end(); iter++) {
-      std::cout << "variable " << iter->first << " color: " << iter->second
-                << std::endl;
+      LOG(TRACE) << "variable " << iter->first << " color: " << iter->second
+                 << std::endl;
     }
   }
 
