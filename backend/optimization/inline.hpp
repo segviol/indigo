@@ -14,7 +14,6 @@
 #include <variant>
 #include <vector>
 
-#include "../../include/aixlog.hpp"
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 
@@ -185,7 +184,7 @@ class Rewriter {
         }
 
         default:
-          LOG(TRACE) << "error!" << std::endl;
+          std::cout << "error!" << std::endl;
       }
     }
 

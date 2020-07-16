@@ -27,13 +27,13 @@ arm::Function Codegen::translate_function() {
 
   {
 #pragma region passShow
-    LOG(TRACE) << "VariableToReg: " << std::endl;
+    std::cout << "VariableToReg: " << std::endl;
     for (auto& v : reg_map) {
-      LOG(TRACE) << v.first << " -> ";
-      display_reg_name(LOG(TRACE), v.second);
-      LOG(TRACE) << std::endl;
+      std::cout << v.first << " -> ";
+      display_reg_name(std::cout, v.second);
+      std::cout << std::endl;
     }
-    LOG(TRACE) << std::endl;
+    std::cout << std::endl;
 #pragma endregion
   }
 
@@ -216,11 +216,11 @@ void Codegen::scan() {
   }
 
   // #pragma region CollapseShow
-  //   LOG(TRACE) << "collapsing: " << std::endl;
+  //   std::cout << "collapsing: " << std::endl;
   //   for (auto& v : var_collapse) {
-  //     LOG(TRACE) << v.first << " -> " << v.second << std::endl;
+  //     std::cout << v.first << " -> " << v.second << std::endl;
   //   }
-  //   LOG(TRACE) << std::endl;
+  //   std::cout << std::endl;
   // #pragma endregion
 }
 
@@ -234,12 +234,12 @@ void Codegen::deal_phi(mir::inst::PhiInst& phi) {
     auto x = get_collapsed_var(id);
     set.insert(x);
   }
-  LOG(TRACE) << *set.begin() << " <- ";
+  std::cout << *set.begin() << " <- ";
   for (auto& x : set) {
-    LOG(TRACE) << x << " ";
+    std::cout << x << " ";
     var_collapse.insert_or_assign(x, *set.begin());
   }
-  LOG(TRACE) << std::endl;
+  std::cout << std::endl;
 }
 
 void Codegen::scan_stack() {
