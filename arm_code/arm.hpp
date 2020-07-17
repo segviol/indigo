@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -260,6 +261,8 @@ enum class OpCode {
 
   // Label (pseudo-instruction)
   _Label,
+  // Control Comment (pseudo-instruction)
+  _Ctrl,
   // Mod (pseudo-instruction)
   _Mod
 };
@@ -415,6 +418,25 @@ struct LabelInst final : public Inst {
   virtual void display(std::ostream& o) const;
   virtual ~LabelInst() {}
 };
+
+/// Control pseudo-instruction
+///
+/// Valid opcode: _Ctrl
+struct CtrlInst final : public Inst {
+  CtrlInst(std::string key, std::any val)
+      : Inst(OpCode::_Ctrl, ConditionCode::Always),
+        key(std::move(key)),
+        val(std::move(val)) {}
+
+  std::string key;
+  std::any val;
+
+  virtual void display(std::ostream& o) const;
+  virtual ~CtrlInst() {}
+};
+
+const std::string STACK_OFFSET_CTRL = "offset_stack";
+using StackOffsetTy = int32_t;
 
 struct Function final : public prelude::Displayable {
   Function(std::string& name, std::vector<std::unique_ptr<Inst>>&& inst,

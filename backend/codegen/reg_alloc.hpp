@@ -9,6 +9,7 @@ class RegAllocatePass final : public backend::ArmOptimizePass {
                     std::map<std::string, std::any> &extra_data_repo) override;
 
  private:
-  void optimize_func(arm::Function &f);
+  void optimize_func(arm::Function &f,
+                     std::map<std::string, std::any> &extra_data_repo);
 };
 }  // namespace backend::codegen

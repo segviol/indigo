@@ -1,5 +1,6 @@
 #include "codegen.hpp"
 
+#include <any>
 #include <cassert>
 #include <exception>
 #include <memory>
@@ -394,33 +395,37 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 
   // TODO: Will not work with more than 4 params
   // Expand stack
-  if (stack_size > 0)
+  if (stack_size > 0) {
     inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
                                                 stack_size * 4));
+    inst.push_back(std::make_unique<CtrlInst>(
+        STACK_OFFSET_CTRL, std::make_any<int32_t>(stack_size * 4)));
+  }
 
   {
     // Push params
-    int param_idx = 0;
-    for (auto& param : i.params) {
-      if (param_idx < 4) {
+    for (int idx = i.params.size() - 1; idx >= 0; idx--) {
+      auto& param = i.params[idx];
+      if (idx < 4) {
         inst.push_back(std::make_unique<Arith2Inst>(
-            OpCode::Mov, Reg(param_idx), translate_value_to_operand2(param)));
+            OpCode::Mov, Reg(idx), translate_value_to_operand2(param)));
       } else {
         inst.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, translate_value_to_reg(param),
-            MemoryOperand(REG_SP, (int16_t)(param_idx * 4),
-                          MemoryAccessKind::None)));
+            MemoryOperand(REG_SP, (int16_t)(idx * 4), MemoryAccessKind::None)));
       }
-      param_idx++;
     }
   }
   // Call instruction
   inst.push_back(std::make_unique<BrInst>(OpCode::Bl, f.second.name));
 
   // Shrink stack
-  if (stack_size > 0)
+  if (stack_size > 0) {
+    inst.push_back(std::make_unique<CtrlInst>(
+        STACK_OFFSET_CTRL, std::make_any<int32_t>(-(stack_size * 4))));
     inst.push_back(
         std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP, stack_size));
+  }
 
   // Move return value
   if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
