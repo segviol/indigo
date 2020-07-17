@@ -1,11 +1,13 @@
 #include "reg_alloc.hpp"
 
+#include <any>
 #include <cassert>
 #include <cmath>
 #include <memory>
 #include <vector>
 
-#include "../../arm_code/regmanager.hpp"
+#include "../optimization/graph_color.hpp"
+#include "../optimization/optimization.hpp"
 
 namespace backend::codegen {
 using namespace arm;
@@ -59,21 +61,29 @@ struct Alloc {
   Interval interval;
 };
 
+using ColorMap = ::optimization::graph_color::Color_Map;
+
 class RegAllocator {
  public:
-  RegAllocator(arm::Function &f)
+  RegAllocator(arm::Function &f, ColorMap &color_map,
+               optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm)
       : f(f),
         live_intervals(),
-        active(),
+        reg_map(),
         stack_size(f.stack_size),
         spilled_regs(),
         spill_positions(),
+        color_map(color_map),
+        mir_to_arm(mir_to_arm),
         inst_sink() {}
   arm::Function &f;
+  ColorMap &color_map;
+  optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm;
 
   std::set<Reg> used_regs = {4, 5, 6, 7};
 
   std::map<arm::Reg, Interval> live_intervals;
+  std::map<arm::Reg, Reg> reg_map;
   std::map<arm::Reg, Alloc> active;
   std::map<arm::Reg, Interval> spilled_regs;
   std::map<arm::Reg, int> spill_positions;
@@ -82,6 +92,7 @@ class RegAllocator {
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
 
   int stack_size;
+  int stack_offset = 0;
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
 #pragma region Read Write Stuff
@@ -123,11 +134,14 @@ class RegAllocator {
 
   void calc_live_intervals();
   void alloc_regs();
+  void construct_reg_map();
   std::vector<std::pair<Reg, Interval>> sort_intervals();
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
-  void write_load(Reg r, Reg rd);
-  void write_store(Reg r, Reg rs);
+  void replace_read(Reg &r, int i);
+  void replace_write(Reg &r, int i);
+  void replace_read(Operand2 &r, int i);
+  void replace_read(MemoryOperand &r, int i);
   void invalidate_read(int pos) {
     auto it = active.begin();
     while (it != active.end()) {
@@ -138,6 +152,7 @@ class RegAllocator {
         it++;
     }
   }
+  Reg alloc_transient_reg(Interval i);
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
@@ -154,10 +169,6 @@ void RegAllocator::alloc_regs() {
     stack_size += 4;
   }
 
-  // TODO: Implement linear scan; The current method loads and stores every time
-  // alloc regs based on interval
-  //   auto intervals = sort_intervals();
-  //   generate_load_store_positions(std::move(intervals));
   perform_load_stores();
   f.inst = std::move(inst_sink);
 
@@ -225,94 +236,116 @@ void RegAllocator::calc_live_intervals() {
   }
 }
 
-void RegAllocator::write_load(Reg r, Reg rd) {
-  bool del = false;
-  auto spill_pos = spill_positions.at(r);
-  if (inst_sink.size() > 0) {
-    auto &x = inst_sink.back();
-    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
-      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-          x_->op == arm::OpCode::StR && x_->rd == rd &&
-          (*x__) == MemoryOperand(REG_SP, spill_pos)) {
-        del = true;
-      }
+void RegAllocator::construct_reg_map() {
+  for (auto item : mir_to_arm) {
+    // for every mir variable:
+    auto [var_id, vreg_id] = item;
+    auto color = color_map.find(var_id);
+    if (color != color_map.end()) {
+      // Global register id starts with r4;
+      auto reg = Reg(color->second + 4);
+      reg_map.insert({vreg_id, reg});
+    } else {
+      stack_size += 4;
+      spill_positions.insert({vreg_id, stack_size});
     }
-  }
-  if (del) {
-    inst_sink.pop_back();
-    delayed_store = {{r, rd}};
-  } else {
-    inst_sink.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos)));
   }
 }
 
-void RegAllocator::write_store(Reg r, Reg rs) {
-  int pos;
-  if (auto p = spill_positions.find(r); p != spill_positions.end()) {
-    pos = p->second;
-  } else {
-    pos = stack_size;
-    stack_size += 4;
-    spill_positions.insert({r, pos});
+void RegAllocator::replace_read(Operand2 &r, int i) {
+  if (auto rop = std::get_if<RegisterOperand>(&r)) {
+    replace_read(rop->reg, i);
   }
+}
 
-  bool del = false;
-  if (inst_sink.size() > 0) {
-    auto &x = inst_sink.back();
-    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
-      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-          x_->op == arm::OpCode::StR && (*x__) == MemoryOperand(REG_SP, pos)) {
-        del = true;
+void RegAllocator::replace_read(MemoryOperand &r, int i) {
+  replace_read(r.r1, i);
+  if (auto rop = std::get_if<RegisterOperand>(&r.offset)) {
+    replace_read(rop->reg, i);
+  }
+}
+
+Reg RegAllocator::alloc_transient_reg(Interval i) { return 0; }
+
+/// Replace virtual register r with real register in-place
+void RegAllocator::replace_read(Reg &r, int i) {
+  if (!is_virtual_register(r)) {
+    return;
+  } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
+    // This register is allocated with graph-coloring
+    r = reg_map_r->second;
+  } else if (auto spill_r = spill_positions.find(r);
+             spill_r != spill_positions.end()) {
+    // this register is allocated in stack
+    bool del = false;
+    Reg rd = alloc_transient_reg(Interval(i));
+    auto spill_pos = spill_r->second;
+    if (inst_sink.size() > 0) {
+      auto &x = inst_sink.back();
+      if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+        if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+            x_->op == arm::OpCode::StR && x_->rd == rd &&
+            (*x__) == MemoryOperand(REG_SP, spill_pos + stack_offset)) {
+          del = true;
+        }
       }
     }
+    if (del) {
+      inst_sink.pop_back();
+      delayed_store = {{r, rd}};
+    } else {
+      inst_sink.push_back(std::make_unique<LoadStoreInst>(
+          OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset)));
+      r = rd;
+    }
+  } else {
+    // this register is transient
+    auto live_interval = live_intervals.at(r);
+    Reg r = alloc_transient_reg(live_interval);
   }
-  if (del) {
-    return;
-  }
+}
 
-  inst_sink.push_back(std::make_unique<LoadStoreInst>(
-      OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
+void RegAllocator::replace_write(Reg &r, int i) {
+  if (!is_virtual_register(r)) {
+    return;
+  } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
+    // This register is allocated with graph-coloring
+    r = reg_map_r->second;
+  } else if (auto spill_r = spill_positions.find(r);
+             spill_r != spill_positions.end()) {
+    // this register is allocated in stack
+    Reg rd = alloc_transient_reg(Interval(i));
+    int pos;
+    if (auto p = spill_positions.find(r); p != spill_positions.end()) {
+      pos = p->second;
+    } else {
+      pos = stack_size;
+      stack_size += 4;
+      spill_positions.insert({r, pos + stack_offset});
+    }
+
+    bool del = false;
+    if (inst_sink.size() > 0) {
+      auto &x = inst_sink.back();
+      if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+        if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+            x_->op == arm::OpCode::StR &&
+            (*x__) == MemoryOperand(REG_SP, pos + stack_offset)) {
+          del = true;
+        }
+      }
+    }
+    if (del) {
+      return;
+    }
+
+    inst_sink.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
+  }
 }
 
 Reg RegAllocator::make_space(Reg r, Interval i) {
   throw new prelude::NotImplementedException();
-}
-
-Reg RegAllocator::alloc_read(Reg r) {
-  if (!is_virtual_register(r))
-    return r;
-  else {
-    // virtual register
-    if (auto reg = active.find(r); reg != active.end()) {
-      return reg->second.reg;
-    } else if (auto spill = spilled_regs.find(r); spill != spilled_regs.end()) {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      write_load(r, r_);
-      return r_;
-    } else {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      return r_;
-    }
-  }
-}
-
-Reg RegAllocator::alloc_write(Reg r) {
-  if (!is_virtual_register(r))
-    return r;
-  else {
-    // virtual register
-    if (auto reg = active.find(r); reg != active.end()) {
-      return reg->second.reg;
-    } else if (auto spill = spilled_regs.find(r); spill != spilled_regs.end()) {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      write_load(r, r_);
-      return r_;
-    } else {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      return r_;
-    }
-  }
 }
 
 std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
@@ -333,65 +366,35 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 void RegAllocator::perform_load_stores() {
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
-    // TODO: F_CK. Just use the plain old method for now.
-    /**
-     * The curren dirty hack:
-     * Replace every register used in 3-operand moves with r4, r5 and r6
-     * Replace every register used in 2-operand moves with r4, r5
-     */
 
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
-      if (is_virtual_register(x->r1)) {
-        write_load(x->r1, 4);
-        x->r1 = 4;
-      }
-      if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
-      x->r2.replace_reg_if_virtual(5);
+      replace_read(x->r1, i);
+      replace_read(x->r2, i);
       inst_sink.push_back(std::move(f.inst[i]));
-      if (is_virtual_register(x->rd)) {
-        write_store(x->rd, 6);
-        x->rd = 6;
-      }
+      replace_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
-      if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
-      x->r2.replace_reg_if_virtual(5);
-      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
-          x->op == arm::OpCode::Mvn) {
-        Reg r1 = x->r1;
-        if (is_virtual_register(r1)) {
-          write_load(r1, 4);
-        }
+      replace_read(x->r2, i);
+      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         inst_sink.push_back(std::move(f.inst[i]));
-        if (is_virtual_register(r1)) {
-          write_store(r1, 4);
-          x->r1 = 4;
-        }
+        replace_write(x->r1, i);
+      } else if (x->op == arm::OpCode::MovT) {
+        replace_read(x->r1, i);
+        inst_sink.push_back(std::move(f.inst[i]));
+        replace_write(x->r1, i);
       } else {
-        if (is_virtual_register(x->r1)) {
-          write_load(x->r1, 4);
-          x->r1 = 4;
-        }
+        replace_read(x->r1, i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
       if (auto mem = std::get_if<MemoryOperand>(&x->mem)) {
-        auto [vr1, vr2] = mem->is_virtual();
-        if (is_virtual_register(vr1)) write_load(vr1, 4);
-        if (vr2 && is_virtual_register(*vr2)) write_load(*vr2, 6);
-        mem->replace_reg_if_virtual(4, 6);
+        replace_read(*mem, i);
       }
       if (x->op == arm::OpCode::LdR) {
         inst_sink.push_back(std::move(f.inst[i]));
-        if (is_virtual_register(x->rd)) {
-          write_store(x->rd, 5);
-          x->rd = 5;
-        }
+        replace_write(x->rd, i);
       } else {
         // StR
-        if (is_virtual_register(x->rd)) {
-          write_load(x->rd, 5);
-          x->rd = 5;
-        }
+        replace_read(x->rd, i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<MultLoadStoreInst *>(inst_)) {
@@ -417,8 +420,9 @@ void RegAllocator::perform_load_stores() {
     } else
       inst_sink.push_back(std::move(f.inst[i]));
     if (delayed_store) {
+      // TODO: check if this is right
       auto [r, rd] = delayed_store.value();
-      write_store(r, rd);
+      replace_write(r, i);
       delayed_store = {};
     }
   }
@@ -427,12 +431,22 @@ void RegAllocator::perform_load_stores() {
 void RegAllocatePass::optimize_arm(
     arm::ArmCode &arm_code, std::map<std::string, std::any> &extra_data_repo) {
   for (auto &f : arm_code.functions) {
-    optimize_func(*f);
+    optimize_func(*f, extra_data_repo);
   }
 }
 
-void RegAllocatePass::optimize_func(arm::Function &f) {
-  RegAllocator fal(f);
+void RegAllocatePass::optimize_func(
+    arm::Function &f, std::map<std::string, std::any> &extra_data_repo) {
+  auto &var_mapping_data =
+      std::any_cast<optimization::MirVariableToArmVRegType &>(
+          extra_data_repo.at(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME));
+
+  auto &coloring_data =
+      std::any_cast<std::map<std::string, std::shared_ptr<ColorMap>> &>(
+          extra_data_repo.at("graph_color"));
+  LOG(TRACE) << f.name << std::endl;
+
+  RegAllocator fal(f, var_mapping_data.at(f.name), *coloring_data.at(f.name));
   fal.alloc_regs();
 }
 
