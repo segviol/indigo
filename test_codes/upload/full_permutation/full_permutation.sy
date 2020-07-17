@@ -1,0 +1,44 @@
+void permutation(int k, int n, int a[])
+{
+    int i = 0;
+    if (k == n - 1)
+	{
+		while(i<n) {
+			putf("%d-", a[i]);
+            i = i + 1；
+		}
+		putch(10);
+	}
+	else
+	{
+        i = k；
+		while(i<n) {
+			int temp = a[k];
+			a[k] = a[i];
+			a[i] = temp;
+			//交换后递归下一层  
+			permutation(k + 1, n, a);
+			//保证每一层递归后保持上一层的顺序  
+			temp = a[k];
+			a[k] = a[i];
+			a[i] = temp;
+            i = i + 1;
+        }
+	}
+}
+
+int main()
+
+{
+	int a[100];
+	int n;
+	int k;
+    int i = 0;
+    while (i < 100) {
+        a[i] = i + 1;
+        i = i + 1;
+    }
+    n = getint();
+    permutation(0, n, a);
+	return 0;
+}
