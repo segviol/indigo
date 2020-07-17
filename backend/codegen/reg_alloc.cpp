@@ -271,7 +271,10 @@ void RegAllocator::replace_read(MemoryOperand &r, int i) {
   }
 }
 
-Reg RegAllocator::alloc_transient_reg(Interval i) { return 0; }
+Reg RegAllocator::alloc_transient_reg(Interval i) {
+  // TODO: Allocate transient register using linear scan information
+  return 0;
+}
 
 /// Replace virtual register r with real register in-place
 void RegAllocator::replace_read(Reg &r, int i) {
@@ -302,12 +305,12 @@ void RegAllocator::replace_read(Reg &r, int i) {
     } else {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset)));
-      r = rd;
     }
+    r = rd;
   } else {
     // this register is transient
     auto live_interval = live_intervals.at(r);
-    Reg r = alloc_transient_reg(live_interval);
+    r = alloc_transient_reg(live_interval);
   }
 }
 
@@ -341,12 +344,11 @@ void RegAllocator::replace_write(Reg &r, int i) {
         }
       }
     }
-    if (del) {
-      return;
+    if (!del) {
+      inst_sink.push_back(std::make_unique<LoadStoreInst>(
+          OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
-
-    inst_sink.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
+    r = rd;
   }
 }
 
@@ -379,16 +381,18 @@ void RegAllocator::perform_load_stores() {
       inst_sink.push_back(std::move(f.inst[i]));
       replace_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
-      replace_read(x->r2, i);
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
+        replace_read(x->r2, i);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(x->r1, i);
       } else if (x->op == arm::OpCode::MovT) {
+        replace_read(x->r2, i);
         replace_read(x->r1, i);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(x->r1, i);
       } else {
         replace_read(x->r1, i);
+        replace_read(x->r2, i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
