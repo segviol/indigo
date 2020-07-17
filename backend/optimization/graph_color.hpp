@@ -183,7 +183,7 @@ class Graph_Color : public backend::MirOptimizePass {
            std::shared_ptr<livevar_analyse::Livevar_Analyse>>
       blk_livevar_analyse;
 
-  std::map<std::string, std::shared_ptr<Color_Map>> func_color_map;
+  std::unordered_map<std::string, std::shared_ptr<Color_Map>> func_color_map;
   std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
   Graph_Color(u_int color_num) : color_num(color_num) {}
   std::string pass_name() const { return name; }
@@ -220,8 +220,8 @@ class Graph_Color : public backend::MirOptimizePass {
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
     std::set<mir::inst::VarId> cross_blk_vars;
-    func_color_map[funcId] =
-        std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
+    auto map = std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
+    func_color_map.insert({funcId, map});
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
         Conflict_Map(func_color_map[funcId], color_num));
     auto conflict_map = func_conflict_map[funcId];

@@ -66,7 +66,7 @@ using ColorMap = ::optimization::graph_color::Color_Map;
 class RegAllocator {
  public:
   RegAllocator(arm::Function &f, ColorMap &color_map,
-               optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm)
+               std::map<mir::inst::VarId, Reg> &mir_to_arm)
       : f(f),
         live_intervals(),
         reg_map(),
@@ -169,6 +169,12 @@ void RegAllocator::alloc_regs() {
     stack_size += 4;
   }
 
+  LOG(TRACE, "color_map") << "Color map:" << std::endl;
+  for (auto x : color_map) {
+    LOG(TRACE, "color_map") << x.first << ": " << x.second << std::endl;
+  }
+
+  construct_reg_map();
   perform_load_stores();
   f.inst = std::move(inst_sink);
 
@@ -441,12 +447,14 @@ void RegAllocatePass::optimize_func(
       std::any_cast<optimization::MirVariableToArmVRegType &>(
           extra_data_repo.at(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME));
 
-  auto &coloring_data =
-      std::any_cast<std::map<std::string, std::shared_ptr<ColorMap>> &>(
-          extra_data_repo.at("graph_color"));
-  LOG(TRACE) << f.name << std::endl;
+  auto &coloring_data = std::any_cast<
+      std::unordered_map<std::string, std::shared_ptr<ColorMap>> &>(
+      extra_data_repo.at("graph_color"));
 
-  RegAllocator fal(f, var_mapping_data.at(f.name), *coloring_data.at(f.name));
+  auto f_coloring_data = coloring_data.find(f.name);
+  auto var_mapping = var_mapping_data.find(f.name);
+
+  RegAllocator fal(f, *f_coloring_data->second, var_mapping->second);
   fal.alloc_regs();
 }
 
