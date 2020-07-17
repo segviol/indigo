@@ -5,6 +5,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <typeinfo>
 
@@ -56,12 +57,24 @@ arm::Function Codegen::translate_function() {
                        std::move(this->consts), stack_size);
 }
 
+bool is_comparison(mir::inst::Op op) {
+  const std::set<mir::inst::Op> comp = {mir::inst::Op::Gt,  mir::inst::Op::Lt,
+                                        mir::inst::Op::Gte, mir::inst::Op::Lte,
+                                        mir::inst::Op::Eq,  mir::inst::Op::Neq};
+  return comp.find(op) != comp.end();
+}
+
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
   inst.push_back(
       std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
+  // HACK: To make comparison closer to branch, `emit_phi_move` runs before the
+  // HACK: first comparison
+  bool met_cmp = false;
+
   for (auto& inst : blk.inst) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
+      if (is_comparison(x->op)) emit_phi_move(blk.id);
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
       translate_inst(*x);
@@ -81,7 +94,6 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       throw new std::bad_cast();
     }
   }
-  emit_phi_move(blk.id);
   translate_branch(blk.jump);
 }
 
