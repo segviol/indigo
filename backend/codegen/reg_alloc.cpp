@@ -80,7 +80,7 @@ class RegAllocator {
   ColorMap &color_map;
   optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm;
 
-  std::set<Reg> used_regs = {4, 5, 6, 7};
+  std::set<Reg> used_regs = {};
 
   std::map<arm::Reg, Interval> live_intervals;
   std::map<arm::Reg, Reg> reg_map;
@@ -248,12 +248,17 @@ void RegAllocator::construct_reg_map() {
     auto [var_id, vreg_id] = item;
     auto color = color_map.find(var_id);
     if (color != color_map.end()) {
-      // Global register id starts with r4;
-      auto reg = Reg(color->second + 4);
-      reg_map.insert({vreg_id, reg});
+      if (color->second != -1) {
+        // Global register id starts with r4;
+        auto reg = Reg(color->second + 4);
+        reg_map.insert({vreg_id, reg});
+        used_regs.insert(reg);
+      } else {
+        stack_size += 4;
+        spill_positions.insert({vreg_id, stack_size});
+      }
     } else {
-      stack_size += 4;
-      spill_positions.insert({vreg_id, stack_size});
+      // local variable
     }
   }
 }
