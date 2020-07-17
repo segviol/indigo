@@ -10,6 +10,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../../include/aixlog.hpp"
@@ -18,7 +19,7 @@
 
 namespace optimization::graph_color {
 
-typedef u_int32_t color;  //
+typedef int color;  //
 typedef std::map<mir::inst::VarId, color> Color_Map;
 class Conflict_Map {
  public:
@@ -326,6 +327,12 @@ class Graph_Color : public backend::MirOptimizePass {
       conflict_map->remove_edge_larger_colors();
     }
     conflict_map->rebuild();
+    for (auto& var : func.variables) {
+      auto varId = mir::inst::VarId(var.first);
+      if (!conflict_map->color_map->count(varId)) {
+        conflict_map->color_map->insert(std::make_pair(varId, -1));
+      }
+    }
     for (auto iter = conflict_map->color_map->begin();
          iter != conflict_map->color_map->end(); iter++) {
       LOG(TRACE) << "variable " << iter->first << " color: " << iter->second
