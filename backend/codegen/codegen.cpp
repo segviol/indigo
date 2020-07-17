@@ -47,7 +47,7 @@ arm::Function Codegen::translate_function() {
                          optimization::MirVariableToArmVRegType()});
       data = extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
     }
-    auto map =
+    auto& map =
         std::any_cast<optimization::MirVariableToArmVRegType&>(data->second);
     map.insert({func.name, std::move(this->reg_map)});
   }
