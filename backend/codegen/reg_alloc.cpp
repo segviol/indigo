@@ -1,8 +1,12 @@
 #include "reg_alloc.hpp"
 
+#include <bits/stdint-uintn.h>
+
 #include <any>
 #include <cassert>
+#include <climits>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -172,6 +176,7 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
+  void force_free(Reg r);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
@@ -414,6 +419,9 @@ void RegAllocator::replace_read(Reg &r, int i) {
 
 void RegAllocator::replace_write(Reg &r, int i) {
   if (!is_virtual_register(r)) {
+    // is physical register; mark as occupied
+    force_free(r);
+    active.insert({r, Interval(i, UINT32_MAX)});
     return;
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
     // This register is allocated with graph-coloring
@@ -446,6 +454,21 @@ void RegAllocator::replace_write(Reg &r, int i) {
     auto phys_reg = active_reg_map.at(r);
     r = phys_reg;
     // throw new std::logic_error("Writing to transient register");
+  }
+}
+
+void RegAllocator::force_free(Reg r) {
+  if (auto x = active.find(r); x != active.end()) {
+    for (auto y : active_reg_map) {
+      if (y.second == r) {
+        // Spill to stack
+        int stack_pos = get_or_alloc_spill_pos(y.first);
+        inst_sink.push_back(std::make_unique<LoadStoreInst>(
+            OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        break;
+      }
+    }
+    active.erase(x);
   }
 }
 
@@ -533,6 +556,20 @@ void RegAllocator::perform_load_stores() {
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
       }
+    } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
+      invalidate_read(i);
+      if (x->op == arm::OpCode::Bl) {
+        auto &label = x->l;
+        int param_cnt = x->param_cnt;
+        int reg_cnt = std::min(param_cnt, 4);
+        for (int i = 0; i < reg_cnt; i++) active.erase(Reg(i));
+        for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
+        inst_sink.push_back(std::move(f.inst[i]));
+        for (int i = reg_cnt; i < 4; i++) active.erase(Reg(i));
+      } else {
+        inst_sink.push_back(std::move(f.inst[i]));
+      }
+
     } else {
       invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
