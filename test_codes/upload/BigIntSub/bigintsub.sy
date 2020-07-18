@@ -47,7 +47,7 @@ int subtract() {
 	int i, j, k;//i用来循环 ,两加数中较大加数的长度放到j里，两加数中较小加数的长度放到k里
 	int flag;//标志结果为正还是负。
 	int l1, l2;
-	char pp[100];
+	int pp[100];
 	l1 = BigIntLength[0];
 	l2 = BigIntLength[1];
 	k = min(l1, l2);
