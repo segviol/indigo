@@ -500,7 +500,7 @@ void PushPopInst::display(std::ostream &o) const {
 void LabelInst::display(std::ostream &o) const { o << label << ":"; }
 
 void CtrlInst::display(std::ostream &o) const {
-  o << "; " << key << " <" << val.type().name() << ">";
+  o << "@ " << key << " <" << val.type().name() << ">";
 }
 
 void Function::display(std::ostream &o) const {
@@ -511,7 +511,7 @@ void Function::display(std::ostream &o) const {
 
   o << "\t.globl " << name << std::endl;
 
-  o << "\t; " << name << ": " << *ty << std::endl;
+  o << "\t@ " << name << ": " << *ty << std::endl;
 
   o << name << ":" << std::endl;
   o << "\t.fnstart" << std::endl;
