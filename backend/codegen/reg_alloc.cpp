@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "../optimization/graph_color.hpp"
@@ -63,6 +64,8 @@ struct Alloc {
 
 using ColorMap = ::optimization::graph_color::Color_Map;
 
+const std::set<Reg> temp_regs = {0, 1, 2, 3, 12};
+
 class RegAllocator {
  public:
   RegAllocator(arm::Function &f, ColorMap &color_map,
@@ -84,7 +87,8 @@ class RegAllocator {
 
   std::map<arm::Reg, Interval> live_intervals;
   std::map<arm::Reg, Reg> reg_map;
-  std::map<arm::Reg, Alloc> active;
+  // key: physical register; value: allocation interval
+  std::map<arm::Reg, Interval> active;
   std::map<arm::Reg, Interval> spilled_regs;
   std::map<arm::Reg, int> spill_positions;
 
@@ -145,7 +149,7 @@ class RegAllocator {
   void invalidate_read(int pos) {
     auto it = active.begin();
     while (it != active.end()) {
-      if (it->second.interval.end <= pos)
+      if (it->second.end <= pos)
         // The register is no longer to be read from, thus is freed
         it = active.erase(it);
       else
@@ -171,7 +175,10 @@ void RegAllocator::alloc_regs() {
 
   LOG(TRACE, "color_map") << "Color map:" << std::endl;
   for (auto x : color_map) {
-    LOG(TRACE, "color_map") << x.first << ": " << x.second << std::endl;
+    auto mapped_reg = mir_to_arm.at(x.first);
+    LOG(TRACE, "color_map") << x.first << " -> ";
+    display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
+    LOG(TRACE, "color_map") << ": " << x.second << std::endl;
   }
 
   construct_reg_map();
@@ -277,8 +284,18 @@ void RegAllocator::replace_read(MemoryOperand &r, int i) {
 }
 
 Reg RegAllocator::alloc_transient_reg(Interval i) {
-  // TODO: Allocate transient register using linear scan information
-  return 0;
+  Reg r = -1;
+  for (auto reg : temp_regs) {
+    if (active.find(reg) == active.end()) {
+      r = reg;
+      break;
+    }
+  }
+  if (r == -1) {
+    // spill active's first value
+  }
+  this->active.insert({r, i});
+  return r;
 }
 
 /// Replace virtual register r with real register in-place
