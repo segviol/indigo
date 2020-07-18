@@ -510,6 +510,9 @@ void Function::display(std::ostream &o) const {
   }
 
   o << "\t.globl " << name << std::endl;
+
+  o << "\t; " << name << ": " << *ty << std::endl;
+
   o << name << ":" << std::endl;
   o << "\t.fnstart" << std::endl;
   for (auto &i : inst) {

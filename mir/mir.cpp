@@ -245,7 +245,7 @@ void FunctionTy::display(std::ostream& o) const {
   o << "Fn(";
   for (auto i = params.begin(); i != params.end(); i++) {
     if (i != params.begin()) o << ", ";
-    o << *i;
+    o << **i;
   }
   o << ") -> " << *ret;
 }
