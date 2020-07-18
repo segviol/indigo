@@ -5,6 +5,7 @@
 #include <cmath>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
@@ -338,9 +339,20 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     // Choose a value in active to spill.
     // NOTE: the current algorithm chooses the first non-temporary register to
     // spill.
-    if (active_reg_map.size() == 0)
-      throw new std::runtime_error(
-          "Failed to allocate: all active registers are temporary!");
+    if (active_reg_map.size() == 0) {
+      std::stringstream ss;
+      ss << "Failed to allocate: all active registers are "
+            "temporary!"
+         << std::endl
+         << "Dump: " << std::endl;
+
+      for (auto [k, v] : active) {
+        display_reg_name(ss, k);
+        ss << ": [" << v.start << ", " << v.end << "]" << std::endl;
+      }
+
+      throw std::runtime_error(ss.str());
+    }
     auto [virt_reg, phys_reg] = *active_reg_map.begin();
     auto interval = active.at(phys_reg);
     interval.start = i.start;
@@ -438,7 +450,7 @@ void RegAllocator::replace_write(Reg &r, int i) {
 }
 
 Reg RegAllocator::make_space(Reg r, Interval i) {
-  throw new prelude::NotImplementedException();
+  throw prelude::NotImplementedException();
 }
 
 std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
@@ -463,21 +475,25 @@ void RegAllocator::perform_load_stores() {
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       replace_read(x->r1, i);
       replace_read(x->r2, i);
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
       replace_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         replace_read(x->r2, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(x->r1, i);
       } else if (x->op == arm::OpCode::MovT) {
         replace_read(x->r2, i);
         replace_read(x->r1, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(x->r1, i);
       } else {
         replace_read(x->r1, i);
         replace_read(x->r2, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
@@ -485,26 +501,31 @@ void RegAllocator::perform_load_stores() {
         replace_read(*mem, i);
       }
       if (x->op == arm::OpCode::LdR) {
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(x->rd, i);
       } else {
         // StR
         replace_read(x->rd, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<MultLoadStoreInst *>(inst_)) {
-      throw new prelude::NotImplementedException();
+      throw prelude::NotImplementedException();
       if (x->op == arm::OpCode::LdM) {
         for (auto rd : x->rd) add_reg_write(rd, i);
       } else {
         // StM
         for (auto rd : x->rd) add_reg_read(rd, i);
       }
+      invalidate_read(i);
       add_reg_read(x->rn, i);
     } else if (auto x = dynamic_cast<PushPopInst *>(inst_)) {
       // push pop only use gpr
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
     } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
 
       // HACK: If it's load_pc label, delay store once more
@@ -512,8 +533,10 @@ void RegAllocator::perform_load_stores() {
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
       }
-    } else
+    } else {
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
+    }
     if (delayed_store) {
       // TODO: check if this is right
       auto [r, rd] = delayed_store.value();
