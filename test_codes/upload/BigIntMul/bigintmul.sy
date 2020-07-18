@@ -1,0 +1,140 @@
+int BigIntarr[2][100];
+int BigIntLength[2];
+int Result[200];
+int temp[100];
+int ResLength=0;
+
+int min(int a, int b) {
+	if (a > b) {
+		return b;
+	}
+	else {
+		return a;
+	}
+}
+
+int max(int a, int b) {
+	if (a > b) {
+		return a;
+	}
+	else {
+		return b;
+	}
+}
+
+
+int add(int l1,int l2,int arr1[], int arr2[]) {
+	int a[100];//加数
+	int b[100];//被加数
+	int c[100] = { 0 };//和
+	int i, j = 0, k;//i用来循环，j表示进位 ，两加数中较小加数的长度放到k里
+	int d;
+	k = min(l1, l2);
+	i = 0;
+	while (i < l1) {
+		a[i] = arr1[l1 - 1 - i];
+		i = i + 1;
+	}
+	i = 0;
+	while (i < l2) {
+		b[i] = arr2[l2 - 1 - i];
+		i = i + 1;
+	}
+	i = 0;
+	while (i < k) {
+		d = a[i] + b[i] + j;
+		j = d / 10;
+		c[i] = d % 10;
+		i = i + 1;
+	}
+	while (i < l1) {
+		d = a[i] + j;
+		j = d / 10;
+		c[i] = d % 10;
+		i = i + 1;
+	}
+	while (i < l2) {
+		d = b[i] + j;
+		j = d / 10;
+		c[i] = d % 10;
+		i = i + 1;
+	}
+	if (j > 0) { c[i] = j; i = i + 1; }
+	j = 0;
+	k = i - 1;
+	while (k > -1) {
+		Result[j] = c[k];
+		k = k - 1;
+		j = j + 1;
+	}
+	ResLength = j;
+	return j;
+}
+
+void multiply() {
+
+	int a[100];
+	int b[100];
+	int c[100] = { 0 };
+	int d, i, j, k;//i,j用来循环
+	int flag = 0;//进位
+	int l1, l2;
+	l1 = BigIntLength[0];
+	l2 = BigIntLength[1];
+	i = 0;
+	while (i < l1) { //字符串逆序导入数组中
+		a[i] = BigIntarr[0][l1 - 1 - i];
+		i = i + 1;
+	}
+	i = 0;
+	while (i < l2) {
+		b[i] = BigIntarr[1][l2 - 1 - i];
+		i = i + 1;
+	}
+	i = 0;
+	while (i < l2) {
+		flag = 0;
+		j = 0;
+		while (j < l1) {
+			d = a[j] * b[i] + flag;
+			c[j] = d % 10;
+			flag = d / 10;
+			j = j + 1;
+		}
+		if (flag > 0) {
+			c[j] = flag;
+			j = j + 1;
+		}
+		while (c[j - 1] == 0) j = j - 1;
+
+		//char str[100];
+		k = 0;
+		while (k < j) {
+			temp[k] = c[j - 1 - k];
+			k = k + 1;
+		}
+		j = 0;
+		while (j < i) {
+			temp[k] = 0;
+			k = k + 1;
+			j = j + 1;
+		}
+		add(k,ResLength, temp, Result);
+		i = i + 1;
+	}
+}
+
+int main()
+{
+	int n;
+	int i = 0;
+	BigIntLength[0] = getarray(BigIntarr[0]);
+    BigIntLength[1] = getarray(BigIntarr[1]);
+	i = 0;
+	multiply();
+	while (i < ResLength) {
+        putint(Result[i]);
+		i = i + 1;
+	}
+	return 0;
+}
