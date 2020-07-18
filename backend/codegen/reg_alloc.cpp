@@ -1,7 +1,5 @@
 #include "reg_alloc.hpp"
 
-#include <bits/stdint-uintn.h>
-
 #include <any>
 #include <cassert>
 #include <climits>
