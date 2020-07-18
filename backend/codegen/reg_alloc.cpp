@@ -5,6 +5,8 @@
 #include <cmath>
 #include <memory>
 #include <set>
+#include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
 #include "../optimization/graph_color.hpp"
@@ -85,12 +87,14 @@ class RegAllocator {
 
   std::set<Reg> used_regs = {};
 
-  std::map<arm::Reg, Interval> live_intervals;
-  std::map<arm::Reg, Reg> reg_map;
+  std::unordered_map<arm::Reg, Interval> live_intervals;
+  std::unordered_map<arm::Reg, Reg> reg_map;
   // key: physical register; value: allocation interval
-  std::map<arm::Reg, Interval> active;
-  std::map<arm::Reg, Interval> spilled_regs;
-  std::map<arm::Reg, int> spill_positions;
+  std::unordered_map<arm::Reg, Interval> active;
+  // key: virtual register; value: physical register
+  std::unordered_map<arm::Reg, Reg> active_reg_map;
+  std::unordered_map<arm::Reg, Interval> spilled_regs;
+  std::unordered_map<arm::Reg, int> spill_positions;
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
@@ -149,17 +153,35 @@ class RegAllocator {
   void invalidate_read(int pos) {
     auto it = active.begin();
     while (it != active.end()) {
-      if (it->second.end <= pos)
+      if (it->second.end <= pos) {
         // The register is no longer to be read from, thus is freed
+        for (auto r : active_reg_map) {
+          if (r.second == it->first) {
+            active_reg_map.erase(r.first);
+            break;
+          }
+        }
         it = active.erase(it);
-      else
+      } else {
         it++;
+      }
     }
   }
-  Reg alloc_transient_reg(Interval i);
+  Reg alloc_transient_reg(Interval i, std::optional<Reg> orig);
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
+  int get_or_alloc_spill_pos(Reg r) {
+    int pos;
+    if (auto p = spill_positions.find(r); p != spill_positions.end()) {
+      pos = p->second;
+    } else {
+      pos = stack_size;
+      stack_size += 4;
+      spill_positions.insert({r, pos + stack_offset});
+    }
+    return pos;
+  }
   void perform_load_stores();
 };
 
@@ -260,12 +282,33 @@ void RegAllocator::construct_reg_map() {
         auto reg = Reg(color->second + 4);
         reg_map.insert({vreg_id, reg});
         used_regs.insert(reg);
+        {
+          auto &trace = LOG(TRACE);
+          trace << var_id << " <- ";
+          display_reg_name(trace, vreg_id);
+          trace << " <- ";
+          display_reg_name(trace, reg);
+          trace << std::endl;
+        }
       } else {
         stack_size += 4;
         spill_positions.insert({vreg_id, stack_size});
+        {
+          auto &trace = LOG(TRACE);
+          trace << "$" << var_id << " <- ";
+          display_reg_name(trace, vreg_id);
+          trace << " <- sp + " << stack_size << std::endl;
+        }
       }
     } else {
       // local variable
+      {
+        auto &trace = LOG(TRACE);
+        trace << "$" << var_id << " <- ";
+        display_reg_name(trace, vreg_id);
+        trace << " <- local ";
+        trace << std::endl;
+      }
     }
   }
 }
@@ -283,7 +326,7 @@ void RegAllocator::replace_read(MemoryOperand &r, int i) {
   }
 }
 
-Reg RegAllocator::alloc_transient_reg(Interval i) {
+Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   Reg r = -1;
   for (auto reg : temp_regs) {
     if (active.find(reg) == active.end()) {
@@ -292,9 +335,30 @@ Reg RegAllocator::alloc_transient_reg(Interval i) {
     }
   }
   if (r == -1) {
-    // spill active's first value
+    // Choose a value in active to spill.
+    // NOTE: the current algorithm chooses the first non-temporary register to
+    // spill.
+    if (active_reg_map.size() == 0)
+      throw new std::runtime_error(
+          "Failed to allocate: all active registers are temporary!");
+    auto [virt_reg, phys_reg] = *active_reg_map.begin();
+    auto interval = active.at(phys_reg);
+    interval.start = i.start;
+
+    int spill_pos = get_or_alloc_spill_pos(virt_reg);
+    // TODO: move this into a separate function
+    inst_sink.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::StR, phys_reg,
+        MemoryOperand(REG_SP, spill_pos + stack_offset)));
+
+    spilled_regs.insert({virt_reg, interval});
+    active_reg_map.erase(virt_reg);
+    active.erase(phys_reg);
   }
   this->active.insert({r, i});
+  if (orig) {
+    this->active_reg_map.insert({orig.value(), r});
+  }
   return r;
 }
 
@@ -309,8 +373,8 @@ void RegAllocator::replace_read(Reg &r, int i) {
              spill_r != spill_positions.end()) {
     // this register is allocated in stack
     bool del = false;
-    Reg rd = alloc_transient_reg(Interval(i));
-    auto spill_pos = spill_r->second;
+    Reg rd = alloc_transient_reg(Interval(i), {});
+    auto spill_pos = get_or_alloc_spill_pos(r);
     if (inst_sink.size() > 0) {
       auto &x = inst_sink.back();
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
@@ -330,9 +394,9 @@ void RegAllocator::replace_read(Reg &r, int i) {
     }
     r = rd;
   } else {
-    // this register is transient
+    // is temporary register
     auto live_interval = live_intervals.at(r);
-    r = alloc_transient_reg(live_interval);
+    r = alloc_transient_reg(live_interval, r);
   }
 }
 
@@ -345,15 +409,8 @@ void RegAllocator::replace_write(Reg &r, int i) {
   } else if (auto spill_r = spill_positions.find(r);
              spill_r != spill_positions.end()) {
     // this register is allocated in stack
-    Reg rd = alloc_transient_reg(Interval(i));
-    int pos;
-    if (auto p = spill_positions.find(r); p != spill_positions.end()) {
-      pos = p->second;
-    } else {
-      pos = stack_size;
-      stack_size += 4;
-      spill_positions.insert({r, pos + stack_offset});
-    }
+    Reg rd = alloc_transient_reg(Interval(i), {});
+    int pos = get_or_alloc_spill_pos(r);
 
     bool del = false;
     if (inst_sink.size() > 0) {
@@ -371,6 +428,12 @@ void RegAllocator::replace_write(Reg &r, int i) {
           OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
     r = rd;
+  } else {
+    // Is temporary register
+    // the register should already be written to or read from
+    auto phys_reg = active_reg_map.at(r);
+    r = phys_reg;
+    // throw new std::logic_error("Writing to transient register");
   }
 }
 
