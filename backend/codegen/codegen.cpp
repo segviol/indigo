@@ -250,7 +250,7 @@ void Codegen::deal_phi(mir::inst::PhiInst& phi) {
   LOG(TRACE) << *set.begin() << " <- ";
   for (auto& x : set) {
     LOG(TRACE) << x << " ";
-    var_collapse.insert_or_assign(x, *set.begin());
+    var_collapse.insert_or_assign(x, dest);
   }
   LOG(TRACE) << std::endl;
 }
@@ -380,9 +380,10 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
-  auto phi_reg = get_or_alloc_phi_reg(i.dest);
-  inst.push_back(std::make_unique<Arith2Inst>(
-      arm::OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(phi_reg)));
+  // auto phi_reg = get_or_alloc_phi_reg(i.dest);
+  // inst.push_back(std::make_unique<Arith2Inst>(
+  //     arm::OpCode::Mov, translate_var_reg(i.dest),
+  //     RegisterOperand(phi_reg)));
 }
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
@@ -650,7 +651,9 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 void Codegen::emit_phi_move(mir::types::LabelId i) {
   auto& bb_var_use = var_use.at(i);
   for (auto id : bb_var_use) {
-    auto dest_reg = get_or_alloc_phi_reg(id);
+    auto collapsed = get_collapsed_var(id);
+    if (collapsed == id) continue;
+    auto dest_reg = get_or_alloc_vgp(collapsed);
     inst.push_back(std::make_unique<Arith2Inst>(
         OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
   }
