@@ -355,7 +355,11 @@ struct Arith2Inst final : public Inst {
 struct BrInst final : public Inst {
   BrInst(OpCode op, Label l, ConditionCode c = ConditionCode::Always)
       : l(l), Inst(op, c) {}
+  BrInst(OpCode op, Label l, int param_size,
+         ConditionCode c = ConditionCode::Always)
+      : l(l), param_cnt(param_size), Inst(op, c) {}
   Label l;
+  int param_cnt = 0;
 
   virtual void display(std::ostream& o) const;
   virtual ~BrInst() {}
