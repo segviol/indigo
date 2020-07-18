@@ -53,7 +53,7 @@ arm::Function Codegen::translate_function() {
     map.insert({func.name, std::move(this->reg_map)});
   }
 
-  return arm::Function(func.name, std::move(this->inst),
+  return arm::Function(func.name, func.type, std::move(this->inst),
                        std::move(this->consts), stack_size);
 }
 
