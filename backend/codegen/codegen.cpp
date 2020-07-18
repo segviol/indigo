@@ -430,7 +430,8 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
     }
   }
   // Call instruction
-  inst.push_back(std::make_unique<BrInst>(OpCode::Bl, f.second.name));
+  inst.push_back(
+      std::make_unique<BrInst>(OpCode::Bl, f.second.name, param_count));
 
   // Shrink stack
   if (stack_size > 0) {
