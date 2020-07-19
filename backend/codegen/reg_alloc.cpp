@@ -195,13 +195,14 @@ class RegAllocator {
 
 void RegAllocator::alloc_regs() {
   calc_live_intervals();
-  for (auto &r : live_intervals) {
-    // Live interval is just used as a virtual register map for now.
-    // This assigns a spill position for EVERY virtual register, which is very
-    // very very very inefficient.
-    spill_positions.insert({r.first, stack_size});
-    stack_size += 4;
-  }
+  // for (auto &r : live_intervals) {
+  //   // Live interval is just used as a virtual register map for now.
+  //   // This assigns a spill position for EVERY virtual register, which is
+  //   very
+  //   // very very very inefficient.
+  //   spill_positions.insert({r.first, stack_size});
+  //   stack_size += 4;
+  // }
 
   LOG(TRACE, "color_map") << "Color map:" << std::endl;
   for (auto x : color_map) {
@@ -369,7 +370,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     inst_sink.push_back(std::make_unique<LoadStoreInst>(
         OpCode::StR, phys_reg,
         MemoryOperand(REG_SP, spill_pos + stack_offset)));
-
+    r = phys_reg;
     spilled_regs.insert({virt_reg, interval});
     active_reg_map.erase(virt_reg);
     active.erase(phys_reg);
@@ -470,8 +471,9 @@ void RegAllocator::replace_write(Reg &r, int i) {
   } else {
     // Is temporary register
     // the register should already be written to or read from
-    auto phys_reg = active_reg_map.at(r);
-    r = phys_reg;
+    auto live_interval = live_intervals.at(r);
+    r = alloc_transient_reg(live_interval, r);
+
     // throw new std::logic_error("Writing to transient register");
   }
 }
