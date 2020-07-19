@@ -442,7 +442,8 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
       } else {
         inst.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, translate_value_to_reg(param),
-            MemoryOperand(REG_SP, (int16_t)(idx * 4), MemoryAccessKind::None)));
+            MemoryOperand(REG_SP, (int16_t)((idx - 4) * 4),
+                          MemoryAccessKind::None)));
       }
     }
   }
