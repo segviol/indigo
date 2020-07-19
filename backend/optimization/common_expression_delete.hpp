@@ -14,9 +14,9 @@
 #include <variant>
 #include <vector>
 
+#include "../../include/aixlog.hpp"
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
-#include "../../include/aixlog.hpp"
 #include "livevar_analyse.hpp"
 
 namespace optimization::common_expr_del {
@@ -69,7 +69,9 @@ class Node {
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
   void init_main_var() {
-    if (value.has_value()) {
+    if (value.has_value() && value->index() == 0 ||
+        value.has_value() && value->index() == 1 &&
+            std::get<mir::inst::VarId>(value.value()).id > 10000) {
       mainVar = value.value();
     } else {
       // if (local_vars.size()) {  // func para has high main priority
@@ -289,6 +291,16 @@ class BlockNodes {
       }
     }
     inst.clear();
+    for (auto& varpair : var_map) {
+      if (varpair.first > 10000) {
+        break;
+      }
+      if (varpair.first >= 1) {
+        inst.push_back(std::make_unique<mir::inst::AssignInst>(
+            std::get<mir::inst::VarId>(nodes[varpair.second.id]->mainVar),
+            varpair.first));
+      }
+    }
     std::reverse(exportQueue.begin(), exportQueue.end());
     for (auto idx : exportQueue) {
       auto& node = nodes[idx];
