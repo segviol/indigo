@@ -444,7 +444,7 @@ const std::string STACK_OFFSET_CTRL = "offset_stack";
 using StackOffsetTy = int32_t;
 
 struct Function final : public prelude::Displayable {
-  Function(std::string& name, mir::types::SharedTyPtr ty,
+  Function(std::string& name, std::shared_ptr<mir::types::FunctionTy> ty,
            std::vector<std::unique_ptr<Inst>>&& inst,
            std::map<std::string, ConstValue>&& local_const, uint32_t stack_size)
       : name(name),
@@ -457,7 +457,7 @@ struct Function final : public prelude::Displayable {
   std::map<std::string, ConstValue> local_const;
   uint32_t stack_size;
 
-  mir::types::SharedTyPtr ty;
+  std::shared_ptr<mir::types::FunctionTy> ty;
 
   void display(std::ostream& o) const override;
   Function(Function&&) = default;
