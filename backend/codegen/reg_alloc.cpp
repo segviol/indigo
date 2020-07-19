@@ -68,6 +68,13 @@ struct Alloc {
   Interval interval;
 };
 
+enum class ReplaceWriteKind { Phys, Graph, Spill, Transient };
+struct ReplaceWriteAction {
+  Reg from;
+  Reg replace_with;
+  ReplaceWriteKind kind;
+};
+
 using ColorMap = ::optimization::graph_color::Color_Map;
 
 const std::set<Reg> temp_regs = {0, 1, 2, 3, 12};
@@ -151,7 +158,8 @@ class RegAllocator {
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
   void replace_read(Reg &r, int i);
-  void replace_write(Reg &r, int i);
+  ReplaceWriteAction pre_replace_write(Reg &r, int i);
+  void replace_write(ReplaceWriteAction a, int i);
   void replace_read(Operand2 &r, int i);
   void replace_read(MemoryOperand &r, int i);
   void invalidate_read(int pos) {
@@ -390,7 +398,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
 
 /// Replace virtual register r with real register in-place
 void RegAllocator::replace_read(Reg &r, int i) {
-  auto disp_reg = [&]() {
+  auto disp_reg = [r, i]() {
     display_reg_name(LOG(TRACE), r);
     LOG(TRACE) << " at: " << i << " ";
   };
@@ -443,20 +451,42 @@ void RegAllocator::replace_read(Reg &r, int i) {
   }
 }
 
-void RegAllocator::replace_write(Reg &r, int i) {
+ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
+  auto r_ = r;
   if (!is_virtual_register(r)) {
     // is physical register; mark as occupied
     force_free(r);
-    active.insert({r, Interval(i, UINT32_MAX)});
-    return;
+    return {r, r, ReplaceWriteKind::Phys};
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
-    // This register is allocated with graph-coloring
     r = reg_map_r->second;
+    return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
   } else if (auto spill_r = spill_positions.find(r);
              spill_r != spill_positions.end()) {
-    // this register is allocated in stack
     Reg rd = alloc_transient_reg(Interval(i), {});
-    int pos = get_or_alloc_spill_pos(r);
+    r = rd;
+    return {r_, rd, ReplaceWriteKind::Spill};
+  } else {
+    // Is temporary register
+    // the register should already be written to or read from
+    auto live_interval = live_intervals.at(r);
+    auto rd = alloc_transient_reg(live_interval, r);
+    r = rd;
+    return {r_, rd, ReplaceWriteKind::Transient};
+    // throw new std::logic_error("Writing to transient register");
+  }
+}
+
+void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
+  if (r.kind == ReplaceWriteKind::Phys) {
+    // is physical register; mark as occupied
+    active.insert({r.replace_with, Interval(i, UINT32_MAX)});
+    return;
+  } else if (r.kind == ReplaceWriteKind::Graph) {
+    // This register is allocated with graph-coloring
+  } else if (r.kind == ReplaceWriteKind::Spill) {
+    // this register is allocated in stack
+    Reg rd = r.replace_with;
+    int pos = get_or_alloc_spill_pos(r.from);
 
     bool del = false;
     if (inst_sink.size() > 0) {
@@ -473,29 +503,33 @@ void RegAllocator::replace_write(Reg &r, int i) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
-    r = rd;
   } else {
     // Is temporary register
     // the register should already be written to or read from
-    auto live_interval = live_intervals.at(r);
-    r = alloc_transient_reg(live_interval, r);
 
     // throw new std::logic_error("Writing to transient register");
   }
 }
 
 void RegAllocator::force_free(Reg r) {
+  auto &trace = LOG(TRACE);
+  display_reg_name(trace, r);
   if (auto x = active.find(r); x != active.end()) {
     for (auto y : active_reg_map) {
       if (y.second == r) {
         // Spill to stack
+        trace << " " << y.first << " " << y.second << std::endl;
         int stack_pos = get_or_alloc_spill_pos(y.first);
         inst_sink.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
-        break;
+        active.erase(x);
+        active_reg_map.erase(y.first);
+        return;
       }
     }
-    active.erase(x);
+    trace << " Unable to find in active" << std::endl;
+  } else {
+    trace << " (not using)" << std::endl;
   }
 }
 
@@ -527,19 +561,21 @@ void RegAllocator::perform_load_stores() {
       replace_read(x->r2, i);
       invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
-      replace_write(x->rd, i);
+      pre_replace_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         replace_read(x->r2, i);
         invalidate_read(i);
+        auto prw = pre_replace_write(x->r1, i);
         inst_sink.push_back(std::move(f.inst[i]));
-        replace_write(x->r1, i);
+        replace_write(prw, i);
       } else if (x->op == arm::OpCode::MovT) {
         replace_read(x->r2, i);
         replace_read(x->r1, i);
         invalidate_read(i);
+        auto prw = pre_replace_write(x->r1, i);
         inst_sink.push_back(std::move(f.inst[i]));
-        replace_write(x->r1, i);
+        replace_write(prw, i);
       } else {
         replace_read(x->r1, i);
         replace_read(x->r2, i);
@@ -552,8 +588,9 @@ void RegAllocator::perform_load_stores() {
       }
       if (x->op == arm::OpCode::LdR) {
         invalidate_read(i);
+        auto prw = pre_replace_write(x->rd, i);
         inst_sink.push_back(std::move(f.inst[i]));
-        replace_write(x->rd, i);
+        replace_write(prw, i);
       } else {
         // StR
         replace_read(x->rd, i);
@@ -604,7 +641,7 @@ void RegAllocator::perform_load_stores() {
     if (delayed_store) {
       // TODO: check if this is right
       auto [r, rd] = delayed_store.value();
-      replace_write(r, i);
+      replace_write({r, rd, ReplaceWriteKind::Spill}, i);
       delayed_store = {};
     }
   }
