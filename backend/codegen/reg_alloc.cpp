@@ -633,7 +633,13 @@ void RegAllocator::perform_load_stores() {
       } else {
         inst_sink.push_back(std::move(f.inst[i]));
       }
-
+    } else if (auto x = dynamic_cast<CtrlInst *>(inst_)) {
+      if (x->key == "offset_stack") {
+        int offset = std::any_cast<int>(x->val);
+        stack_offset -= offset;
+      }
+      invalidate_read(i);
+      inst_sink.push_back(std::move(f.inst[i]));
     } else {
       invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
