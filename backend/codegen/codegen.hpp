@@ -15,27 +15,27 @@ namespace backend::codegen {
 inline std::string format_const_label(std::string_view function_name,
                                       uint32_t label_id) {
   auto s = std::stringstream();
-  s << "_$const_" << function_name << "__" << label_id;
+  s << ".const_" << function_name << "$" << label_id;
   return s.str();
 }
 
 inline std::string format_load_pc_label(std::string_view function_name,
                                         uint32_t label_id) {
   auto s = std::stringstream();
-  s << "_$ld_pc_" << function_name << "__" << label_id;
+  s << ".ld_pc_" << function_name << "$" << label_id;
   return s.str();
 }
 
 inline std::string format_bb_label(std::string_view function_name,
                                    uint32_t label_id) {
   auto s = std::stringstream();
-  s << "_$bb_" << function_name << "__" << label_id;
+  s << ".bb_" << function_name << "$" << label_id;
   return s.str();
 }
 
 inline std::string format_fn_end_label(std::string_view function_name) {
   auto s = std::stringstream();
-  s << "_$end_" << function_name << "__";
+  s << ".end_" << function_name << "$";
   return s.str();
 }
 
