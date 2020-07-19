@@ -1,11 +1,14 @@
 #include "codegen.hpp"
 
+#include <any>
 #include <cassert>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <typeinfo>
+#include <unordered_set>
 
 #include "../../include/aixlog.hpp"
 #include "err.hpp"
@@ -46,21 +49,43 @@ arm::Function Codegen::translate_function() {
                          optimization::MirVariableToArmVRegType()});
       data = extra_data.find(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME);
     }
-    auto map =
+    auto& map =
         std::any_cast<optimization::MirVariableToArmVRegType&>(data->second);
     map.insert({func.name, std::move(this->reg_map)});
   }
 
-  return arm::Function(func.name, std::move(this->inst),
+  return arm::Function(func.name, func.type, std::move(this->inst),
                        std::move(this->consts), stack_size);
 }
 
+bool is_comparison(mir::inst::Op op) {
+  const std::set<mir::inst::Op> comp = {mir::inst::Op::Gt,  mir::inst::Op::Lt,
+                                        mir::inst::Op::Gte, mir::inst::Op::Lte,
+                                        mir::inst::Op::Eq,  mir::inst::Op::Neq};
+  return comp.find(op) != comp.end();
+}
+
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
-  inst.push_back(
-      std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
+  auto label = format_bb_label(func.name, blk.id);
+  if (inst.size() > 0 && inst.back()->op == arm::OpCode::_Label) {
+    auto& i = static_cast<arm::LabelInst&>(*inst.back());
+    if (i.label == label) {
+      inst.pop_back();
+    }
+  }
+  inst.push_back(std::make_unique<LabelInst>(label));
+  // HACK: To make comparison closer to branch, `emit_phi_move` runs before the
+  // HACK: first comparison
+  bool met_cmp = false;
+  std::unordered_set<mir::inst::VarId> use_vars;
+
   for (auto& inst : blk.inst) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
+      if (is_comparison(x->op) && !met_cmp) {
+        emit_phi_move(use_vars);
+        met_cmp = true;
+      }
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
       translate_inst(*x);
@@ -79,8 +104,9 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     } else {
       throw new std::bad_cast();
     }
+    use_vars.insert(i.dest);
   }
-  emit_phi_move(blk.id);
+  if (!met_cmp) emit_phi_move(use_vars);
   translate_branch(blk.jump);
 }
 
@@ -168,7 +194,7 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
 }
 
 arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
+  auto v = get_collapsed_var(v_).value();
   auto found = phi_reg.find(v);
   if (found != phi_reg.end()) {
     return found->second;
@@ -180,24 +206,26 @@ arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
   }
 }
 
-mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+std::optional<mir::inst::VarId> Codegen::get_collapsed_var(mir::inst::VarId i) {
   auto res = this->var_collapse.find(i);
   if (res != var_collapse.end()) {
-    std::set<mir::inst::VarId> path;
-    while (true) {
-      auto res_ = this->var_collapse.find(res->second);
-      if (res_ == var_collapse.end() || path.find(res_->second) != path.end()) {
-        auto min = *path.begin();
-        for (auto i : path) {
-          var_collapse.insert_or_assign(i, min);
-        }
-        return min;
-      } else {
-        path.insert(res_->second);
-      }
-    }
+    return res->second;
+    // std::set<mir::inst::VarId> path;
+    // while (true) {
+    //   auto res_ = this->var_collapse.find(res->second);
+    //   if (res_ == var_collapse.end() || path.find(res_->second) !=
+    //   path.end()) {
+    //     auto min = *path.begin();
+    //     for (auto i : path) {
+    //       var_collapse.insert_or_assign(i, min);
+    //     }
+    //     return min;
+    //   } else {
+    //     path.insert(res_->second);
+    //   }
+    // }
   } else {
-    return i;
+    return {};
   }
 }
 
@@ -227,17 +255,18 @@ void Codegen::scan() {
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  auto set = std::set<mir::inst::VarId>();
-  auto dest = get_collapsed_var(phi.dest);
-  set.insert(dest);
-  for (auto& id : phi.vars) {
-    auto x = get_collapsed_var(id);
-    set.insert(x);
-  }
-  LOG(TRACE) << *set.begin() << " <- ";
-  for (auto& x : set) {
+  // auto set = std::set<mir::inst::VarId>();
+  // auto dest = get_collapsed_var(phi.dest);
+  // set.insert(dest);
+  // for (auto& id : phi.vars) {
+  // auto x = get_collapsed_var(id);
+  // set.insert(x);
+  // }
+  auto dest = phi.dest;
+  LOG(TRACE) << dest << " <- ";
+  for (auto& x : phi.vars) {
     LOG(TRACE) << x << " ";
-    var_collapse.insert_or_assign(x, *set.begin());
+    var_collapse.insert_or_assign(x, dest);
   }
   LOG(TRACE) << std::endl;
 }
@@ -315,7 +344,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::Value& v_) {
 }
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_);
+  // auto v = get_collapsed_var(v_);
+  auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -367,9 +397,10 @@ void Codegen::translate_inst(mir::inst::AssignInst& i) {
 }
 
 void Codegen::translate_inst(mir::inst::PhiInst& i) {
-  auto phi_reg = get_or_alloc_phi_reg(i.dest);
-  inst.push_back(std::make_unique<Arith2Inst>(
-      arm::OpCode::Mov, translate_var_reg(i.dest), RegisterOperand(phi_reg)));
+  // auto phi_reg = get_or_alloc_phi_reg(i.dest);
+  // inst.push_back(std::make_unique<Arith2Inst>(
+  //     arm::OpCode::Mov, translate_var_reg(i.dest),
+  //     RegisterOperand(phi_reg)));
 }
 
 void Codegen::translate_inst(mir::inst::CallInst& i) {
@@ -394,33 +425,38 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
 
   // TODO: Will not work with more than 4 params
   // Expand stack
-  if (stack_size > 0)
+  if (stack_size > 0) {
     inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
                                                 stack_size * 4));
+    inst.push_back(std::make_unique<CtrlInst>(
+        STACK_OFFSET_CTRL, std::make_any<int32_t>(stack_size * 4)));
+  }
 
   {
     // Push params
-    int param_idx = 0;
-    for (auto& param : i.params) {
-      if (param_idx < 4) {
+    for (int idx = i.params.size() - 1; idx >= 0; idx--) {
+      auto& param = i.params[idx];
+      if (idx < 4) {
         inst.push_back(std::make_unique<Arith2Inst>(
-            OpCode::Mov, Reg(param_idx), translate_value_to_operand2(param)));
+            OpCode::Mov, Reg(idx), translate_value_to_operand2(param)));
       } else {
         inst.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, translate_value_to_reg(param),
-            MemoryOperand(REG_SP, (int16_t)(param_idx * 4),
-                          MemoryAccessKind::None)));
+            MemoryOperand(REG_SP, (int16_t)(idx * 4), MemoryAccessKind::None)));
       }
-      param_idx++;
     }
   }
   // Call instruction
-  inst.push_back(std::make_unique<BrInst>(OpCode::Bl, f.second.name));
+  inst.push_back(
+      std::make_unique<BrInst>(OpCode::Bl, f.second.name, param_count));
 
   // Shrink stack
-  if (stack_size > 0)
+  if (stack_size > 0) {
+    inst.push_back(std::make_unique<CtrlInst>(
+        STACK_OFFSET_CTRL, std::make_any<int32_t>(-(stack_size * 4))));
     inst.push_back(
         std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP, stack_size));
+  }
 
   // Move return value
   if (!(f.second.type->ret->kind() == mir::types::TyKind::Void))
@@ -630,10 +666,11 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
       OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
 }
 
-void Codegen::emit_phi_move(mir::types::LabelId i) {
-  auto& bb_var_use = var_use.at(i);
-  for (auto id : bb_var_use) {
-    auto dest_reg = get_or_alloc_phi_reg(id);
+void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId> i) {
+  for (auto id : i) {
+    auto collapsed = get_collapsed_var(id);
+    if (!collapsed) continue;
+    auto dest_reg = get_or_alloc_vgp(collapsed.value());
     inst.push_back(std::make_unique<Arith2Inst>(
         OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
   }
