@@ -508,10 +508,16 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
   }
 }
 
+inline bool can_reverse_param(mir::inst::Op op) {
+  const std::set<mir::inst::Op> not_reversible = {
+      mir::inst::Op::Div, mir::inst::Op::Rem, mir::inst::Op::Shl,
+      mir::inst::Op::Shr, mir::inst::Op::ShrA};
+  return not_reversible.find(op) == not_reversible.end();
+}
+
 void Codegen::translate_inst(mir::inst::OpInst& i) {
   bool reverse_params =
-      i.lhs.is_immediate() && !i.rhs.is_immediate() &&
-      (i.op != mir::inst::Op::Div && i.op != mir::inst::Op::Rem);
+      i.lhs.is_immediate() && !i.rhs.is_immediate() && can_reverse_param(i.op);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
@@ -557,6 +563,24 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
     case mir::inst::Op::Or:
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::Orr, translate_var_reg(i.dest),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Shl:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Lsl, translate_var_reg(i.dest),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Shr:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Lsr, translate_var_reg(i.dest),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::ShrA:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Asr, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
