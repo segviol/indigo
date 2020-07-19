@@ -371,6 +371,11 @@ class Inline_Func : public backend::MirOptimizePass {
          iter++) {
       optimize_func(iter->first, iter->second, package.functions);
     }
+    for (auto iter = package.functions.begin(); iter != package.functions.end();
+         iter++) {
+      LOG(TRACE) << iter->second.name << " variables size is "
+                 << iter->second.variables.size() << std::endl;
+    }
   }
 };
 
