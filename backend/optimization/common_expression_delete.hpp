@@ -23,7 +23,7 @@ namespace optimization::common_expr_del {
 class Node;
 
 typedef mir::inst::Op NormOp;
-enum class ExtraNormOp { Ref, Ptroffset };
+enum class ExtraNormOp { Ref, Ptroffset, Assign };
 enum class InNormOp { Load, Store, Call, Phi };
 typedef std::shared_ptr<Node> sharedNode;
 typedef std::variant<NormOp, ExtraNormOp, InNormOp> Op;
@@ -168,11 +168,11 @@ class BlockNodes {
     return nodeId;
   }
 
-  NodeId add_leaf_node(int imm, mir::inst::VarId var) {
+  NodeId add_leaf_node(mir::inst::Value val, mir::inst::VarId var) {
     auto id = nodes.size();
     NodeId nodeId(id);
     auto node = std::make_shared<Node>();
-    node->value = imm;
+    node->value = val;
     nodes.push_back(node);
     var_map[var] = nodeId;
     node_map[*node] = id;
@@ -214,7 +214,7 @@ class BlockNodes {
     return nodeId;
   }
 
-  NodeId query_leafnodeId(mir::inst::VarId var) { return var_map.at(var); }
+  NodeId query_nodeId(mir::inst::VarId var) { return var_map.at(var); }
 
   // NodeId query_node_else_add(Op op, std::vector<Operand> operands){
   //   if(!query_node(op,operands)){
@@ -318,25 +318,38 @@ class BlockNodes {
           }
 
           case 1: {
-            if (std::get<ExtraNormOp>(node->op) == ExtraNormOp::Ref) {
-              std::variant<mir::inst::VarId, std::string> val;
-              if (node->operands[0].index() == 1) {
-                val = std::get<mir::inst::VarId>(
-                    nodes[std::get<NodeId>(node->operands[0]).id]->mainVar);
-                //这里可能的VarId是局部数组，理论上不会出现int成为mainVar的情况
+            switch (std::get<ExtraNormOp>(node->op)) {
+              case ExtraNormOp::Ref: {
+                std::variant<mir::inst::VarId, std::string> val;
+                if (node->operands[0].index() == 1) {
+                  val = std::get<mir::inst::VarId>(
+                      nodes[std::get<NodeId>(node->operands[0]).id]->mainVar);
+                  //这里可能的VarId是局部数组，理论上不会出现int成为mainVar的情况
 
-              } else {
-                val = std::get<std::string>(node->operands[0]);
+                } else {
+                  val = std::get<std::string>(node->operands[0]);
+                }
+                inst.push_back(std::make_unique<mir::inst::RefInst>(
+                    std::get<mir::inst::VarId>(node->mainVar), val));
+                break;
               }
-              inst.push_back(std::make_unique<mir::inst::RefInst>(
-                  std::get<mir::inst::VarId>(node->mainVar), val));
-            } else {
-              auto ptr = std::get<mir::inst::VarId>(
-                  convert_operand_to_value(node->operands[0]));
-              auto offset = convert_operand_to_value(node->operands[1]);
-              auto ptrInst = std::make_unique<mir::inst::PtrOffsetInst>(
-                  std::get<mir::inst::VarId>(node->mainVar), ptr, offset);
-              inst.push_back(std::move(ptrInst));
+              case ExtraNormOp::Ptroffset: {
+                auto ptr = std::get<mir::inst::VarId>(
+                    convert_operand_to_value(node->operands[0]));
+                auto offset = convert_operand_to_value(node->operands[1]);
+                auto ptrInst = std::make_unique<mir::inst::PtrOffsetInst>(
+                    std::get<mir::inst::VarId>(node->mainVar), ptr, offset);
+                inst.push_back(std::move(ptrInst));
+                break;
+              }
+              case ExtraNormOp::Assign: {
+                auto src = convert_operand_to_value(node->operands[0]);
+
+                auto assignInst = std::make_unique<mir::inst::AssignInst>(
+                    std::get<mir::inst::VarId>(node->mainVar), src);
+                inst.push_back(std::move(assignInst));
+                break;
+              }
             }
 
             break;
@@ -503,16 +516,28 @@ class Common_Expr_Del : public backend::MirOptimizePass {
         }
         case mir::inst::InstKind::Assign: {
           auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
-          if ((assignInst->src.index() == 0)) {
-            blnd.add_leaf_node(std::get<int>(assignInst->src),
-                               assignInst->dest);
+          if ((assignInst->src.index() == 0 ||
+               !blnd.query_var(std::get<mir::inst::VarId>(assignInst->src)))) {
+            blnd.add_leaf_node(assignInst->src, assignInst->dest);
           } else {
-            auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-            if (!blnd.query_var(srcvar)) {
+            auto nodeId =
+                blnd.query_nodeId(std::get<mir::inst::VarId>(assignInst->src));
+            if (!blnd.nodes[nodeId.id]->is_leaf) {
+              blnd.add_var(assignInst->dest, nodeId);
+            } else {
+              auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
               blnd.add_leaf_node(srcvar);
+              std::vector<mir::inst::Value> values;
+              values.push_back(srcvar);
+              auto op = ExtraNormOp::Assign;
+              auto operands = blnd.cast_operands(values);
+              if (!blnd.query_node(op, operands)) {
+                blnd.add_node(op, operands, assignInst->dest);
+              } else {
+                auto nodeId = blnd.query_nodeId(op, operands);
+                blnd.add_var(assignInst->dest, nodeId.id);
+              }
             }
-            auto nodeId = blnd.query_leafnodeId(srcvar);
-            blnd.add_var(assignInst->dest, nodeId);
           }
           break;
         }
