@@ -82,7 +82,7 @@ int main()
 		i=i+1;
 	} 
 	MergeSort(a,size);
-	putarray(a,size); 
+	putarray(size,a); 
 	putch(10);
 	return 0;
 }
