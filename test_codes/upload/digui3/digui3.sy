@@ -2,7 +2,7 @@ int n;
 int k;
 int cnt;
 int a[60];
- 
+
 void solve1(int p,int sum,int last)
 {
 	int i;
@@ -18,9 +18,9 @@ void solve1(int p,int sum,int last)
 	i=last;
 	while(i>=1){
 		a[p]=i;
-		sum+=i;
+		sum=sum+i;
 		solve1(p+1,sum,i);
-		sum-=i;
+		sum=sum-i;
 		i=i-1;
 	}
 }
@@ -38,9 +38,9 @@ void solve2(int p,int sum,int last)
 	i=last;
 	while(i>=1){
 		a[p]=i;
-		sum+=i;
+		sum=sum+i;
 		solve2(p+1,sum,i-1);
-		sum-=i;
+		sum=sum-i;
 		i=i-1;
 	}
 }
@@ -58,9 +58,9 @@ void solve3(int p,int sum,int last)
 	i=last;
 	while(i>=1){
 		a[p]=i;
-		sum+=i;
+		sum=sum+i;
 		solve3(p+1,sum,i);
-		sum-=i;
+		sum=sum-i;
 		i=i-2;
 	}
 }

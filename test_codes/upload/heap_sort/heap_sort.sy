@@ -10,7 +10,7 @@ void PercDown(int a[],int p,int n)
 	Parent=p;
 	while((Parent*2+1)<n){
 		Child=Parent*2+1;
-		if((Child!=n-1) && (a[Child+1]>a[Child])){
+		if(Child!=n-1 && a[Child+1]>a[Child]){
 			Child = Child+1;
 		}
 		if(X>=a[Child]){
