@@ -66,8 +66,14 @@ bool is_comparison(mir::inst::Op op) {
 }
 
 void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
-  inst.push_back(
-      std::make_unique<LabelInst>(format_bb_label(func.name, blk.id)));
+  auto label = format_bb_label(func.name, blk.id);
+  if (inst.size() > 0 && inst.back()->op == arm::OpCode::_Label) {
+    auto& i = static_cast<arm::LabelInst&>(*inst.back());
+    if (i.label == label) {
+      inst.pop_back();
+    }
+  }
+  inst.push_back(std::make_unique<LabelInst>(label));
   // HACK: To make comparison closer to branch, `emit_phi_move` runs before the
   // HACK: first comparison
   bool met_cmp = false;
