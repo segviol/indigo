@@ -59,12 +59,15 @@ if(STATIC_LINK_ARTIFACTS)
     set_target_properties(compiler PROPERTIES LINK_SEARCH_END_STATIC 1)
 endif(STATIC_LINK_ARTIFACTS)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Oz")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2")
 endif()
 
+if(PRETTIFY_MIR_VAR)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPRETTIFY_MIR_VAR=1")
+endif()
 
 target_link_libraries(
     compiler)
