@@ -232,9 +232,23 @@ void RegAllocator::alloc_regs() {
     auto &last = f.inst.back();
     auto last_ = static_cast<PushPopInst *>(&*last);
     for (auto r : used_regs) last_->regs.insert(r);
+
+    auto use_stack_param = f.ty.get()->params.size() > 4;
+    if (use_stack_param) {
+      f.inst.insert(f.inst.begin() + 2, std::make_unique<Arith3Inst>(
+                                            OpCode::Add, REG_FP, REG_FP,
+                                            Operand2(used_regs.size() + 2)));
+    }
+
     f.inst.insert(f.inst.begin() + 2,
                   std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                Operand2(stack_size)));
+
+    if (use_stack_param) {
+      f.inst.insert(f.inst.end() - 2, std::make_unique<Arith3Inst>(
+                                          OpCode::Sub, REG_FP, REG_FP,
+                                          Operand2(used_regs.size() + 2)));
+    }
   }
 }
 
