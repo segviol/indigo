@@ -51,7 +51,16 @@ struct VarId : public prelude::Displayable {
   VarId(const uint32_t id) : id(id) {}
   uint32_t id;
 
+#if PRETTIFY_MIR_VAR
+  virtual void display(std::ostream& o) const {
+    if (id < 65536)
+      o << "$" << id;
+    else
+      o << "%" << (id - 65536);
+  }
+#else
   virtual void display(std::ostream& o) const { o << "$" << id; }
+#endif
   bool operator==(const VarId& other) const { return id == other.id; };
   VarId& operator=(const VarId& other) = default;
   bool operator<(const VarId& other) const { return id < other.id; }

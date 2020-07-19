@@ -1,10 +1,12 @@
 #include "arm.hpp"
 
+#include <any>
 #include <cmath>
 #include <cstdint>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <variant>
 
 #include "../prelude/prelude.hpp"
@@ -499,8 +501,18 @@ void PushPopInst::display(std::ostream &o) const {
 
 void LabelInst::display(std::ostream &o) const { o << label << ":"; }
 
+#define ctrl_inst_display_type(v, ty)              \
+  if (v.type() == typeid(ty)) {                    \
+    o << "(value=" << std::any_cast<ty>(v) << ")"; \
+  }
+
 void CtrlInst::display(std::ostream &o) const {
-  o << "@ " << key << " <" << val.type().name() << ">";
+  o << "@ " << key << "<" << val.type().name() << ">";
+  ctrl_inst_display_type(val, int);
+  ctrl_inst_display_type(val, double);
+  ctrl_inst_display_type(val, float);
+  ctrl_inst_display_type(val, long);
+  ctrl_inst_display_type(val, std::string);
 }
 
 void Function::display(std::ostream &o) const {
