@@ -3,6 +3,7 @@
 #include <any>
 #include <optional>
 #include <sstream>
+#include <unordered_set>
 
 #include "../../arm_code/arm.hpp"
 #include "../../include/aixlog.hpp"
@@ -136,7 +137,7 @@ class Codegen final {
   void init_reg_map();
   void deal_call(mir::inst::CallInst& call);
   void deal_phi(mir::inst::PhiInst& phi);
-  mir::inst::VarId get_collapsed_var(mir::inst::VarId i);
+  std::optional<mir::inst::VarId> get_collapsed_var(mir::inst::VarId i);
   void generate_startup();
   void generate_return_and_cleanup();
 
@@ -151,7 +152,7 @@ class Codegen final {
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
 
-  void emit_phi_move(mir::types::LabelId i);
+  void emit_phi_move(std::unordered_set<mir::inst::VarId> i);
   void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                     mir::inst::Value& rhs, arm::ConditionCode cond,
                     bool reversed);

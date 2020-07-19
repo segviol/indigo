@@ -394,3 +394,13 @@ class MirPackage : public prelude::Displayable {
 };
 
 }  // namespace mir::inst
+namespace std {
+
+template <>
+struct hash<mir::inst::VarId> {
+  std::size_t operator()(const mir::inst::VarId& i) const {
+    return std::hash<uint32_t>()(i.id);
+  }
+};
+
+}  // namespace std
