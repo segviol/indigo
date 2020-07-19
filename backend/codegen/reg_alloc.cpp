@@ -300,7 +300,6 @@ void RegAllocator::construct_reg_map() {
           trace << std::endl;
         }
       } else {
-        stack_size += 4;
         spill_positions.insert({vreg_id, stack_size});
         {
           auto &trace = LOG(TRACE);
@@ -308,6 +307,7 @@ void RegAllocator::construct_reg_map() {
           display_reg_name(trace, vreg_id);
           trace << " <- sp + " << stack_size << std::endl;
         }
+        stack_size += 4;
       }
     } else {
       // local variable
