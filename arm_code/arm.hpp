@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -9,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "../mir/ty.hpp"
 #include "../prelude/prelude.hpp"
 
 namespace arm {
@@ -260,6 +262,8 @@ enum class OpCode {
 
   // Label (pseudo-instruction)
   _Label,
+  // Control Comment (pseudo-instruction)
+  _Ctrl,
   // Mod (pseudo-instruction)
   _Mod
 };
@@ -351,7 +355,11 @@ struct Arith2Inst final : public Inst {
 struct BrInst final : public Inst {
   BrInst(OpCode op, Label l, ConditionCode c = ConditionCode::Always)
       : l(l), Inst(op, c) {}
+  BrInst(OpCode op, Label l, int param_size,
+         ConditionCode c = ConditionCode::Always)
+      : l(l), param_cnt(param_size), Inst(op, c) {}
   Label l;
+  int param_cnt = 0;
 
   virtual void display(std::ostream& o) const;
   virtual ~BrInst() {}
@@ -416,10 +424,31 @@ struct LabelInst final : public Inst {
   virtual ~LabelInst() {}
 };
 
+/// Control pseudo-instruction
+///
+/// Valid opcode: _Ctrl
+struct CtrlInst final : public Inst {
+  CtrlInst(std::string key, std::any val)
+      : Inst(OpCode::_Ctrl, ConditionCode::Always),
+        key(std::move(key)),
+        val(std::move(val)) {}
+
+  std::string key;
+  std::any val;
+
+  virtual void display(std::ostream& o) const;
+  virtual ~CtrlInst() {}
+};
+
+const std::string STACK_OFFSET_CTRL = "offset_stack";
+using StackOffsetTy = int32_t;
+
 struct Function final : public prelude::Displayable {
-  Function(std::string& name, std::vector<std::unique_ptr<Inst>>&& inst,
+  Function(std::string& name, mir::types::SharedTyPtr ty,
+           std::vector<std::unique_ptr<Inst>>&& inst,
            std::map<std::string, ConstValue>&& local_const, uint32_t stack_size)
       : name(name),
+        ty(ty),
         inst(std::move(inst)),
         local_const(std::move(local_const)),
         stack_size(stack_size) {}
@@ -427,6 +456,8 @@ struct Function final : public prelude::Displayable {
   std::vector<std::unique_ptr<Inst>> inst;
   std::map<std::string, ConstValue> local_const;
   uint32_t stack_size;
+
+  mir::types::SharedTyPtr ty;
 
   void display(std::ostream& o) const override;
   Function(Function&&) = default;

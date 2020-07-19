@@ -91,7 +91,11 @@ def test_dir(dir):
     for file in tqdm(files):
         new_path = os.path.join(dir, file)
         if os.path.isdir(new_path) and args.recursively:
-            test_dir(new_path)
+            result = test_dir(new_path)
+            num_tested += result["num_tested"]
+            num_passed += result["num_passed"]
+            fail_list.extend(result["failed"])
+            pass_list.extend(result["passed"])
         elif file.split('.')[-1] == 'sy':
             num_tested += 1
             prefix = file.split('.')[0]
