@@ -9,6 +9,7 @@
 #include "backend/codegen/codegen.hpp"
 #include "backend/codegen/math_opt.hpp"
 #include "backend/codegen/reg_alloc.hpp"
+#include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
@@ -63,15 +64,21 @@ int main(int argc, const char** argv) {
   // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before") << std::endl;
   if (options.verbose) std::cout << package << std::endl;
-  LOG(INFO) << ("generating ARM code") << std::endl;
+  LOG(INFO) << ("generating ARM code");
 
   backend::Backend backend(package, options);
-  backend.add_pass(
-      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(2));
 
+  // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(
   //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
+  backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
@@ -83,7 +90,7 @@ int main(int argc, const char** argv) {
     std::cout << code;
   }
 
-  LOG(INFO) << "writing to output file: " << options.out_file << std::endl;
+  LOG(INFO) << "writing to output file: " << options.out_file;
 
   ofstream output_file(options.out_file);
   output_file << code << std::endl;
@@ -156,8 +163,20 @@ Options parse_options(int argc, const char** argv) {
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
 
   if (parser.present("--run-pass")) {
-    auto out = parser.get<std::vector<string>>("--run-pass");
-    std::set<std::string> run_pass(out.begin(), out.end());
+    auto out = parser.get<std::string>("--run-pass");
+    std::set<std::string> run_pass;
+    {
+      int low = 0;
+      for (int i = 0; i < out.size(); i++) {
+        if (out[i] == ',') {
+          std::string item = out.substr(low, i);
+          run_pass.insert(item);
+          low = i + 1;
+        }
+      }
+      std::string item = out.substr(low, out.size());
+      run_pass.insert(item);
+    }
     {
       std::stringstream pass_name;
       for (auto i = run_pass.cbegin(); i != run_pass.cend(); i++) {
@@ -173,8 +192,20 @@ Options parse_options(int argc, const char** argv) {
   }
 
   if (parser.present("--skip-pass")) {
-    auto out = parser.get<std::vector<string>>("--skip-pass");
-    std::set<std::string> skip_pass(out.begin(), out.end());
+    auto out = parser.get<std::string>("--skip-pass");
+    std::set<std::string> skip_pass;
+    {
+      int low = 0;
+      for (int i = 0; i < out.size(); i++) {
+        if (out[i] == ',') {
+          std::string item = out.substr(low, i);
+          skip_pass.insert(item);
+          low = i + 1;
+        }
+      }
+      std::string item = out.substr(low, out.size());
+      skip_pass.insert(item);
+    }
     {
       std::stringstream pass_name;
       for (auto i = skip_pass.cbegin(); i != skip_pass.cend(); i++) {
