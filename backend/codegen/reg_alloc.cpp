@@ -1,11 +1,20 @@
 #include "reg_alloc.hpp"
 
+#include <any>
 #include <cassert>
+#include <climits>
 #include <cmath>
+#include <cstdint>
 #include <memory>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
-#include "../../arm_code/regmanager.hpp"
+#include "../optimization/graph_color.hpp"
+#include "../optimization/optimization.hpp"
+#include "aixlog.hpp"
 
 namespace backend::codegen {
 using namespace arm;
@@ -59,29 +68,50 @@ struct Alloc {
   Interval interval;
 };
 
+enum class ReplaceWriteKind { Phys, Graph, Spill, Transient };
+struct ReplaceWriteAction {
+  Reg from;
+  Reg replace_with;
+  ReplaceWriteKind kind;
+};
+
+using ColorMap = ::optimization::graph_color::Color_Map;
+
+const std::set<Reg> temp_regs = {0, 1, 2, 3, 12};
+
 class RegAllocator {
  public:
-  RegAllocator(arm::Function &f)
+  RegAllocator(arm::Function &f, ColorMap &color_map,
+               std::map<mir::inst::VarId, Reg> &mir_to_arm)
       : f(f),
         live_intervals(),
-        active(),
+        reg_map(),
         stack_size(f.stack_size),
         spilled_regs(),
         spill_positions(),
+        color_map(color_map),
+        mir_to_arm(mir_to_arm),
         inst_sink() {}
   arm::Function &f;
+  ColorMap &color_map;
+  optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm;
 
-  std::set<Reg> used_regs = {4, 5, 6, 7};
+  std::set<Reg> used_regs = {};
 
-  std::map<arm::Reg, Interval> live_intervals;
-  std::map<arm::Reg, Alloc> active;
-  std::map<arm::Reg, Interval> spilled_regs;
-  std::map<arm::Reg, int> spill_positions;
+  std::unordered_map<arm::Reg, Interval> live_intervals;
+  std::unordered_map<arm::Reg, Reg> reg_map;
+  // key: physical register; value: allocation interval
+  std::unordered_map<arm::Reg, Interval> active;
+  // key: virtual register; value: physical register
+  std::unordered_map<arm::Reg, Reg> active_reg_map;
+  std::unordered_map<arm::Reg, Interval> spilled_regs;
+  std::unordered_map<arm::Reg, int> spill_positions;
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
 
   int stack_size;
+  int stack_offset = 0;
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
 #pragma region Read Write Stuff
@@ -123,41 +153,74 @@ class RegAllocator {
 
   void calc_live_intervals();
   void alloc_regs();
+  void construct_reg_map();
   std::vector<std::pair<Reg, Interval>> sort_intervals();
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
-  void write_load(Reg r, Reg rd);
-  void write_store(Reg r, Reg rs);
+  void replace_read(Reg &r, int i);
+  ReplaceWriteAction pre_replace_write(Reg &r, int i);
+  void replace_write(ReplaceWriteAction a, int i);
+  void replace_read(Operand2 &r, int i);
+  void replace_read(MemoryOperand &r, int i);
   void invalidate_read(int pos) {
     auto it = active.begin();
     while (it != active.end()) {
-      if (it->second.interval.end <= pos)
+      if (it->second.end <= pos) {
         // The register is no longer to be read from, thus is freed
+        for (auto r : active_reg_map) {
+          if (r.second == it->first) {
+            active_reg_map.erase(r.first);
+            break;
+          }
+        }
         it = active.erase(it);
-      else
+      } else {
         it++;
+      }
     }
   }
+  Reg alloc_transient_reg(Interval i, std::optional<Reg> orig);
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
+  void force_free(Reg r);
+  int get_or_alloc_spill_pos(Reg r) {
+    int pos;
+    display_reg_name(LOG(TRACE), r);
+    if (auto p = spill_positions.find(r); p != spill_positions.end()) {
+      pos = p->second;
+    } else {
+      LOG(TRACE) << " set";
+      pos = stack_size;
+      stack_size += 4;
+      spill_positions.insert({r, pos + stack_offset});
+    }
+    LOG(TRACE) << " " << pos << std::endl;
+    return pos;
+  }
   void perform_load_stores();
 };
 
 void RegAllocator::alloc_regs() {
   calc_live_intervals();
-  for (auto &r : live_intervals) {
-    // Live interval is just used as a virtual register map for now.
-    // This assigns a spill position for EVERY virtual register, which is very
-    // very very very inefficient.
-    spill_positions.insert({r.first, stack_size});
-    stack_size += 4;
+  // for (auto &r : live_intervals) {
+  //   // Live interval is just used as a virtual register map for now.
+  //   // This assigns a spill position for EVERY virtual register, which is
+  //   very
+  //   // very very very inefficient.
+  //   spill_positions.insert({r.first, stack_size});
+  //   stack_size += 4;
+  // }
+
+  LOG(TRACE, "color_map") << "Color map:" << std::endl;
+  for (auto x : color_map) {
+    auto mapped_reg = mir_to_arm.at(x.first);
+    LOG(TRACE, "color_map") << x.first << " -> ";
+    display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
+    LOG(TRACE, "color_map") << ": " << x.second << std::endl;
   }
 
-  // TODO: Implement linear scan; The current method loads and stores every time
-  // alloc regs based on interval
-  //   auto intervals = sort_intervals();
-  //   generate_load_store_positions(std::move(intervals));
+  construct_reg_map();
   perform_load_stores();
   f.inst = std::move(inst_sink);
 
@@ -225,94 +288,253 @@ void RegAllocator::calc_live_intervals() {
   }
 }
 
-void RegAllocator::write_load(Reg r, Reg rd) {
-  bool del = false;
-  auto spill_pos = spill_positions.at(r);
-  if (inst_sink.size() > 0) {
-    auto &x = inst_sink.back();
-    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
-      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-          x_->op == arm::OpCode::StR && x_->rd == rd &&
-          (*x__) == MemoryOperand(REG_SP, spill_pos)) {
-        del = true;
+void RegAllocator::construct_reg_map() {
+  for (auto item : mir_to_arm) {
+    // for every mir variable:
+    auto [var_id, vreg_id] = item;
+    auto color = color_map.find(var_id);
+    if (color != color_map.end()) {
+      if (color->second != -1) {
+        // Global register id starts with r4;
+        auto reg = Reg(color->second + 4);
+        reg_map.insert({vreg_id, reg});
+        used_regs.insert(reg);
+        {
+          auto &trace = LOG(TRACE);
+          trace << var_id << " <- ";
+          display_reg_name(trace, vreg_id);
+          trace << " <- ";
+          display_reg_name(trace, reg);
+          trace << std::endl;
+        }
+      } else {
+        spill_positions.insert({vreg_id, stack_size});
+        {
+          auto &trace = LOG(TRACE);
+          trace << "$" << var_id << " <- ";
+          display_reg_name(trace, vreg_id);
+          trace << " <- sp + " << stack_size << std::endl;
+        }
+        stack_size += 4;
+      }
+    } else {
+      // local variable
+      {
+        auto &trace = LOG(TRACE);
+        trace << "$" << var_id << " <- ";
+        display_reg_name(trace, vreg_id);
+        trace << " <- local ";
+        trace << std::endl;
       }
     }
-  }
-  if (del) {
-    inst_sink.pop_back();
-    delayed_store = {{r, rd}};
-  } else {
-    inst_sink.push_back(std::make_unique<LoadStoreInst>(
-        OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos)));
   }
 }
 
-void RegAllocator::write_store(Reg r, Reg rs) {
-  int pos;
-  if (auto p = spill_positions.find(r); p != spill_positions.end()) {
-    pos = p->second;
-  } else {
-    pos = stack_size;
-    stack_size += 4;
-    spill_positions.insert({r, pos});
+void RegAllocator::replace_read(Operand2 &r, int i) {
+  if (auto rop = std::get_if<RegisterOperand>(&r)) {
+    replace_read(rop->reg, i);
   }
+}
 
-  bool del = false;
-  if (inst_sink.size() > 0) {
-    auto &x = inst_sink.back();
-    if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
-      if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-          x_->op == arm::OpCode::StR && (*x__) == MemoryOperand(REG_SP, pos)) {
-        del = true;
-      }
+void RegAllocator::replace_read(MemoryOperand &r, int i) {
+  replace_read(r.r1, i);
+  if (auto rop = std::get_if<RegisterOperand>(&r.offset)) {
+    replace_read(rop->reg, i);
+  }
+}
+
+Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
+  Reg r = -1;
+  if (orig) {
+    auto a = active_reg_map.find(orig.value());
+    if (a != active_reg_map.end()) {
+      return a->second;
     }
   }
-  if (del) {
+  for (auto reg : temp_regs) {
+    if (active.find(reg) == active.end()) {
+      r = reg;
+      break;
+    }
+  }
+  if (r == -1) {
+    // Choose a value in active to spill.
+    // NOTE: the current algorithm chooses the first non-temporary register to
+    // spill.
+    if (active_reg_map.size() == 0) {
+      std::stringstream ss;
+      ss << "Failed to allocate: all active registers are "
+            "temporary!"
+         << std::endl
+         << "Dump: " << std::endl;
+
+      for (auto [k, v] : active) {
+        display_reg_name(ss, k);
+        ss << ": [" << v.start << ", " << v.end << "]" << std::endl;
+      }
+
+      throw std::runtime_error(ss.str());
+    }
+    auto [virt_reg, phys_reg] = *active_reg_map.begin();
+    auto interval = active.at(phys_reg);
+    interval.start = i.start;
+
+    int spill_pos = get_or_alloc_spill_pos(virt_reg);
+    // TODO: move this into a separate function
+    inst_sink.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::StR, phys_reg,
+        MemoryOperand(REG_SP, spill_pos + stack_offset)));
+    r = phys_reg;
+    spilled_regs.insert({virt_reg, interval});
+    active_reg_map.erase(virt_reg);
+    active.erase(phys_reg);
+  }
+  this->active.insert({r, i});
+  if (orig) {
+    this->active_reg_map.insert({orig.value(), r});
+  }
+  return r;
+}
+
+/// Replace virtual register r with real register in-place
+void RegAllocator::replace_read(Reg &r, int i) {
+  auto disp_reg = [r, i]() {
+    display_reg_name(LOG(TRACE), r);
+    LOG(TRACE) << " at: " << i << " ";
+  };
+  if (!is_virtual_register(r)) {
+    disp_reg();
+    LOG(TRACE) << "phys" << std::endl;
+    return;
+  } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
+    // This register is allocated with graph-coloring
+    disp_reg();
+    LOG(TRACE) << "graph " << reg_map_r->second << std::endl;
+    r = reg_map_r->second;
+    return;
+  } else if (auto spill_r = spill_positions.find(r);
+             spill_r != spill_positions.end()) {
+    // this register is allocated in stack
+    bool del = false;
+    Reg rd = alloc_transient_reg(Interval(i), {});
+    auto spill_pos = get_or_alloc_spill_pos(r);
+    if (inst_sink.size() > 0) {
+      auto &x = inst_sink.back();
+      if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+        if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+            x_->op == arm::OpCode::StR && x_->rd == rd &&
+            (*x__) == MemoryOperand(REG_SP, spill_pos + stack_offset)) {
+          del = true;
+        }
+      }
+    }
+    if (del) {
+      inst_sink.pop_back();
+      delayed_store = {{r, rd}};
+    } else {
+      inst_sink.push_back(std::make_unique<LoadStoreInst>(
+          OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset)));
+    }
+    disp_reg();
+    LOG(TRACE) << "spill " << spill_pos << std::endl;
+    r = rd;
+    return;
+  } else {
+    // is temporary register
+    auto live_interval = live_intervals.at(r);
+    r = alloc_transient_reg(live_interval, r);
+    disp_reg();
+    LOG(TRACE) << "transient ";
+    display_reg_name(LOG(TRACE), r);
+    LOG(TRACE) << std::endl;
     return;
   }
+}
 
-  inst_sink.push_back(std::make_unique<LoadStoreInst>(
-      OpCode::StR, rs, MemoryOperand(REG_SP, pos)));
+ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
+  auto r_ = r;
+  if (!is_virtual_register(r)) {
+    // is physical register; mark as occupied
+    force_free(r);
+    return {r, r, ReplaceWriteKind::Phys};
+  } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
+    r = reg_map_r->second;
+    return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
+  } else if (auto spill_r = spill_positions.find(r);
+             spill_r != spill_positions.end()) {
+    Reg rd = alloc_transient_reg(Interval(i), {});
+    r = rd;
+    return {r_, rd, ReplaceWriteKind::Spill};
+  } else {
+    // Is temporary register
+    // the register should already be written to or read from
+    auto live_interval = live_intervals.at(r);
+    auto rd = alloc_transient_reg(live_interval, r);
+    r = rd;
+    return {r_, rd, ReplaceWriteKind::Transient};
+    // throw new std::logic_error("Writing to transient register");
+  }
+}
+
+void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
+  if (r.kind == ReplaceWriteKind::Phys) {
+    // is physical register; mark as occupied
+    active.insert({r.replace_with, Interval(i, UINT32_MAX)});
+    return;
+  } else if (r.kind == ReplaceWriteKind::Graph) {
+    // This register is allocated with graph-coloring
+  } else if (r.kind == ReplaceWriteKind::Spill) {
+    // this register is allocated in stack
+    Reg rd = r.replace_with;
+    int pos = get_or_alloc_spill_pos(r.from);
+
+    bool del = false;
+    if (inst_sink.size() > 0) {
+      auto &x = inst_sink.back();
+      if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
+        if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
+            x_->op == arm::OpCode::StR &&
+            (*x__) == MemoryOperand(REG_SP, pos + stack_offset)) {
+          del = true;
+        }
+      }
+    }
+    if (!del) {
+      inst_sink.push_back(std::make_unique<LoadStoreInst>(
+          OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
+    }
+  } else {
+    // Is temporary register
+    // the register should already be written to or read from
+
+    // throw new std::logic_error("Writing to transient register");
+  }
+}
+
+void RegAllocator::force_free(Reg r) {
+  auto &trace = LOG(TRACE);
+  display_reg_name(trace, r);
+  if (auto x = active.find(r); x != active.end()) {
+    for (auto y : active_reg_map) {
+      if (y.second == r) {
+        // Spill to stack
+        trace << " " << y.first << " " << y.second << std::endl;
+        int stack_pos = get_or_alloc_spill_pos(y.first);
+        inst_sink.push_back(std::make_unique<LoadStoreInst>(
+            OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        active.erase(x);
+        active_reg_map.erase(y.first);
+        return;
+      }
+    }
+    trace << " Unable to find in active" << std::endl;
+  } else {
+    trace << " (not using)" << std::endl;
+  }
 }
 
 Reg RegAllocator::make_space(Reg r, Interval i) {
-  throw new prelude::NotImplementedException();
-}
-
-Reg RegAllocator::alloc_read(Reg r) {
-  if (!is_virtual_register(r))
-    return r;
-  else {
-    // virtual register
-    if (auto reg = active.find(r); reg != active.end()) {
-      return reg->second.reg;
-    } else if (auto spill = spilled_regs.find(r); spill != spilled_regs.end()) {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      write_load(r, r_);
-      return r_;
-    } else {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      return r_;
-    }
-  }
-}
-
-Reg RegAllocator::alloc_write(Reg r) {
-  if (!is_virtual_register(r))
-    return r;
-  else {
-    // virtual register
-    if (auto reg = active.find(r); reg != active.end()) {
-      return reg->second.reg;
-    } else if (auto spill = spilled_regs.find(r); spill != spilled_regs.end()) {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      write_load(r, r_);
-      return r_;
-    } else {
-      Reg r_ = make_space(r, live_intervals.at(r));
-      return r_;
-    }
-  }
+  throw prelude::NotImplementedException();
 }
 
 std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
@@ -333,80 +555,64 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 void RegAllocator::perform_load_stores() {
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
-    // TODO: F_CK. Just use the plain old method for now.
-    /**
-     * The curren dirty hack:
-     * Replace every register used in 3-operand moves with r4, r5 and r6
-     * Replace every register used in 2-operand moves with r4, r5
-     */
 
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
-      if (is_virtual_register(x->r1)) {
-        write_load(x->r1, 4);
-        x->r1 = 4;
-      }
-      if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
-      x->r2.replace_reg_if_virtual(5);
+      replace_read(x->r1, i);
+      replace_read(x->r2, i);
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
-      if (is_virtual_register(x->rd)) {
-        write_store(x->rd, 6);
-        x->rd = 6;
-      }
+      pre_replace_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
-      if (x->r2.is_virtual()) write_load(x->r2.get_reg(), 5);
-      x->r2.replace_reg_if_virtual(5);
-      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
-          x->op == arm::OpCode::Mvn) {
-        Reg r1 = x->r1;
-        if (is_virtual_register(r1)) {
-          write_load(r1, 4);
-        }
+      if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
+        replace_read(x->r2, i);
+        invalidate_read(i);
+        auto prw = pre_replace_write(x->r1, i);
         inst_sink.push_back(std::move(f.inst[i]));
-        if (is_virtual_register(r1)) {
-          write_store(r1, 4);
-          x->r1 = 4;
-        }
+        replace_write(prw, i);
+      } else if (x->op == arm::OpCode::MovT) {
+        replace_read(x->r2, i);
+        replace_read(x->r1, i);
+        invalidate_read(i);
+        auto prw = pre_replace_write(x->r1, i);
+        inst_sink.push_back(std::move(f.inst[i]));
+        replace_write(prw, i);
       } else {
-        if (is_virtual_register(x->r1)) {
-          write_load(x->r1, 4);
-          x->r1 = 4;
-        }
+        replace_read(x->r1, i);
+        replace_read(x->r2, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
       if (auto mem = std::get_if<MemoryOperand>(&x->mem)) {
-        auto [vr1, vr2] = mem->is_virtual();
-        if (is_virtual_register(vr1)) write_load(vr1, 4);
-        if (vr2 && is_virtual_register(*vr2)) write_load(*vr2, 6);
-        mem->replace_reg_if_virtual(4, 6);
+        replace_read(*mem, i);
       }
       if (x->op == arm::OpCode::LdR) {
+        invalidate_read(i);
+        auto prw = pre_replace_write(x->rd, i);
         inst_sink.push_back(std::move(f.inst[i]));
-        if (is_virtual_register(x->rd)) {
-          write_store(x->rd, 5);
-          x->rd = 5;
-        }
+        replace_write(prw, i);
       } else {
         // StR
-        if (is_virtual_register(x->rd)) {
-          write_load(x->rd, 5);
-          x->rd = 5;
-        }
+        replace_read(x->rd, i);
+        invalidate_read(i);
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<MultLoadStoreInst *>(inst_)) {
-      throw new prelude::NotImplementedException();
+      throw prelude::NotImplementedException();
       if (x->op == arm::OpCode::LdM) {
         for (auto rd : x->rd) add_reg_write(rd, i);
       } else {
         // StM
         for (auto rd : x->rd) add_reg_read(rd, i);
       }
+      invalidate_read(i);
       add_reg_read(x->rn, i);
     } else if (auto x = dynamic_cast<PushPopInst *>(inst_)) {
       // push pop only use gpr
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
     } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
 
       // HACK: If it's load_pc label, delay store once more
@@ -414,11 +620,28 @@ void RegAllocator::perform_load_stores() {
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
       }
-    } else
+    } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
+      invalidate_read(i);
+      if (x->op == arm::OpCode::Bl) {
+        auto &label = x->l;
+        int param_cnt = x->param_cnt;
+        int reg_cnt = std::min(param_cnt, 4);
+        for (int i = 0; i < reg_cnt; i++) active.erase(Reg(i));
+        for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
+        inst_sink.push_back(std::move(f.inst[i]));
+        for (int i = reg_cnt; i < 4; i++) active.erase(Reg(i));
+      } else {
+        inst_sink.push_back(std::move(f.inst[i]));
+      }
+
+    } else {
+      invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
+    }
     if (delayed_store) {
+      // TODO: check if this is right
       auto [r, rd] = delayed_store.value();
-      write_store(r, rd);
+      replace_write({r, rd, ReplaceWriteKind::Spill}, i);
       delayed_store = {};
     }
   }
@@ -427,12 +650,24 @@ void RegAllocator::perform_load_stores() {
 void RegAllocatePass::optimize_arm(
     arm::ArmCode &arm_code, std::map<std::string, std::any> &extra_data_repo) {
   for (auto &f : arm_code.functions) {
-    optimize_func(*f);
+    optimize_func(*f, extra_data_repo);
   }
 }
 
-void RegAllocatePass::optimize_func(arm::Function &f) {
-  RegAllocator fal(f);
+void RegAllocatePass::optimize_func(
+    arm::Function &f, std::map<std::string, std::any> &extra_data_repo) {
+  auto &var_mapping_data =
+      std::any_cast<optimization::MirVariableToArmVRegType &>(
+          extra_data_repo.at(optimization::MIR_VARIABLE_TO_ARM_VREG_DATA_NAME));
+
+  auto &coloring_data = std::any_cast<
+      std::unordered_map<std::string, std::shared_ptr<ColorMap>> &>(
+      extra_data_repo.at("graph_color"));
+
+  auto f_coloring_data = coloring_data.find(f.name);
+  auto var_mapping = var_mapping_data.find(f.name);
+
+  RegAllocator fal(f, *f_coloring_data->second, var_mapping->second);
   fal.alloc_regs();
 }
 
