@@ -142,8 +142,8 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
   // If it's param, load before use
   if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
-    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, reg, Reg(REG_FP),
-                                                (v - 4) * 4));
+    inst.push_back(std::make_unique<LoadStoreInst>(
+        OpCode::LdR, reg, MemoryOperand(Reg(REG_FP), (v - 5) * 4)));
     return reg;
   } else {
     auto x = stack_space_allocation.find(v);
@@ -426,7 +426,7 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   // TODO: Will not work with more than 4 params
   // Expand stack
   if (stack_size > 0) {
-    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                 stack_size * 4));
     inst.push_back(std::make_unique<CtrlInst>(
         STACK_OFFSET_CTRL, std::make_any<int32_t>(stack_size * 4)));
@@ -455,8 +455,8 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   if (stack_size > 0) {
     inst.push_back(std::make_unique<CtrlInst>(
         STACK_OFFSET_CTRL, std::make_any<int32_t>(-(stack_size * 4))));
-    inst.push_back(
-        std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP, stack_size));
+    inst.push_back(std::make_unique<Arith3Inst>(OpCode::Add, REG_SP, REG_SP,
+                                                stack_size * 4));
   }
 
   // Move return value
