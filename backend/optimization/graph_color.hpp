@@ -95,16 +95,16 @@ class Conflict_Map {
     if (merged_var_Map.count(defVar)) {
       defVar = merged_var_Map.at(defVar);
     }
+    if (!static_Map.count(defVar)) {
+      static_Map[defVar] = std::set<mir::inst::VarId>();
+      dynamic_Map[defVar] = std::set<mir::inst::VarId>();
+    }
     for (auto useVar : useVars) {
       if (merged_var_Map.count(useVar)) {
         useVar = merged_var_Map.at(useVar);
       }
       if (defVar == useVar) {
         continue;
-      }
-      if (!static_Map.count(defVar)) {
-        static_Map[defVar] = std::set<mir::inst::VarId>();
-        dynamic_Map[defVar] = std::set<mir::inst::VarId>();
       }
       if (!static_Map.count(useVar)) {
         static_Map[useVar] = std::set<mir::inst::VarId>();
@@ -126,6 +126,8 @@ class Conflict_Map {
       edge_vars[size].insert(iter->first);
     }
   }
+
+  bool has_var(mir::inst::VarId var) { return static_Map.count(var); }
 
   void delete_edge(mir::inst::VarId var1, mir::inst::VarId var2) {
     assert(dynamic_Map.count(var1) && dynamic_Map.count(var2));
@@ -298,6 +300,11 @@ class Graph_Color : public backend::MirOptimizePass {
           cross_blk_vars.begin(), cross_blk_vars.end(),
           std::inserter(cross_use_vars, cross_use_vars.begin()));
       conflict_map->add_conflict(defVar, cross_use_vars);
+    }
+    for (auto var : cross_blk_vars) {
+      if (!conflict_map->has_var(var)) {
+        conflict_map->add_conflict(var, std::set<mir::inst::VarId>());
+      }
     }
   }
 
