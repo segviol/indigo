@@ -14,6 +14,7 @@
 
 #include "../optimization/graph_color.hpp"
 #include "../optimization/optimization.hpp"
+#include "aixlog.hpp"
 
 namespace backend::codegen {
 using namespace arm;
@@ -177,13 +178,16 @@ class RegAllocator {
   void force_free(Reg r);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
+    display_reg_name(LOG(TRACE), r);
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
       pos = p->second;
     } else {
+      LOG(TRACE) << " set";
       pos = stack_size;
       stack_size += 4;
       spill_positions.insert({r, pos + stack_offset});
     }
+    LOG(TRACE) << " " << pos << std::endl;
     return pos;
   }
   void perform_load_stores();
@@ -379,11 +383,20 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
 
 /// Replace virtual register r with real register in-place
 void RegAllocator::replace_read(Reg &r, int i) {
+  auto disp_reg = [&]() {
+    display_reg_name(LOG(TRACE), r);
+    LOG(TRACE) << " at: " << i << " ";
+  };
   if (!is_virtual_register(r)) {
+    disp_reg();
+    LOG(TRACE) << "phys" << std::endl;
     return;
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
     // This register is allocated with graph-coloring
+    disp_reg();
+    LOG(TRACE) << "graph " << reg_map_r->second << std::endl;
     r = reg_map_r->second;
+    return;
   } else if (auto spill_r = spill_positions.find(r);
              spill_r != spill_positions.end()) {
     // this register is allocated in stack
@@ -407,11 +420,19 @@ void RegAllocator::replace_read(Reg &r, int i) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset)));
     }
+    disp_reg();
+    LOG(TRACE) << "spill " << spill_pos << std::endl;
     r = rd;
+    return;
   } else {
     // is temporary register
     auto live_interval = live_intervals.at(r);
     r = alloc_transient_reg(live_interval, r);
+    disp_reg();
+    LOG(TRACE) << "transient ";
+    display_reg_name(LOG(TRACE), r);
+    LOG(TRACE) << std::endl;
+    return;
   }
 }
 
