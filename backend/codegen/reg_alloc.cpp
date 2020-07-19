@@ -337,6 +337,12 @@ void RegAllocator::replace_read(MemoryOperand &r, int i) {
 
 Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   Reg r = -1;
+  if (orig) {
+    auto a = active_reg_map.find(orig.value());
+    if (a != active_reg_map.end()) {
+      return a->second;
+    }
+  }
   for (auto reg : temp_regs) {
     if (active.find(reg) == active.end()) {
       r = reg;
