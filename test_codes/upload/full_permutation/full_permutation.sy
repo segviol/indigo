@@ -4,7 +4,8 @@ void permutation(int k, int n, int a[])
     if (k == n - 1)
 	{
 		while(i<n) {
-			putf("%d-", a[i]);
+			putint( a[i]);
+      putch(45);
             i = i + 1；
 		}
 		putch(10);

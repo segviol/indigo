@@ -49,7 +49,7 @@ int main()
 		num = getint();
 		i=0;
 		while (i<8){
-			putf("%d",out[num][i]);
+			putint(out[num][i]);
 			i=i+1;
 		} 
 		putch(10);
