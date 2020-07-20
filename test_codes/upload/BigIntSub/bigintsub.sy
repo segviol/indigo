@@ -101,7 +101,7 @@ int subtract() {
 	j = 0;
 	if (flag == 1)
 		//pp[j++] = '-';
-		putf("-");
+		putch(45);
 	k = i - 1;
 	while (k > -1) {
 		Result[j] = c[k];
