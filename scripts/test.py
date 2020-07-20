@@ -69,7 +69,7 @@ parser.add_argument('-t',
                     "--timeout",
                     default=8,
                     help="Kill tests after specified time",
-                    type=str)
+                    type=float)
 args = parser.parse_args()
 root_path = args.test_path
 
