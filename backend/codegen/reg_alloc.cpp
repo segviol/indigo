@@ -644,7 +644,10 @@ void RegAllocator::perform_load_stores() {
         // R12 should be freed whatever condition
         force_free(Reg(12));
         inst_sink.push_back(std::move(f.inst[i]));
-        for (int i = reg_cnt; i < 4; i++) active.erase(Reg(i));
+        active.erase(Reg(0));
+        active.erase(Reg(1));
+        active.erase(Reg(2));
+        active.erase(Reg(3));
         active.erase(Reg(12));
       } else {
         inst_sink.push_back(std::move(f.inst[i]));
