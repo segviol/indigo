@@ -25,12 +25,18 @@ int gcd2(int x, int y)
             return x;
 } 
 int main(){
-	int m=getint();
-	int n=getint();
-	int t1=gcd1(m,n);
-		int t2=gcd2(m,n);
-		if(t1==t2){
-			return t1;
-		}
-	return -1;
+  int num=getint();
+  while(num>0){
+	  int m=getint();
+	  int n=getint();
+	  int t1=gcd1(m,n);
+    int t2=gcd2(m,n);
+    putint(t1);
+    putch(10);
+    putint(t2);
+    putch(10);
+    num=num-1;
+  }
+
+	return 0;
 }
