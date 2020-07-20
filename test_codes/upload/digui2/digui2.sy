@@ -12,6 +12,7 @@ void DFS(int p)
 	}
 	while (i<n) { //枚举0->n-1(实际是1->n)这些数 v[i]标志这个数是否被访问过 
 		if(v[i]==1) {
+			i = i+1;
 			continue;
 		}
 		v[i]=1;
