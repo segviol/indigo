@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <assert.h>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -83,11 +84,15 @@ private:
 
   void gm_const_decl();
   void gm_const_def();
-  void gm_const_init_val(vector<SharedExNdPtr> &init_values);
+  uint32_t gm_const_init_val(vector<SharedExNdPtr> &init_values,
+                             vector<SharedExNdPtr> &dimensions,
+                             uint32_t braceLayerNum);
 
   void gm_var_decl();
   void gm_var_def();
-  void gm_init_val(vector<SharedExNdPtr> &init_values);
+  uint32_t gm_init_val(vector<SharedExNdPtr> &init_values,
+                       vector<SharedExNdPtr> &dimensions,
+                       uint32_t braceLayerNum);
 
   void gm_func_def();
   void gm_func_param(vector<SharedSyPtr> &params, int funcLayerNum,
