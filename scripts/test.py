@@ -65,6 +65,11 @@ parser.add_argument('-r',
                     "--recursively",
                     help="recursively for sub dirs",
                     action="store_true")
+parser.add_argument('-t',
+                    "--timeout",
+                    default=8,
+                    help="Kill tests after specified time",
+                    type=str)
 args = parser.parse_args()
 root_path = args.test_path
 
@@ -179,11 +184,11 @@ def test_dir(dir):
                     process = subprocess.run(["./tmp"],
                                              stdin=f,
                                              capture_output=True,
-                                             timeout=8)
+                                             timeout=args.timeout)
                 else:
                     process = subprocess.run(["./tmp"],
                                              capture_output=True,
-                                             timeout=8)
+                                             timeout=args.timeout)
 
                 return_code = process.returncode
                 my_output = process.stdout.decode("utf-8").replace("\r", "")
