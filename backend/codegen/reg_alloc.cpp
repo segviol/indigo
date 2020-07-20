@@ -186,16 +186,13 @@ class RegAllocator {
   void force_free(Reg r);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
-    display_reg_name(LOG(TRACE), r);
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
       pos = p->second;
     } else {
-      LOG(TRACE) << " set";
       pos = stack_size;
       stack_size += 4;
-      spill_positions.insert({r, pos + stack_offset});
+      spill_positions.insert({r, pos});
     }
-    LOG(TRACE) << " " << pos << std::endl;
     return pos;
   }
   void perform_load_stores();
@@ -533,10 +530,11 @@ void RegAllocator::force_free(Reg r) {
     for (auto y : active_reg_map) {
       if (y.second == r) {
         // Spill to stack
-        trace << " " << y.first << " " << y.second << std::endl;
         int stack_pos = get_or_alloc_spill_pos(y.first);
         inst_sink.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        trace << " " << y.first << " " << y.second << " @"
+              << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
         active_reg_map.erase(y.first);
         return;
