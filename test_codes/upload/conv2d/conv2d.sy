@@ -45,24 +45,8 @@ int main()
     int resH;
     int i = 0;
     int j = 0;
-    //printf("Width of pFilter: \n");
-    //scanf("%d", &filterW);
-    //printf("Height of pFilter: \n");
-    //scanf("%d", &filterH);
-    putf("Width of pFilter: ");
-    putch(10);
     filterW = getint();
-    putf("Height of pFilter: ");
-    putch(10);
     filterH = getint();
-    // for (int i = 0; i < filterH; i++)
-    // {
-    // 	for (int j = 0; j < filterW; j++)
-    // 	{
-    // 		scanf("%d", &filter[i][j]);
-    // 	}
-    // }
-    // printf("*********************************************** \n");
     while (i < filterH)
     {
         j = 0;
@@ -73,26 +57,8 @@ int main()
         }
         i = i + 1;
     }
-    putf("***********************************************");
-    putch(10);
-    /*printf("Width of array: \n");
-	scanf("%d", &arrW);
-	printf("Height of array: \n");
-	scanf("%d", &arrH);*/
-    putf("Width of array: ");
-    putch(10);
     arrW = getint();
-    putf("Height of array: ");
-    putch(10);
     arrH = getint();
-    /*for (int i = 0; i < arrH; i++)
-	{
-		for (int j = 0; j < arrW; j++)
-		{
-			scanf("%d", &array[i][j]);
-		}
-	}
-	printf("*********************************************** \n");*/
     while (i < arrH)
     {
         j = 0;
@@ -103,28 +69,17 @@ int main()
         }
         i = i + 1;
     }
-    putf("***********************************************");
-    putch(10);
     Conv2(filterW, filterH, arrW, arrH, filter, array);
 
     resH = filterH + arrH - 1;
     resW = filterW + arrW - 1;
-
-    // printf("res: \n");
-    // for (int i = 0; i < resH; i++)
-    // {
-    //     for (int j = 0; j < resW; j++)
-    //     {
-    //         printf("%d ", result[i][j]);
-    //     }
-    //     printf("\n");
-    // }
     while (i < resH)
     {
         j = 0;
         while (j < resW)
         {
-            putf("%d ", result[i][j]);
+            putint(result[i][j]);
+            putch(32);
             j = j + 1;
         }
         putch(10);
