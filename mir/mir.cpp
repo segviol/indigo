@@ -198,7 +198,7 @@ void MirFunction::display(std::ostream& o) const {
     }
     o << ") -> " << *return_ty << " {" << std::endl;
     for (auto& i : variables) {
-      o << "\t$" << i.first << ": " << i.second << std::endl;
+      o << "\t" << VarId(i.first) << ": " << i.second << std::endl;
       ;
     }
     for (auto i = basic_blks.begin(); i != basic_blks.end(); i++) {
