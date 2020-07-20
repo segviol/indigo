@@ -294,16 +294,16 @@ class BlockNodes {
       }
     }
     inst.clear();
-    for (auto& varpair : var_map) {
-      if (varpair.first > 10000) {
-        break;
-      }
-      if (varpair.first >= 1) {
-        inst.push_back(std::make_unique<mir::inst::AssignInst>(
-            std::get<mir::inst::VarId>(nodes[varpair.second.id]->mainVar),
-            varpair.first));
-      }
-    }
+    // for (auto& varpair : var_map) {
+    //   if (varpair.first > 10000) {
+    //     break;
+    //   }
+    //   if (varpair.first >= 1) {
+    //     inst.push_back(std::make_unique<mir::inst::AssignInst>(
+    //         std::get<mir::inst::VarId>(nodes[varpair.second.id]->mainVar),
+    //         varpair.first));
+    //   }
+    // }
     std::reverse(exportQueue.begin(), exportQueue.end());
     for (auto idx : exportQueue) {
       auto& node = nodes[idx];
@@ -519,10 +519,14 @@ class Common_Expr_Del : public backend::MirOptimizePass {
         }
         case mir::inst::InstKind::Assign: {
           auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
-          if ((assignInst->src.index() == 0 ||
-               !blnd.query_var(std::get<mir::inst::VarId>(assignInst->src)))) {
+          if ((assignInst->src.index() == 0
+               // ||!blnd.query_var(std::get<mir::inst::VarId>(assignInst->src))
+               )) {
             blnd.add_leaf_node(assignInst->src, assignInst->dest);
           } else {
+            if (!blnd.query_var(std::get<mir::inst::VarId>(assignInst->src))) {
+              blnd.add_leaf_node(std::get<mir::inst::VarId>(assignInst->src));
+            }
             auto nodeId =
                 blnd.query_nodeId(std::get<mir::inst::VarId>(assignInst->src));
             /*
