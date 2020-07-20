@@ -1245,6 +1245,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
+      map<mir::inst::VarId, mir::inst::VarId>::iterator iet;
       for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
         map<mir::inst::VarId, mir::inst::VarId>::iterator iet1;
         for (iet1 = redundantphi.begin(); iet1 != redundantphi.end(); iet1++) {
@@ -1356,7 +1357,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
         }
       }
       // delete define
-      map<mir::inst::VarId, mir::inst::VarId>::iterator iet;
+      
       for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
         vector<uint32_t>::iterator fi =
             find(defined.begin(), defined.end(), iet->first);
