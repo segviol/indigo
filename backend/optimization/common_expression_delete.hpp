@@ -173,6 +173,9 @@ class BlockNodes {
     NodeId nodeId(id);
     auto node = std::make_shared<Node>();
     node->value = val;
+    if (val.index() == 1) {
+      var_map[std::get<mir::inst::VarId>(val)] = nodeId;
+    }
     nodes.push_back(node);
     var_map[var] = nodeId;
     node_map[*node] = id;
@@ -343,8 +346,8 @@ class BlockNodes {
                 break;
               }
               case ExtraNormOp::Assign: {
-                auto src = convert_operand_to_value(node->operands[0]);
-
+                auto srcId = std::get<NodeId>(node->operands[0]);
+                auto src = nodes[srcId.id]->mainVar;
                 auto assignInst = std::make_unique<mir::inst::AssignInst>(
                     std::get<mir::inst::VarId>(node->mainVar), src);
                 inst.push_back(std::move(assignInst));
@@ -526,7 +529,6 @@ class Common_Expr_Del : public backend::MirOptimizePass {
               blnd.add_var(assignInst->dest, nodeId);
             } else {
               auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-              blnd.add_leaf_node(srcvar);
               std::vector<mir::inst::Value> values;
               values.push_back(srcvar);
               auto op = ExtraNormOp::Assign;
