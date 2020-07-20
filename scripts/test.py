@@ -163,7 +163,7 @@ def test_dir(dir):
                     str_stdout = ""
 
                 with open(format_compiler_output_file_name(new_path, 'stdout'),
-                          "w") as f:
+                          "wb") as f:
                     f.write(stdout)
 
                 fail_list.append({
