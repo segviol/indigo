@@ -20,6 +20,8 @@ namespace backend::codegen {
 using namespace arm;
 
 const std::set<Reg> GP_REGS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12};
+const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 9};
 
 /// An interval represented by this struct is a semi-open interval
 /// [start, end) where start means this value is first written and end means
@@ -76,8 +78,6 @@ struct ReplaceWriteAction {
 };
 
 using ColorMap = ::optimization::graph_color::Color_Map;
-
-const std::set<Reg> temp_regs = {0, 1, 2, 3, 12};
 
 class RegAllocator {
  public:
@@ -186,16 +186,13 @@ class RegAllocator {
   void force_free(Reg r);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
-    display_reg_name(LOG(TRACE), r);
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
       pos = p->second;
     } else {
-      LOG(TRACE) << " set";
       pos = stack_size;
       stack_size += 4;
-      spill_positions.insert({r, pos + stack_offset});
+      spill_positions.insert({r, pos});
     }
-    LOG(TRACE) << " " << pos << std::endl;
     return pos;
   }
   void perform_load_stores();
@@ -311,7 +308,7 @@ void RegAllocator::construct_reg_map() {
     if (color != color_map.end()) {
       if (color->second != -1) {
         // Global register id starts with r4;
-        auto reg = Reg(color->second + 4);
+        auto reg = GLOB_REGS[color->second];
         reg_map.insert({vreg_id, reg});
         used_regs.insert(reg);
         {
@@ -366,7 +363,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
       return a->second;
     }
   }
-  for (auto reg : temp_regs) {
+  for (auto reg : TEMP_REGS) {
     if (active.find(reg) == active.end()) {
       r = reg;
       break;
@@ -533,10 +530,11 @@ void RegAllocator::force_free(Reg r) {
     for (auto y : active_reg_map) {
       if (y.second == r) {
         // Spill to stack
-        trace << " " << y.first << " " << y.second << std::endl;
         int stack_pos = get_or_alloc_spill_pos(y.first);
         inst_sink.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        trace << " " << y.first << " " << y.second << " @"
+              << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
         active_reg_map.erase(y.first);
         return;
@@ -643,15 +641,18 @@ void RegAllocator::perform_load_stores() {
         int reg_cnt = std::min(param_cnt, 4);
         for (int i = 0; i < reg_cnt; i++) active.erase(Reg(i));
         for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
+        // R12 should be freed whatever condition
+        force_free(Reg(12));
         inst_sink.push_back(std::move(f.inst[i]));
         for (int i = reg_cnt; i < 4; i++) active.erase(Reg(i));
+        active.erase(Reg(12));
       } else {
         inst_sink.push_back(std::move(f.inst[i]));
       }
     } else if (auto x = dynamic_cast<CtrlInst *>(inst_)) {
       if (x->key == "offset_stack") {
         int offset = std::any_cast<int>(x->val);
-        stack_offset -= offset;
+        stack_offset += offset;
       }
       invalidate_read(i);
       inst_sink.push_back(std::move(f.inst[i]));
