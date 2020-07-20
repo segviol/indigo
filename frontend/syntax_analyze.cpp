@@ -107,7 +107,13 @@ void SyntaxAnalyze::gm_const_def() {
 
   match_one_word(Token::ASSIGN);
 
-  gm_const_init_val(init_values);
+  if (try_word(1, Token::LBRACE)) {
+    match_one_word(Token::LBRACE);
+    gm_const_init_val(init_values, dimensions, 0);
+    match_one_word(Token::RBRACE);
+  } else {
+    gm_const_init_val(init_values, dimensions, 0);
+  }
 
   if (init_values.size() > 0) {
     for (auto i : init_values) {
@@ -131,22 +137,48 @@ void SyntaxAnalyze::gm_const_def() {
   symbolTable.push_symbol(symbol);
 }
 
-void SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values) {
-  if (try_word(1, Token::LBRACE)) {
-    match_one_word(Token::LBRACE);
-    if (!try_word(1, Token::RBRACE)) {
-      gm_const_init_val(init_values);
-      while (try_word(1, Token::COMMA)) {
-        match_one_word(Token::COMMA);
-        gm_const_init_val(init_values);
-      }
+// the caller will depackage one layer of brace before call this function
+uint32_t SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values,
+                                          vector<SharedExNdPtr> &dimensions,
+                                          uint32_t braceLayerNum) {
+  uint32_t totalValueNum;
+  uint32_t nowValueNum;
+
+  totalValueNum = 1;
+  for (int i = braceLayerNum; i < dimensions.size(); i++) {
+    totalValueNum *= dimensions.at(i)->_value;
+  }
+  nowValueNum = 0;
+
+  while (!try_word(1, Token::RBRACE, Token::COMMA, Token::SEMICN)) {
+    if (try_word(1, Token::LBRACE)) {
+      match_one_word(Token::LBRACE);
+
+      nowValueNum +=
+          gm_const_init_val(init_values, dimensions, braceLayerNum + 1);
+
+      match_one_word(Token::RBRACE);
+    } else {
+      nowValueNum++;
+      SharedExNdPtr value;
+      value = gm_const_exp();
+      init_values.push_back(value);
     }
-    match_one_word(Token::RBRACE);
-  } else {
+    if (try_word(1, Token::COMMA)) {
+      match_one_word(Token::COMMA);
+    }
+  }
+
+  for (; nowValueNum < totalValueNum; nowValueNum++) {
     SharedExNdPtr value;
-    value = gm_const_exp();
+    value = SharedExNdPtr(new ExpressNode());
+    value->_type = NodeType::CONST;
+    value->_operation = OperationType::NUMBER;
+    value->_value = 0;
     init_values.push_back(value);
   }
+
+  return nowValueNum;
 }
 
 void SyntaxAnalyze::gm_var_decl() {
@@ -184,7 +216,13 @@ void SyntaxAnalyze::gm_var_def() {
 
   if (try_word(1, Token::ASSIGN)) {
     match_one_word(Token::ASSIGN);
-    gm_init_val(init_values);
+    if (try_word(1, Token::LBRACE)) {
+      match_one_word(Token::LBRACE);
+      gm_init_val(init_values, dimensions, 0);
+      match_one_word(Token::RBRACE);
+    } else {
+      gm_init_val(init_values, dimensions, 0);
+    }
   }
 
   if (kind == SymbolKind::INT) {
@@ -259,22 +297,46 @@ void SyntaxAnalyze::gm_var_def() {
   symbolTable.push_symbol(symbol);
 }
 
-void SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values) {
-  if (try_word(1, Token::LBRACE)) {
-    match_one_word(Token::LBRACE);
-    if (!try_word(1, Token::RBRACE)) {
-      gm_init_val(init_values);
-      while (try_word(1, Token::COMMA)) {
-        match_one_word(Token::COMMA);
-        gm_init_val(init_values);
-      }
+uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
+                                    vector<SharedExNdPtr> &dimensions,
+                                    uint32_t braceLayerNum) {
+  uint32_t totalValueNum;
+  uint32_t nowValueNum;
+
+  totalValueNum = 1;
+  for (int i = braceLayerNum; i < dimensions.size(); i++) {
+    totalValueNum *= dimensions.at(i)->_value;
+  }
+  nowValueNum = 0;
+
+  while (!try_word(1, Token::RBRACE, Token::COMMA, Token::SEMICN)) {
+    if (try_word(1, Token::LBRACE)) {
+      match_one_word(Token::LBRACE);
+
+      nowValueNum += gm_init_val(init_values, dimensions, braceLayerNum + 1);
+
+      match_one_word(Token::RBRACE);
+    } else {
+      nowValueNum++;
+      SharedExNdPtr value;
+      value = gm_exp();
+      init_values.push_back(value);
     }
-    match_one_word(Token::RBRACE);
-  } else {
+    if (try_word(1, Token::COMMA)) {
+      match_one_word(Token::COMMA);
+    }
+  }
+
+  for (; nowValueNum < totalValueNum; nowValueNum++) {
     SharedExNdPtr value;
-    value = gm_exp();
+    value = SharedExNdPtr(new ExpressNode());
+    value->_type = NodeType::CONST;
+    value->_operation = OperationType::NUMBER;
+    value->_value = 0;
     init_values.push_back(value);
   }
+
+  return nowValueNum;
 }
 
 void SyntaxAnalyze::hp_gn_binary_mir(string tmpName, SharedExNdPtr first,
@@ -1326,6 +1388,10 @@ bool SyntaxAnalyze::match_one_word(Token tk) {
       matched_index++;
       return_value = true;
     }
+  }
+  else
+  {
+      assert(false);
   }
   return return_value;
 }
