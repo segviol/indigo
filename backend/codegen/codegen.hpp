@@ -98,7 +98,7 @@ class Codegen final {
   std::map<arm::Label, arm::ConstValue> consts;
 
   std::map<mir::types::LabelId, std::set<mir::inst::VarId>> var_use;
-  std::map<mir::inst::VarId, mir::inst::VarId> var_collapse;
+  std::multimap<mir::inst::VarId, mir::inst::VarId> var_collapse;
   std::map<mir::inst::VarId, arm::Reg> fixed_vars;
   std::map<mir::inst::VarId, arm::Reg> phi_reg;
 
@@ -121,8 +121,6 @@ class Codegen final {
   arm::Reg alloc_vd();
   arm::Reg alloc_vq();
 
-  arm::Reg get_or_alloc_phi_reg(mir::inst::VarId v);
-
   arm::Operand2 translate_value_to_operand2(mir::inst::Value& v);
   arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
@@ -137,7 +135,7 @@ class Codegen final {
   void init_reg_map();
   void deal_call(mir::inst::CallInst& call);
   void deal_phi(mir::inst::PhiInst& phi);
-  std::optional<mir::inst::VarId> get_collapsed_var(mir::inst::VarId i);
+  // std::optional<mir::inst::VarId> get_collapsed_var(mir::inst::VarId i);
   void generate_startup();
   void generate_return_and_cleanup();
 

@@ -193,42 +193,6 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_phi_reg(mir::inst::VarId v_) {
-  auto v = get_collapsed_var(v_).value();
-  auto found = phi_reg.find(v);
-  if (found != phi_reg.end()) {
-    return found->second;
-  } else {
-    // TODO: Allow other types of register to be phi register
-    auto gp = alloc_vgp();
-    phi_reg.insert({v, gp});
-    return gp;
-  }
-}
-
-std::optional<mir::inst::VarId> Codegen::get_collapsed_var(mir::inst::VarId i) {
-  auto res = this->var_collapse.find(i);
-  if (res != var_collapse.end()) {
-    return res->second;
-    // std::set<mir::inst::VarId> path;
-    // while (true) {
-    //   auto res_ = this->var_collapse.find(res->second);
-    //   if (res_ == var_collapse.end() || path.find(res_->second) !=
-    //   path.end()) {
-    //     auto min = *path.begin();
-    //     for (auto i : path) {
-    //       var_collapse.insert_or_assign(i, min);
-    //     }
-    //     return min;
-    //   } else {
-    //     path.insert(res_->second);
-    //   }
-    // }
-  } else {
-    return {};
-  }
-}
-
 void Codegen::scan() {
   for (auto& bb : func.basic_blks) {
     std::set<mir::inst::VarId> bb_var_use;
@@ -266,7 +230,7 @@ void Codegen::deal_phi(mir::inst::PhiInst& phi) {
   LOG(TRACE) << dest << " <- ";
   for (auto& x : phi.vars) {
     LOG(TRACE) << x << " ";
-    var_collapse.insert_or_assign(x, dest);
+    var_collapse.insert({x, dest});
   }
   LOG(TRACE) << std::endl;
 }
@@ -669,11 +633,13 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 
 void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId> i) {
   for (auto id : i) {
-    auto collapsed = get_collapsed_var(id);
-    if (!collapsed) continue;
-    auto dest_reg = get_or_alloc_vgp(collapsed.value());
-    inst.push_back(std::make_unique<Arith2Inst>(
-        OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
+    auto collapsed = var_collapse.equal_range(id);
+    if (collapsed.first == collapsed.second) continue;
+    for (auto it = collapsed.first; it != collapsed.second; it++) {
+      auto dest_reg = get_or_alloc_vgp(it->second);
+      inst.push_back(std::make_unique<Arith2Inst>(
+          OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
+    }
   }
 }
 
