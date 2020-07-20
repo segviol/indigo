@@ -16,7 +16,7 @@ int main(){
     int needle;
     len = getarray(haystack);
     needle = getint();
-    pos = linearsearch(haystack, len, needle);
+    pos = linearSearch(haystack, len, needle);
     putint(pos);
     return 0;
 }
