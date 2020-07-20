@@ -1392,10 +1392,8 @@ bool SyntaxAnalyze::match_one_word(Token tk) {
       matched_index++;
       return_value = true;
     }
-  }
-  else
-  {
-      assert(false);
+  } else {
+    assert(false);
   }
   return return_value;
 }
@@ -1416,6 +1414,8 @@ const Word &SyntaxAnalyze::get_least_matched_word() {
 const Word &SyntaxAnalyze::get_next_unmatched_word() {
   if (matched_index + 1 < word_list.size()) {
     return word_list[matched_index + 1];
+  } else {
+    assert(false);
   }
 }
 
