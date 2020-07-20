@@ -69,9 +69,11 @@ class Node {
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
   void init_main_var() {
-    if (value.has_value() && value->index() == 0 ||
-        value.has_value() && value->index() == 1 &&
-            std::get<mir::inst::VarId>(value.value()).id > 10000) {
+    if (value.has_value()
+        // && value->index() == 0 ||
+        //     value.has_value() && value->index() == 1 &&
+        //         std::get<mir::inst::VarId>(value.value()).id > 10000
+    ) {
       mainVar = value.value();
     } else {
       // if (local_vars.size()) {  // func para has high main priority
