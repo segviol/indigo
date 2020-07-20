@@ -525,7 +525,9 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           } else {
             auto nodeId =
                 blnd.query_nodeId(std::get<mir::inst::VarId>(assignInst->src));
-            if (!blnd.nodes[nodeId.id]->is_leaf) {
+            if (!blnd.nodes[nodeId.id]->is_leaf &&
+                variables[std::get<mir::inst::VarId>(assignInst->src)]
+                    .is_temp_var) {
               blnd.add_var(assignInst->dest, nodeId);
             } else {
               auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
