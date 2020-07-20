@@ -525,24 +525,32 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           } else {
             auto nodeId =
                 blnd.query_nodeId(std::get<mir::inst::VarId>(assignInst->src));
-            if (!blnd.nodes[nodeId.id]->is_leaf &&
-                variables[std::get<mir::inst::VarId>(assignInst->src)]
-                    .is_temp_var) {
-              blnd.add_var(assignInst->dest, nodeId);
+            /*
+
+            the comments is because the semantics of phi must be remained
+            during the mir proecess, and the assignInst excuting which
+            directly add new var on the node will destroy the semantics
+
+            */
+
+            // if (!blnd.nodes[nodeId.id]->is_leaf &&
+            //     variables[std::get<mir::inst::VarId>(assignInst->src)]
+            //         .is_temp_var) {
+            //   blnd.add_var(assignInst->dest, nodeId);
+            // } else {
+            auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
+            std::vector<mir::inst::Value> values;
+            values.push_back(srcvar);
+            auto op = ExtraNormOp::Assign;
+            auto operands = blnd.cast_operands(values);
+            if (!blnd.query_node(op, operands)) {
+              blnd.add_node(op, operands, assignInst->dest);
             } else {
-              auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-              std::vector<mir::inst::Value> values;
-              values.push_back(srcvar);
-              auto op = ExtraNormOp::Assign;
-              auto operands = blnd.cast_operands(values);
-              if (!blnd.query_node(op, operands)) {
-                blnd.add_node(op, operands, assignInst->dest);
-              } else {
-                auto nodeId = blnd.query_nodeId(op, operands);
-                blnd.add_var(assignInst->dest, nodeId.id);
-              }
+              auto nodeId = blnd.query_nodeId(op, operands);
+              blnd.add_var(assignInst->dest, nodeId.id);
             }
           }
+          // }
           break;
         }
         case mir::inst::InstKind::Load: {
