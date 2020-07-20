@@ -594,6 +594,8 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     if (index->_type == NodeType::CONST && d->_type == NodeType::CONST) {
       mulNode->_type = NodeType::CONST;
       mulNode->_value = index->_value * d->_value;
+      rightvalue1.emplace<0>(mulNode->_value);
+      irGenerator.ir_assign(tmpOff, rightvalue1);
     } else {
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
@@ -612,6 +614,8 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     if (mulNode->_type == NodeType::CONST && index2->_type == NodeType::CONST) {
       addNode->_type = NodeType::CONST;
       addNode->_value = mulNode->_value + index2->_value;
+      rightvalue1.emplace<0>(addNode->_value);
+      irGenerator.ir_assign(tmpOff, rightvalue1);
     } else {
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
