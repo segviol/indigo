@@ -238,9 +238,18 @@ void RegAllocator::alloc_regs() {
                                                  Operand2(offset_size)));
     }
 
-    f.inst.insert(f.inst.begin() + 2,
-                  std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
-                                               Operand2(stack_size)));
+    if (stack_size < 1024) {
+      f.inst.insert(f.inst.begin() + 2,
+                    std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
+                                                 Operand2(stack_size)));
+    } else {
+      f.inst.insert(
+          f.inst.begin() + 2,
+          std::make_unique<Arith2Inst>(OpCode::Mov, 12, Operand2(stack_size)));
+      f.inst.insert(f.inst.begin() + 3,
+                    std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
+                                                 RegisterOperand(12)));
+    }
 
     if (use_stack_param) {
       f.inst.insert(f.inst.end() - 2,
@@ -505,7 +514,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
       auto &x = inst_sink.back();
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
         if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
-            x_->op == arm::OpCode::StR &&
+            x_->op == arm::OpCode::StR && x__->r1 == rd &&
             (*x__) == MemoryOperand(REG_SP, pos + stack_offset)) {
           del = true;
         }
@@ -634,6 +643,12 @@ void RegAllocator::perform_load_stores() {
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
       }
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
+      if (delayed_store) {
+        // TODO: check if this is right
+        auto [r, rd] = delayed_store.value();
+        replace_write({r, rd, ReplaceWriteKind::Spill}, i);
+        delayed_store = {};
+      }
       invalidate_read(i);
       if (x->op == arm::OpCode::Bl) {
         auto &label = x->l;

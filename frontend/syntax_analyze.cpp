@@ -163,6 +163,10 @@ uint32_t SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_const_exp();
       init_values.push_back(value);
+      if (dimensions.size() == 0)
+      {
+          break;
+      }
     }
     if (try_word(1, Token::COMMA)) {
       match_one_word(Token::COMMA);
@@ -321,6 +325,10 @@ uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_exp();
       init_values.push_back(value);
+      if (dimensions.size() == 0)
+      {
+          break;
+      }
     }
     if (try_word(1, Token::COMMA)) {
       match_one_word(Token::COMMA);
@@ -790,19 +798,21 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
   match_one_word(Token::LPARENT);
   if (!try_word(1, Token::RPARENT)) {
     if (name == "putf") {
+      string strName;
+
       match_one_word(Token::STRCON);
 
-      irGenerator.ir_declare_string(get_least_matched_word().get_self());
+      strName =
+          irGenerator.ir_declare_string(get_least_matched_word().get_self());
 
       param = SharedExNdPtr(new ExpressNode());
       param->_type = NodeType::VAR;
       param->_operation = OperationType::STRING;
-      param->_name =
-          irGenerator.getStringName(get_least_matched_word().get_self());
+      param->_name = strName;
     } else {
       param = gm_exp();
-      params.push_back(param);
     }
+    params.push_back(param);
 
     while (try_word(1, Token::COMMA)) {
       match_one_word(Token::COMMA);
