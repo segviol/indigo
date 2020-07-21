@@ -1,6 +1,6 @@
+#include <algorithm>
 #include <stdint.h>
 #include <vector>
-#include <algorithm>
 
 #include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"
@@ -52,10 +52,10 @@ public:
 
 class FunctionData {
 public:
-    std::map<string, LabelId> _localValueNameToId;
-    std::vector<string> _freeList;
-    std::uint32_t _nowTmpId;
-    std::uint32_t _nowLocalValueId;
+  std::map<string, LabelId> _localValueNameToId;
+  std::vector<string> _freeList;
+  std::uint32_t _nowTmpId;
+  std::uint32_t _nowLocalValueId;
 };
 
 class JumpLabelId {
@@ -85,13 +85,13 @@ public:
 
   void ir_declare_value(string name, symbol::SymbolKind kind, int id,
                         int len = 0);
-  void ir_declare_string(string str);
+  string ir_declare_string(string str);
   void ir_declare_const(string name, std::uint32_t value, int id);
   void ir_declare_const(string name, std::vector<std::uint32_t> values, int id);
   void ir_declare_function(string _name, symbol::SymbolKind kind);
   void ir_leave_function();
   void ir_declare_param(string name, symbol::SymbolKind kind, int id);
-  void ir_finish_param_declare(std::vector<string>& paramsName);
+  void ir_finish_param_declare(std::vector<string> &paramsName);
   void ir_end_of_program();
   void ir_begin_of_program();
 
@@ -117,7 +117,7 @@ public:
   WhileLabels checkWhile();
   void popWhile();
 
-  string getStringName(string str);
+  string getStringName(uint32_t id);
   string getConstName(string name, int id);
   string getTmpName(std::uint32_t id);
   string getVarName(string name, std::uint32_t id);
@@ -133,6 +133,8 @@ private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
+  const uint32_t _InitStringId = 0;
+  const LabelId _InitLabelId = 0;
   const LabelId _InitLocalVarId = 1;
   const LabelId _InitTmpVarId = (1 << 15);
   const LabelId _VoidVarId = (1 << 20);
@@ -149,12 +151,13 @@ private:
   const string _GenSaveParamVarNamePrefix = "$$4";
   const string _FunctionNamePrefix = "$$5";
 
-
   LabelId _nowLabelId;
+  uint32_t _nowStringId;
 
   std::vector<WhileLabels> _whileStack;
   std::vector<string> _funcStack;
   std::map<string, FunctionData> _funcNameToFuncData;
+  std::map<string, string> _stringToName;
 
   // name of {local value, global value}
   LabelId nameToLabelId(string name);
@@ -164,10 +167,10 @@ private:
 
   void insertFunc(string key, shared_ptr<mir::inst::MirFunction> func);
   void insertLocalValue(string name, std::uint32_t id, Variable &variable);
-  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId, string name);
+  void changeLocalValueId(std::uint32_t destId, std::uint32_t sourceId,
+                          string name);
 
   string getGenSaveParamVarName(uint32_t id);
-
 };
 } // namespace front::irGenerator
 

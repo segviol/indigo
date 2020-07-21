@@ -40,8 +40,8 @@ void irGenerator::outputInstructions(std::ostream &out) {
   }
 }
 
-string irGenerator::getStringName(string str) {
-  return _StringNamePrefix + "_" + str;
+string irGenerator::getStringName(uint32_t id) {
+  return _StringNamePrefix + "_" + std::to_string(id);
 }
 
 string irGenerator::getConstName(string name, int id) {
@@ -192,7 +192,8 @@ void irGenerator::ir_begin_of_program() {
         func->variables;
   }
 
-  _nowLabelId = 0;
+  _nowLabelId = _InitLabelId;
+  _nowStringId = _InitStringId;
 
   ir_declare_function(_GlobalInitFuncName, symbol::SymbolKind::INT);
 }
@@ -249,11 +250,14 @@ void irGenerator::ir_op(LeftVal dest, RightVal op1, RightVal op2,
   _funcNameToInstructions[_funcStack.back()].push_back(opInst);
 }
 
-void irGenerator::ir_declare_string(string str) {
-  if (_package.global_values.count(getStringName(str)) == 0) {
+string irGenerator::ir_declare_string(string str) {
+  if (_stringToName.count(str) == 0) {
     GlobalValue globalValue = GlobalValue(str);
-    _package.global_values[getStringName(str)] = globalValue;
+    _package.global_values[getStringName(_nowStringId)] = globalValue;
+    _stringToName[str] = getStringName(_nowStringId);
+    _nowStringId++;
   }
+  return _stringToName[str];
 }
 
 void irGenerator::ir_declare_const(string name, std::uint32_t value, int id) {
