@@ -131,6 +131,11 @@ void SyntaxAnalyze::gm_const_def() {
     for (auto var : dimensions) {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
+    for (auto value : init_values)
+    {
+        std::static_pointer_cast<ArraySymbol>(symbol)->addValue(value);
+    }
+
     irGenerator.ir_declare_const(name, inits, symbol->getId());
   }
 
@@ -163,9 +168,8 @@ uint32_t SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_const_exp();
       init_values.push_back(value);
-      if (dimensions.size() == 0)
-      {
-          break;
+      if (dimensions.size() == 0) {
+        break;
       }
     }
     if (try_word(1, Token::COMMA)) {
@@ -325,9 +329,8 @@ uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_exp();
       init_values.push_back(value);
-      if (dimensions.size() == 0)
-      {
-          break;
+      if (dimensions.size() == 0) {
+        break;
       }
     }
     if (try_word(1, Token::COMMA)) {
@@ -694,12 +697,23 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
         node->_children.size() <
             std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
-    } else {
+    }
+    else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() && addr->_children.back()->_type == NodeType::CONST)
+    {
+        SharedExNdPtr constValue;
+
+        constValue = SharedExNdPtr(new ExpressNode());
+        constValue->_type = NodeType::CONST;
+        constValue->_operation = OperationType::NUMBER;
+        constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)->_values.at(addr->_children.back()->_value)->_value;
+        node = constValue;
+    }
+    else{
       SharedExNdPtr loadValue;
       string value;
 
       value = irGenerator.getNewTmpValueName(TyKind::Int);
-      loadValue = SharedExNdPtr(new ExpressNode);
+      loadValue = SharedExNdPtr(new ExpressNode());
       loadValue->_type = NodeType::VAR;
       loadValue->_operation = OperationType::LOAD;
       loadValue->_name = value;
@@ -799,16 +813,19 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
   if (!try_word(1, Token::RPARENT)) {
     if (name == "putf") {
       string strName;
+      string tmpPtrName;
 
       match_one_word(Token::STRCON);
 
       strName =
           irGenerator.ir_declare_string(get_least_matched_word().get_self());
+      tmpPtrName = irGenerator.getNewTmpValueName(TyKind::Ptr);
+      irGenerator.ir_ref(tmpPtrName, strName);
 
       param = SharedExNdPtr(new ExpressNode());
       param->_type = NodeType::VAR;
-      param->_operation = OperationType::STRING;
-      param->_name = strName;
+      param->_operation = OperationType::PTR;
+      param->_name = tmpPtrName;
     } else {
       param = gm_exp();
     }
