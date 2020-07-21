@@ -238,9 +238,18 @@ void RegAllocator::alloc_regs() {
                                                  Operand2(offset_size)));
     }
 
-    f.inst.insert(f.inst.begin() + 2,
-                  std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
-                                               Operand2(stack_size)));
+    if (stack_size < 1024) {
+      f.inst.insert(f.inst.begin() + 2,
+                    std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
+                                                 Operand2(stack_size)));
+    } else {
+      f.inst.insert(
+          f.inst.begin() + 2,
+          std::make_unique<Arith2Inst>(OpCode::Mov, 12, Operand2(stack_size)));
+      f.inst.insert(f.inst.begin() + 3,
+                    std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
+                                                 RegisterOperand(12)));
+    }
 
     if (use_stack_param) {
       f.inst.insert(f.inst.end() - 2,
