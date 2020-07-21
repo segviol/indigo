@@ -247,11 +247,18 @@ void SyntaxAnalyze::gm_var_def() {
 
     init = !init_values.empty();
     if (inGlobalLayer()) {
-      for (auto value : init_values) {
-        if (value->_type == NodeType::CONST) {
-          inits.push_back(value->_value);
-        } else {
+      if (init_values.empty()) {
+        for (int i = 0;
+             i < std::static_pointer_cast<ArraySymbol>(symbol)->getLen(); i++) {
           inits.push_back(0);
+        }
+      } else {
+        for (auto value : init_values) {
+          if (value->_type == NodeType::CONST) {
+            inits.push_back(value->_value);
+          } else {
+            inits.push_back(0);
+          }
         }
       }
     }
