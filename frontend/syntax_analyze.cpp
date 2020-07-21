@@ -163,6 +163,10 @@ uint32_t SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_const_exp();
       init_values.push_back(value);
+      if (dimensions.size() == 0)
+      {
+          break;
+      }
     }
     if (try_word(1, Token::COMMA)) {
       match_one_word(Token::COMMA);
@@ -321,6 +325,10 @@ uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
       SharedExNdPtr value;
       value = gm_exp();
       init_values.push_back(value);
+      if (dimensions.size() == 0)
+      {
+          break;
+      }
     }
     if (try_word(1, Token::COMMA)) {
       match_one_word(Token::COMMA);
