@@ -249,13 +249,14 @@ class Conflict_Map {
       remove_Nodes.pop();
     }
     for (auto& pair : merged_Map) {
-      if (color_map->count(pair.first)) {
-        auto color = color_map->at(pair.first);
-        for (auto var : pair.second) {
-          color_map->insert(std::make_pair(var, color));
-        }
-        color_map->erase(pair.first);
+      if (!color_map->count(pair.first)) {
+        color_map->insert(std::make_pair(pair.first, -1));
       }
+      auto color = color_map->at(pair.first);
+      for (auto var : pair.second) {
+        color_map->insert(std::make_pair(var, color));
+      }
+      color_map->erase(pair.first);
     }
   }
 };
