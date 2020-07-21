@@ -21,7 +21,7 @@ int find(int data){
       i=i+1;
    }   
    putint(comparisons);
-   putchar(10);
+   putch(10);
    return index;
 }
 
@@ -32,7 +32,7 @@ void display(){
       putint(intArray[i]);
       i=i+1;
    }
-   putchar(10);
+   putch(10);
 }
 
 int main(){
@@ -49,6 +49,6 @@ int main(){
    display();
    location = find(QQQQ);
    putint(location);
-   putchar(10);
+   putch(10);
    return 0;
 }
