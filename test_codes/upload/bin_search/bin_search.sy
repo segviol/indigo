@@ -56,6 +56,25 @@ int find(int n,int a[],int l)
   }
   return -1;
 }
+
+int fun(int arr[], int start, int end, int val)
+{
+    int mid;
+    mid = (start + end) / 2;
+
+    if (arr[mid] == val)
+        return mid;
+    if (start < end)
+    {
+        if (arr[mid] > val)
+            return fun(arr, start, mid, val);
+        else
+            return fun(arr, mid + 1, end, val);
+    }
+    else
+        return -1;
+}
+
 int main(){
   int a[23]={2,3,5,6,7,8,9,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60};
   int b[100];
@@ -70,9 +89,19 @@ int main(){
   while(op!=-1){
     n=getint();
     if(op==0){
-    putint(find(n,a,l1));
+      int x=find(n,a,l1);
+      int y=fun(a,0,l1-1,n);
+      if(x!=y){
+        return -1;
+      }
+      putint(x);
     }else{
-      putint(find(n,b,l2));
+      int x=find(n,b,l2);
+      int y=fun(b,0,l2-1,n);
+      if(x!=y){
+        return -1;
+      }
+      putint(x);
     }
     putch(10);
     op=getint();

@@ -1,0 +1,104 @@
+const int zzzz[100]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+int xx[100]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+const int Ac = -zzzz[2],am=+zzzz[10];
+int z[100]={0,197,198},B;
+void test(int a)
+{
+	a = Ac * am;
+}
+int compare(int a,int b)
+{
+	B=0x68-a;
+    if(a>b){
+	    return a;
+	}else{
+	    return b;
+	}
+}
+int Factorial(int n)
+{
+	if(n==zzzz[1])
+	return 1;
+	else
+	return n*Factorial(n-1);
+}
+int gets1(int var1,int var2){
+    int change1;
+    change1 = var1 * var2;
+    return change1;
+}
+int gets2(int var1,int var2){
+    int change1;
+    change1 = var1 / var2;
+    return change1;
+}
+int change(int Q)
+{
+    int i,j;
+    i = +xx[10];
+    j = 0;
+    while(j<=i){
+    	Q=Q-am/xx[2]+1;
+        i=i-1;
+        j=j+2;
+	}
+    return Q;
+}
+
+const int alpha = 0x2a,a=0172;
+int main()
+{
+    const int sadf=100;
+    const int ffff=10;
+    int Total,i;
+    Total=10;
+    int number1,number2,number3;
+    i=getarray(z)-3;			//有问题
+    number1=z[1];
+    number2=z[2];
+number3=0x66;
+putint(Total/2+a-sadf/ffff);
+    int result[10][10],j,k;
+    j=10;
+    k=i-0;
+    result[0][0]=-i/2+Total*alpha-number3; 
+    putint(result[0][0]);	
+    putch(32);
+    result[0][1] = gets1(Ac,am)+gets2(am,Ac);
+    putint(result[0][1]);
+    putch(32);
+	while(1<2){
+    	k=k+1;
+    	result[0][k]=change(k);     //这里有问题
+    	if(change(-result[0][k])<=-2){
+    		break;
+		}
+	}
+ putf("%d ",k);
+putf("%d ",result[0][1]);
+  putf("%d ",result[0][2]);
+    while(number3!=compare(number1,number2)){
+        number3=number3-1;
+        j=j-1;
+        if(result[0][j]>Total/2+k){
+             result[0][j]=Total/2+k;
+        }
+    }  
+putf("%d ",Factorial(j));
+ int b;
+    b=Factorial(B);             //有问题，因为查不到b变量(block不相等)
+ //   while(!(xx[3]>zzzz[4])||1==1){
+    while(zzzz[1]==xx[1]){
+    	//int Total=1;
+    	if(b>(18*1-0)){
+    		b=b-10;
+    		i=i+Total;
+		}else{
+			break;
+		}
+	}
+
+    putf("%d ",i);
+putf("%d ",Factorial(B)%Factorial(B-1));
+  return i;	
+} 
