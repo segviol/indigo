@@ -404,7 +404,7 @@ void ConstValue::display(std::ostream &o) const {
           repeat_count++;
         } else {
           if (repeat_count > 1) {
-            o << std::endl << "\t.fill " << repeat_count << " 4 " << last;
+            o << std::endl << "\t.fill " << repeat_count << ", 4, " << last;
             newline = true;
             repeat_count = 1;
           } else {
