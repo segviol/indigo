@@ -25,21 +25,11 @@ int main()
                 n[i][j]=n[j][i];
                 n[j][i]=temp;
             }
+            j=j+1;
       }
         i=i+1;
     }
-        i=0;
-    while( i<3)
-    {
-      j=0;
-      while(j<3){
-        putint(n[i][j]);
-        putch(32);
-        j=j+1;
-      }
-        putch(10);
-        i=i+1;
-    }
+
     i=0;
     while( i<3)
     {
