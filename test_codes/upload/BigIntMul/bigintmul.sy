@@ -24,10 +24,14 @@ int max(int a, int b) {
 
 
 int add(int l1,int l2,int arr1[], int arr2[]) {
-	int a[100];//加数
-	int b[100];//被加数
-	int c[100] = { 0 };//和
-	int i, j = 0, k;//i用来循环，j表示进位 ，两加数中较小加数的长度放到k里
+//  putarray(l1,arr1);
+//  putch(10);
+//  putarray(l2,arr2);
+//    putch(10);
+	int a[100];//??
+	int b[100];//???
+	int c[100] = { 0 };//?
+	int i, j = 0, k;//i????,j???? ,?????????????k?
 	int d;
 	k = min(l1, l2);
 	i = 0;
@@ -76,13 +80,13 @@ void multiply() {
 	int a[100];
 	int b[100];
 	int c[100] = { 0 };
-	int d, i, j, k;//i,j用来循环
-	int flag = 0;//进位
+	int d, i, j, k;//i,j????
+	int flag = 0;//??
 	int l1, l2;
 	l1 = BigIntLength[0];
 	l2 = BigIntLength[1];
 	i = 0;
-	while (i < l1) { //字符串逆序导入数组中
+	while (i < l1) { //??????????
 		a[i] = BigIntarr[0][l1 - 1 - i];
 		i = i + 1;
 	}
@@ -119,6 +123,8 @@ void multiply() {
 			k = k + 1;
 			j = j + 1;
 		}
+		putint(ResLength);
+		putch(10);
 		add(k,ResLength, temp, Result);
 		i = i + 1;
 	}
