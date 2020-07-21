@@ -485,6 +485,9 @@ ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
              spill_r != spill_positions.end()) {
     Reg rd = alloc_transient_reg(Interval(i), {});
     r = rd;
+    display_reg_name(LOG(TRACE), r_);
+    LOG(TRACE) << " at: " << i << " ";
+    LOG(TRACE) << "spill " << spill_r->second << std::endl;
     return {r_, rd, ReplaceWriteKind::Spill};
   } else {
     // Is temporary register
@@ -498,12 +501,20 @@ ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
 }
 
 void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
+  auto disp_reg = [&]() {
+    display_reg_name(LOG(TRACE), r.from);
+    LOG(TRACE) << " at: " << i << " ";
+  };
   if (r.kind == ReplaceWriteKind::Phys) {
     // is physical register; mark as occupied
     active.insert({r.replace_with, Interval(i, UINT32_MAX)});
+    disp_reg();
+    LOG(TRACE) << "phys " << r.replace_with << std::endl;
     return;
   } else if (r.kind == ReplaceWriteKind::Graph) {
     // This register is allocated with graph-coloring
+    disp_reg();
+    LOG(TRACE) << "graph" << std::endl;
   } else if (r.kind == ReplaceWriteKind::Spill) {
     // this register is allocated in stack
     Reg rd = r.replace_with;
@@ -524,7 +535,12 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
+
+    disp_reg();
+    LOG(TRACE) << "spill " << pos << " " << del << std::endl;
   } else {
+    disp_reg();
+    LOG(TRACE) << "temp" << std::endl;
     // Is temporary register
     // the register should already be written to or read from
 
@@ -577,13 +593,14 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 void RegAllocator::perform_load_stores() {
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
-
+    LOG(TRACE) << " " << std::endl << *inst_ << std::endl;
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       replace_read(x->r1, i);
       replace_read(x->r2, i);
       invalidate_read(i);
+      auto prw = pre_replace_write(x->rd, i);
       inst_sink.push_back(std::move(f.inst[i]));
-      pre_replace_write(x->rd, i);
+      replace_write(prw, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         replace_read(x->r2, i);
