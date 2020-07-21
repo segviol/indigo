@@ -131,6 +131,11 @@ void SyntaxAnalyze::gm_const_def() {
     for (auto var : dimensions) {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
+    for (auto value : init_values)
+    {
+        std::static_pointer_cast<ArraySymbol>(symbol)->addValue(value);
+    }
+
     irGenerator.ir_declare_const(name, inits, symbol->getId());
   }
 
@@ -692,12 +697,23 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
         node->_children.size() <
             std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
-    } else {
+    }
+    else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() && addr->_children.back()->_type == NodeType::CONST)
+    {
+        SharedExNdPtr constValue;
+
+        constValue = SharedExNdPtr(new ExpressNode());
+        constValue->_type = NodeType::CONST;
+        constValue->_operation = OperationType::NUMBER;
+        constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)->_values.at(addr->_children.back()->_value)->_value;
+        node = constValue;
+    }
+    else{
       SharedExNdPtr loadValue;
       string value;
 
       value = irGenerator.getNewTmpValueName(TyKind::Int);
-      loadValue = SharedExNdPtr(new ExpressNode);
+      loadValue = SharedExNdPtr(new ExpressNode());
       loadValue->_type = NodeType::VAR;
       loadValue->_operation = OperationType::LOAD;
       loadValue->_name = value;
