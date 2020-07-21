@@ -84,6 +84,7 @@ public:
   string getNewTmpValueName(TyKind kind);
 
   void ir_declare_value(string name, symbol::SymbolKind kind, int id,
+                        std::vector<uint32_t> inits, bool init = false,
                         int len = 0);
   string ir_declare_string(string str);
   void ir_declare_const(string name, std::uint32_t value, int id);
@@ -107,7 +108,8 @@ public:
   void ir_assign(LeftVal dest, RightVal src);
   void ir_assign(LeftVal dest, uint32_t sourceId);
   void ir_function_call(string retName, symbol::SymbolKind kind,
-                        string funcName, std::vector<RightVal> params);
+                        string funcName, std::vector<RightVal> params,
+                        bool begin = false);
   void ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue,
                LabelId bbFalse, std::optional<string> condRetName,
                mir::inst::JumpKind jumpKind);

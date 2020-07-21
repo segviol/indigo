@@ -131,9 +131,8 @@ void SyntaxAnalyze::gm_const_def() {
     for (auto var : dimensions) {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
-    for (auto value : init_values)
-    {
-        std::static_pointer_cast<ArraySymbol>(symbol)->addValue(value);
+    for (auto value : init_values) {
+      std::static_pointer_cast<ArraySymbol>(symbol)->addValue(value);
     }
 
     irGenerator.ir_declare_const(name, inits, symbol->getId());
@@ -235,16 +234,30 @@ void SyntaxAnalyze::gm_var_def() {
 
   if (kind == SymbolKind::INT) {
     symbol.reset(new IntSymbol(name, layer_num, false));
-    irGenerator.ir_declare_value(name, kind, symbol->getId());
+    irGenerator.ir_declare_value(name, kind, symbol->getId(), {});
   } else {
+    vector<uint32_t> inits;
+    bool init;
+
     symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(),
                                  layer_num, false, false));
     for (auto var : dimensions) {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
 
+    init = !init_values.empty();
+    if (inGlobalLayer()) {
+      for (auto value : init_values) {
+        if (value->_type == NodeType::CONST) {
+          inits.push_back(value->_value);
+        } else {
+          inits.push_back(0);
+        }
+      }
+    }
+
     irGenerator.ir_declare_value(
-        name, kind, symbol->getId(),
+        name, kind, symbol->getId(), inits, init,
         std::static_pointer_cast<ArraySymbol>(symbol)->getLen());
   }
 
@@ -254,6 +267,7 @@ void SyntaxAnalyze::gm_var_def() {
 
     if (symbol->kind() == SymbolKind::Array) {
       string initPtr;
+      bool needAssgin;
       int offset = 0;
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
@@ -265,21 +279,27 @@ void SyntaxAnalyze::gm_var_def() {
       }
 
       for (auto var : init_values) {
-        if (offset > 0) {
-          rightVal.emplace<0>(1);
-          irGenerator.ir_offset(initPtr, initPtr, rightVal);
-        }
-
+        needAssgin = false;
         if (symbol->kind() == SymbolKind::Array) {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CONST) {
+        if (var->_type == NodeType::CONST && var->_value != 0) {
           rightVal.emplace<0>(var->_value);
-        } else {
+          needAssgin = true;
+        } else if (var->_type == NodeType::VAR) {
           rightVal.emplace<2>(var->_name);
+          needAssgin = true;
         }
-        irGenerator.ir_store(initPtr, rightVal);
+
+        if (needAssgin) {
+          if (offset > 0) {
+            rightVal.emplace<0>(offset);
+            irGenerator.ir_offset(initPtr, initPtr, rightVal);
+          }
+          irGenerator.ir_store(initPtr, rightVal);
+          offset = 0;
+        }
         offset++;
       }
     } else {
@@ -697,18 +717,18 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
         node->_children.size() <
             std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
-    }
-    else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() && addr->_children.back()->_type == NodeType::CONST)
-    {
-        SharedExNdPtr constValue;
+    } else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() &&
+               addr->_children.back()->_type == NodeType::CONST) {
+      SharedExNdPtr constValue;
 
-        constValue = SharedExNdPtr(new ExpressNode());
-        constValue->_type = NodeType::CONST;
-        constValue->_operation = OperationType::NUMBER;
-        constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)->_values.at(addr->_children.back()->_value)->_value;
-        node = constValue;
-    }
-    else{
+      constValue = SharedExNdPtr(new ExpressNode());
+      constValue->_type = NodeType::CONST;
+      constValue->_operation = OperationType::NUMBER;
+      constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)
+                               ->_values.at(addr->_children.back()->_value)
+                               ->_value;
+      node = constValue;
+    } else {
       SharedExNdPtr loadValue;
       string value;
 
@@ -917,7 +937,7 @@ void SyntaxAnalyze::gm_func_def() {
 
   for (auto var : genValues) {
     irGenerator.ir_declare_value(var.first->getName(), var.first->kind(),
-                                 var.first->getId());
+                                 var.first->getId(), {});
     irGenerator.ir_assign(var.first->getName(), var.second);
   }
 
