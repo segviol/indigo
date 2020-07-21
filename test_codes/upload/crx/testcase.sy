@@ -53,11 +53,6 @@ int main()
     int Total,i;
     Total=10;
     int number1,number2,number3;
-  /*
- i=0;
-    number1=97;
-    number2=98;
-*/
     i=getarray(z)-3;			//有问题
     number1=z[1];
     number2=z[2];
@@ -68,10 +63,10 @@ putint(Total/2+a-sadf/ffff);
     k=i-0;
     result[0][0]=-i/2+Total*alpha-number3; 
     putint(result[0][0]);	
-    putchar(32);
+    putch(32);
     result[0][1] = gets1(Ac,am)+gets2(am,Ac);
     putint(result[0][1]);
-    putchar(32);
+    putch(32);
 	while(1<2){
     	k=k+1;
     	result[0][k]=change(k);     //这里有问题
@@ -107,17 +102,3 @@ putf("%d ",Factorial(j));
 putf("%d ",Factorial(B)%Factorial(B-1));
   return i;	
 } 
-
-//输入 3 0 97 98
-/*
-117
-318
--25
-2
--15
--14
-720
-503
-0
-
-*/
