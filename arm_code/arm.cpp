@@ -385,22 +385,48 @@ std::string format_bb_name(std::string_view func_name, uint32_t bb_id) {
 
 void ConstValue::display(std::ostream &o) const {
   if (auto x = std::get_if<uint32_t>(this)) {
-    o << ".word " << *x;
+    o << "\t.word " << *x;
   } else if (auto x = std::get_if<std::vector<uint32_t>>(this)) {
-    o << ".word ";
-    bool is_first = true;
-    for (auto i : *x) {
-      if (!is_first) {
-        o << ", ";
+    uint32_t last = x->front();
+    int repeat_count = 1;
+    bool newline = true;
+    for (int i = 1; i < x->size(); i++) {
+      uint32_t new_item = (*x)[i];
+      if (newline) {
+        if (new_item == last) {
+          repeat_count++;
+        } else {
+          o << std::endl << "\t.word " << last;
+        }
+        newline = false;
+      } else {
+        if (new_item == last) {
+          repeat_count++;
+        } else {
+          if (repeat_count > 1) {
+            o << std::endl << "\t.fill " << repeat_count << " 4 " << last;
+            newline = true;
+            repeat_count = 1;
+          } else {
+            o << ", " << last;
+          }
+        }
       }
-      is_first = false;
-      o << i;
+      last = new_item;
+    }
+    if (repeat_count > 1) {
+      o << std::endl;
+      o << "\t.fill " << repeat_count << " 4 " << last << std::endl;
+      newline = true;
+      repeat_count = 1;
+    } else {
+      o << ", " << last;
     }
   } else if (auto x = std::get_if<std::string>(this)) {
     if (ty == ConstType::AsciZ)
-      o << ".asciz \"" << *x << "\"";
+      o << "\t.asciz \"" << *x << "\"";
     else if (ty == ConstType::Word)
-      o << ".word " << *x;
+      o << "\t.word " << *x;
   }
 }
 
@@ -540,7 +566,7 @@ void ArmCode::display(std::ostream &o) const {
   o << ".data" << std::endl;
   for (auto &v : this->consts) {
     o << v.first << ":" << std::endl;
-    o << "\t" << v.second << std::endl;
+    o << v.second << std::endl;
   }
   o << std::endl;
 
