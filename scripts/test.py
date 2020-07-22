@@ -227,7 +227,6 @@ def test_dir(dir):
                         x.strip() for x in std_output.splitlines()
                         if x.strip() != ''
                     ]
-                    real_std_output = '\n'.join(std_output_lines)
 
                     if my_output_lines != std_output_lines:
                         logger.error(
@@ -241,7 +240,7 @@ def test_dir(dir):
                         fail_list.append({
                             "file": file,
                             "reason": "wrong_output",
-                            "expected": real_std_output,
+                            "expected": std_output,
                             "got": limited_output
                         })
                     else:
