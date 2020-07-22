@@ -136,9 +136,9 @@ void irGenerator::ir_begin_of_program() {
           new FunctionTy(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
                          {SharedTyPtr(new IntTy())}, true));
     } else if (funcName == "calloc") {
-      type = shared_ptr<FunctionTy>(
-          new FunctionTy(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
-                         {SharedTyPtr(new IntTy())}, true));
+      type = shared_ptr<FunctionTy>(new FunctionTy(
+          SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
+          {SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())}, true));
     } else if (funcName == "free") {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new VoidTy()),
@@ -168,6 +168,7 @@ void irGenerator::ir_begin_of_program() {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
     } else if (funcName == "calloc") {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+      func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
     } else if (funcName == "free") {
       func->variables[1] =
           Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
@@ -318,12 +319,17 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
 
     if (kind == symbol::SymbolKind::Array) {
-      RightVal right;
-      right.emplace<0>(len * ty->size().value());
       if (init) {
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc", {right},
-                         true);
+        RightVal nitems;
+        RightVal size;
+
+        nitems.emplace<0>(len);
+        size.emplace<0>(ty->size().value());
+        ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc",
+                         {nitems, size}, true);
       } else {
+        RightVal right;
+        right.emplace<0>(len * ty->size().value());
         ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
                          true);
       }
@@ -574,11 +580,11 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   std::vector<Instruction> &instructions =
       _funcNameToInstructions[_funcStack.back()];
   if (begin) {
-      auto insertPosition = instructions.begin();
-      while (insertPosition != instructions.end() && insertPosition->index() == 2)
-      {
-          insertPosition++;
-      }
+    auto insertPosition = instructions.begin();
+    while (insertPosition != instructions.end() &&
+           insertPosition->index() == 2) {
+      insertPosition++;
+    }
     instructions.insert(insertPosition, callInst);
   } else {
     instructions.push_back(callInst);
