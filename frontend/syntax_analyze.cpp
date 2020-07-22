@@ -1079,6 +1079,7 @@ void SyntaxAnalyze::gm_stmt() {
     gm_assign_stmt();
   } else if (!try_word(1, Token::SEMICN)) {
     gm_exp();
+    match_one_word(Token::SEMICN);
   } else {
     match_one_word(Token::SEMICN);
   }
