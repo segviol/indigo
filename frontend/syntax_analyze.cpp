@@ -621,13 +621,13 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     SharedExNdPtr addNode = SharedExNdPtr(new ExpressNode());
     SharedExNdPtr index2 = SharedExNdPtr(new ExpressNode());
 
-    //if (i < node->_children.size()) {
+    if (i < node->_children.size()) {
       index2 = node->_children.at(i);
-    /*} else {
+    } else {
       index2->_type = NodeType::CONST;
       index2->_operation = OperationType::NUMBER;
       index2->_value = 0;
-    }*/
+    }
 
     mulNode->_operation = OperationType::MUL;
     if (index->_type == NodeType::CONST && d->_type == NodeType::CONST) {
@@ -721,9 +721,9 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
 
     addr = computeIndex(arr, node);
 
-    if (mode == ValueMode::left /*||
+    if (mode == ValueMode::left ||
         node->_children.size() <
-            std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()*/) {
+            std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
     } else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() &&
                addr->_children.back()->_type == NodeType::CONST) {
