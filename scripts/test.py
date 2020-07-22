@@ -275,8 +275,8 @@ def test_dir(dir):
                         fail_list.append({
                             "file": file,
                             "reason": "wrong_return_code",
-                            "expected": std_output,
-                            "got": limited_output
+                            "expected": std_ret,
+                            "got": return_code
                         })
 
                     else:
