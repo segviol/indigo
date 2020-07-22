@@ -75,8 +75,6 @@ root_path = args.test_path
 
 output_folder_name = "output"
 
-max_stdout = 512
-
 
 def format_compiler_output_file_name(name: str, ty: str):
     name = name.replace('/', '_')
@@ -86,17 +84,6 @@ def format_compiler_output_file_name(name: str, ty: str):
 def format_linker_output_file_name(name: str, ty: str):
     name = name.replace('/', '_')
     return f"{output_folder_name}/linker-{ty}-{name}.txt"
-
-
-def format_function_output_file_name(name: str):
-    name = name.replace('/', '_')
-    return f"{output_folder_name}/program-stdout-{name}.txt"
-
-
-def dump_stdout(name: str, stdout: bytes):
-    filename = format_function_output_file_name(name)
-    with open(filename, "wb") as f:
-        f.write(stdout)
 
 
 def test_dir(dir):
@@ -203,12 +190,11 @@ def test_dir(dir):
                                              capture_output=True,
                                              timeout=args.timeout)
 
-                return_code = process.returncode % 256
+                return_code = process.returncode
                 my_output = process.stdout.decode("utf-8").replace("\r", "")
-                my_output = my_output.strip()
-                limited_output = my_output[0:max_stdout]
-                if len(my_output) > max_stdout:
-                    limited_output += "...(stripped)"
+                my_output = (my_output + "\n" + str(return_code)).strip()
+                limited_output = my_output[0:2048]
+                if len(my_output) > 2048: limited_output += "...(stripped)"
 
                 if return_code < 0:
                     sig = -return_code
@@ -221,8 +207,6 @@ def test_dir(dir):
                             format_compiler_output_file_name(
                                 new_path, 'stdout'), "w") as f:
                         f.write(compiler_output.stdout.decode('utf-8'))
-
-                    dump_stdout(new_path, process.stdout)
 
                     fail_list.append({
                         "file": new_path,
@@ -244,9 +228,6 @@ def test_dir(dir):
                         if x.strip() != ''
                     ]
 
-                    std_ret = int(std_output_lines.pop()) % 256
-                    dump_stdout(new_path, process.stdout)
-
                     if my_output_lines != std_output_lines:
                         logger.error(
                             f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
@@ -262,23 +243,6 @@ def test_dir(dir):
                             "expected": std_output,
                             "got": limited_output
                         })
-                    elif return_code != std_ret:
-                        logger.error(
-                            f"mismatched return code for {new_path}: \nexpected: {std_ret}\ngot {return_code}"
-                        )
-                        with open(
-                                format_compiler_output_file_name(
-                                    new_path, 'stdout'), "w") as f:
-                            f.write(compiler_output.stdout.decode('utf-8'))
-
-                        dump_stdout(new_path, process.stdout)
-                        fail_list.append({
-                            "file": file,
-                            "reason": "wrong_return_code",
-                            "expected": std_ret,
-                            "got": return_code
-                        })
-
                     else:
                         logger.info(f"Successfully passed {prefix}")
                         pass_list.append(new_path)
@@ -291,8 +255,8 @@ def test_dir(dir):
                 stdout = t.stdout
                 if stdout != None:
                     str_stdout = stdout.decode("utf-8")
-                    if len(str_stdout) > max_stdout:
-                        str_stdout = str_stdout[0:max_stdout] + "..."
+                    if len(str_stdout) > 2048:
+                        str_stdout = str_stdout[0:2048] + "..."
                 else:
                     str_stdout = ""
 
