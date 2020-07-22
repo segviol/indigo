@@ -227,10 +227,11 @@ def test_dir(dir):
                         x.strip() for x in std_output.splitlines()
                         if x.strip() != ''
                     ]
+                    real_std_output = '\n'.join(std_output_lines)
 
                     if my_output_lines != std_output_lines:
                         logger.error(
-                            f"mismatched output for {new_path}: \nexpected: {std_output}\ngot {my_output}"
+                            f"mismatched output for {new_path}: \nexpected: {real_std_output}\ngot {my_output}"
                         )
                         with open(
                                 format_compiler_output_file_name(
@@ -240,7 +241,7 @@ def test_dir(dir):
                         fail_list.append({
                             "file": file,
                             "reason": "wrong_output",
-                            "expected": std_output,
+                            "expected": real_std_output,
                             "got": limited_output
                         })
                     else:
