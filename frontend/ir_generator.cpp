@@ -574,7 +574,12 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   std::vector<Instruction> &instructions =
       _funcNameToInstructions[_funcStack.back()];
   if (begin) {
-    instructions.insert(instructions.begin(), callInst);
+      auto insertPosition = instructions.begin();
+      while (insertPosition != instructions.end() && insertPosition->index() == 2)
+      {
+          insertPosition++;
+      }
+    instructions.insert(insertPosition, callInst);
   } else {
     instructions.push_back(callInst);
   }
