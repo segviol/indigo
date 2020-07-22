@@ -38,7 +38,6 @@ test:
         - mkdir -p output
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/functional_test -r
-<<<<<<< HEAD
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r
     artifacts:
         when: always
@@ -55,9 +54,6 @@ performance_test:
     script:
         - mkdir -p output
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 60
-=======
-        # - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r
->>>>>>> parent of 3db1dbb... add test codes into ci
     artifacts:
         when: always
         paths:
