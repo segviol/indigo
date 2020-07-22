@@ -585,6 +585,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
            insertPosition->index() == 2) {
       insertPosition++;
     }
+    insertPosition += _package.functions.at(_funcStack.back()).type->params.size();
     instructions.insert(insertPosition, callInst);
   } else {
     instructions.push_back(callInst);
