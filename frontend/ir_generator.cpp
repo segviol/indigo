@@ -3,8 +3,8 @@
 using namespace front::irGenerator;
 
 std::vector<string> front::irGenerator::externalFuncName = {
-    "getint", "getch",     "getarray", "putint", "putch", "putarray",
-    "putf",   "starttime", "stoptime", "malloc", "free"};
+    "getint", "getch",     "getarray", "putint", "putch",  "putarray",
+    "putf",   "starttime", "stoptime", "malloc", "calloc", "free"};
 
 void irGenerator::outputInstructions(std::ostream &out) {
   out << (string) ">====== global_var ======<" << std::endl;
@@ -135,6 +135,10 @@ void irGenerator::ir_begin_of_program() {
       type = shared_ptr<FunctionTy>(
           new FunctionTy(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
                          {SharedTyPtr(new IntTy())}, true));
+    } else if (funcName == "calloc") {
+      type = shared_ptr<FunctionTy>(new FunctionTy(
+          SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
+          {SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())}, true));
     } else if (funcName == "free") {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new VoidTy()),
@@ -162,6 +166,9 @@ void irGenerator::ir_begin_of_program() {
           Variable(SharedTyPtr(new RestParamTy()), true, false);
     } else if (funcName == "malloc") {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "calloc") {
+      func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
+      func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
     } else if (funcName == "free") {
       func->variables[1] =
           Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
@@ -272,16 +279,13 @@ void irGenerator::ir_declare_const(string name,
 }
 
 void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
+                                   std::vector<uint32_t> inits, bool init,
                                    int len) {
   if (_funcStack.back() == _GlobalInitFuncName) {
     GlobalValue globalValue;
     if (len == 0) {
       globalValue = GlobalValue(0);
     } else {
-      std::vector<std::uint32_t> inits;
-      for (int i = 0; i < len; i++) {
-        inits.push_back(0);
-      }
       globalValue = GlobalValue(inits);
     }
     _package.global_values[getVarName(name, id)] = globalValue;
@@ -315,9 +319,20 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
 
     if (kind == symbol::SymbolKind::Array) {
-      RightVal right;
-      right.emplace<0>(len * ty->size().value());
-      ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right});
+      if (init) {
+        RightVal nitems;
+        RightVal size;
+
+        nitems.emplace<0>(len);
+        size.emplace<0>(ty->size().value());
+        ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc",
+                         {nitems, size}, true);
+      } else {
+        RightVal right;
+        right.emplace<0>(len * ty->size().value());
+        ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
+                         true);
+      }
       _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
     }
   }
@@ -327,7 +342,7 @@ void irGenerator::ir_declare_param(string name, symbol::SymbolKind kind,
                                    int id) {
   SharedTyPtr ty;
 
-  ir_declare_value(name, kind, id);
+  ir_declare_value(name, kind, id, {});
 
   switch (kind) {
   case front::symbol::SymbolKind::INT: {
@@ -535,7 +550,7 @@ void irGenerator::ir_store(LeftVal dest, RightVal src) {
 
 void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
                                    string funcName,
-                                   std::vector<RightVal> params) {
+                                   std::vector<RightVal> params, bool begin) {
   shared_ptr<VarId> destVarId;
   std::vector<Value> paramValues;
   shared_ptr<mir::inst::CallInst> callInst;
@@ -562,7 +577,19 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   callInst = shared_ptr<mir::inst::CallInst>(
       new mir::inst::CallInst(*destVarId, funcName, paramValues));
 
-  _funcNameToInstructions[_funcStack.back()].push_back(callInst);
+  std::vector<Instruction> &instructions =
+      _funcNameToInstructions[_funcStack.back()];
+  if (begin) {
+    auto insertPosition = instructions.begin();
+    while (insertPosition != instructions.end() &&
+           insertPosition->index() == 2) {
+      insertPosition++;
+    }
+    insertPosition += _package.functions.at(_funcStack.back()).type->params.size();
+    instructions.insert(insertPosition, callInst);
+  } else {
+    instructions.push_back(callInst);
+  }
 }
 
 void irGenerator::ir_end_of_program() {
