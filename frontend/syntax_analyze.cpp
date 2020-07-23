@@ -607,10 +607,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   for (i = 1; i < dimesions.size(); i++) {
     if (i == 1) {
       tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
-      if (index->_type == NodeType::CONST) {
-        rightvalue1.emplace<0>(index->_value);
-        irGenerator.ir_assign(tmpOff, rightvalue1);
-      } else {
+      if (index->_type == NodeType::VAR) {
         irGenerator.ir_assign(tmpOff, index->_name);
       }
     }
@@ -633,12 +630,14 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     if (index->_type == NodeType::CONST && d->_type == NodeType::CONST) {
       mulNode->_type = NodeType::CONST;
       mulNode->_value = index->_value * d->_value;
-      rightvalue1.emplace<0>(mulNode->_value);
-      irGenerator.ir_assign(tmpOff, rightvalue1);
     } else {
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
-      rightvalue1.emplace<2>(tmpOff);
+      if (index->_type == NodeType::CONST) {
+        rightvalue1.emplace<0>(index->_value);
+      } else {
+        rightvalue1.emplace<2>(index->_name);
+      }
       if (d->_type == NodeType::CONST) {
         rightvalue2.emplace<0>(d->_value);
       } else {
@@ -653,12 +652,14 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     if (mulNode->_type == NodeType::CONST && index2->_type == NodeType::CONST) {
       addNode->_type = NodeType::CONST;
       addNode->_value = mulNode->_value + index2->_value;
-      rightvalue1.emplace<0>(addNode->_value);
-      irGenerator.ir_assign(tmpOff, rightvalue1);
     } else {
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
-      rightvalue1.emplace<2>(tmpOff);
+      if (mulNode->_type == NodeType::CONST) {
+        rightvalue1.emplace<0>(mulNode->_value);
+      } else {
+        rightvalue1.emplace<2>(mulNode->_name);
+      }
       if (index2->_type == NodeType::CONST) {
         rightvalue2.emplace<0>(index2->_value);
       } else {
