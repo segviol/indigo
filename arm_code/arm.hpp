@@ -101,6 +101,9 @@ struct RegisterOperand : public prelude::Displayable {
     return reg == other.reg && shift == other.shift &&
            shift_amount == other.shift_amount;
   };
+  bool operator==(const Reg& other) const {
+    return reg == other && shift == RegisterShiftKind::Lsl && shift_amount == 0;
+  };
 };
 
 struct MemoryOperand : public prelude::Displayable {
@@ -182,6 +185,27 @@ class Operand2 : public std::variant<RegisterOperand, int32_t>,
   }
   bool operator==(const int32_t& other) const {
     if (auto ip = std::get_if<int32_t>(this)) {
+      return *ip == other;
+    } else {
+      return false;
+    }
+  }
+  friend bool operator==(const Operand2& lhs, const Reg& other) {
+    if (auto ip = std::get_if<RegisterOperand>(&lhs)) {
+      return *ip == other;
+    } else {
+      return false;
+    }
+  }
+  friend bool operator==(const Reg& lhs, const Operand2& other) {
+    if (auto ip = std::get_if<RegisterOperand>(&other)) {
+      return *ip == lhs;
+    } else {
+      return false;
+    }
+  }
+  bool operator==(const RegisterOperand& other) const {
+    if (auto ip = std::get_if<RegisterOperand>(this)) {
       return *ip == other;
     } else {
       return false;

@@ -554,7 +554,10 @@ void Function::display(std::ostream &o) const {
   o << name << ":" << std::endl;
   o << "\t.fnstart" << std::endl;
   for (auto &i : inst) {
-    if (!dynamic_cast<LabelInst *>(&*i)) {
+    if (i == nullptr) {
+      o << "!!!nullptr!!!" << std::endl;
+      continue;
+    } else if (dynamic_cast<LabelInst *>(&*i) == nullptr) {
       o << "\t";
     }
     o << *i << std::endl;

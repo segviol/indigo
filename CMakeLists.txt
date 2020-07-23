@@ -14,6 +14,7 @@ set(backend_files
     backend/optimization/graph_color.hpp
     backend/optimization/livevar_analyse.hpp
     backend/optimization/remove_dead_code.hpp
+    backend/optimization/excess_reg_delete.cpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
