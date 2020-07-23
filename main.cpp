@@ -11,6 +11,7 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
+#include "backend/optimization/excess_reg_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
@@ -77,6 +78,7 @@ int main(int argc, const char** argv) {
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
+  backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
 
   auto code = backend.generate_code();
   if (options.verbose) {
