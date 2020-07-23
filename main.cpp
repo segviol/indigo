@@ -62,7 +62,7 @@ int main(int argc, const char** argv) {
   LOG(INFO) << "generating SSA" << std::endl;
 
   gen_ssa(inst, package, irgenerator);
-  const_propagation(package);
+  //const_propagation(package);
   
   // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before") << std::endl;
