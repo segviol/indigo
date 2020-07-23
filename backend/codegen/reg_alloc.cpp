@@ -157,8 +157,9 @@ class RegAllocator {
   std::vector<std::pair<Reg, Interval>> sort_intervals();
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
-  void replace_read(Reg &r, int i);
-  ReplaceWriteAction pre_replace_write(Reg &r, int i);
+  void replace_read(Reg &r, int i, std::optional<Reg> pre_alloc_transient = {});
+  ReplaceWriteAction pre_replace_write(
+      Reg &r, int i, std::optional<Reg> pre_alloc_transient = {});
   void replace_write(ReplaceWriteAction a, int i);
   void replace_read(Operand2 &r, int i);
   void replace_read(MemoryOperand &r, int i);
@@ -405,6 +406,14 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     inst_sink.push_back(std::make_unique<LoadStoreInst>(
         OpCode::StR, phys_reg,
         MemoryOperand(REG_SP, spill_pos + stack_offset)));
+
+    auto &trace = LOG(TRACE);
+    trace << "Spill: ";
+    display_reg_name(trace, virt_reg);
+    trace << " -> ";
+    display_reg_name(trace, phys_reg);
+    trace << " -> " << spill_pos;
+
     r = phys_reg;
     spilled_regs.insert({virt_reg, interval});
     active_reg_map.erase(virt_reg);
@@ -418,7 +427,8 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
 }
 
 /// Replace virtual register r with real register in-place
-void RegAllocator::replace_read(Reg &r, int i) {
+void RegAllocator::replace_read(Reg &r, int i,
+                                std::optional<Reg> pre_alloc_transient) {
   auto disp_reg = [r, i]() {
     display_reg_name(LOG(TRACE), r);
     LOG(TRACE) << " at: " << i << " ";
@@ -437,7 +447,14 @@ void RegAllocator::replace_read(Reg &r, int i) {
              spill_r != spill_positions.end()) {
     // this register is allocated in stack
     bool del = false;
-    Reg rd = alloc_transient_reg(Interval(i), {});
+
+    Reg rd;
+    if (pre_alloc_transient) {
+      rd = pre_alloc_transient.value();
+    } else {
+      rd = alloc_transient_reg(Interval(i), {});
+    }
+
     auto spill_pos = get_or_alloc_spill_pos(r);
     if (inst_sink.size() > 0) {
       auto &x = inst_sink.back();
@@ -472,7 +489,8 @@ void RegAllocator::replace_read(Reg &r, int i) {
   }
 }
 
-ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
+ReplaceWriteAction RegAllocator::pre_replace_write(
+    Reg &r, int i, std::optional<Reg> pre_alloc_transient) {
   auto r_ = r;
   if (!is_virtual_register(r)) {
     // is physical register; mark as occupied
@@ -483,7 +501,13 @@ ReplaceWriteAction RegAllocator::pre_replace_write(Reg &r, int i) {
     return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
   } else if (auto spill_r = spill_positions.find(r);
              spill_r != spill_positions.end()) {
-    Reg rd = alloc_transient_reg(Interval(i), {});
+    Reg rd;
+    if (pre_alloc_transient) {
+      rd = pre_alloc_transient.value();
+    } else {
+      rd = alloc_transient_reg(Interval(i), {});
+    }
+
     r = rd;
     display_reg_name(LOG(TRACE), r_);
     LOG(TRACE) << " at: " << i << " ";
@@ -609,10 +633,10 @@ void RegAllocator::perform_load_stores() {
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else if (x->op == arm::OpCode::MovT) {
-        replace_read(x->r2, i);
+        auto r = x->r1;
         replace_read(x->r1, i);
         invalidate_read(i);
-        auto prw = pre_replace_write(x->r1, i);
+        auto prw = pre_replace_write(r, i, x->r1);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
