@@ -24,6 +24,8 @@ set(backend_files
     backend/optimization/graph_color.hpp)
 
 set(frontend_files
+    frontend/const_prop.hpp
+    frontend/const_prop.cpp
     frontend/express_node.hpp
     frontend/express_node.cpp
     frontend/ir_generator.hpp
