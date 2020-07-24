@@ -162,6 +162,7 @@ class RegAllocator {
       bb_iter--;
       auto &reg_set = bb_used_regs.insert({bb_iter->second, {}}).first->second;
       reg_set.insert(r_mapped->second);
+      used_regs.insert(r_mapped->second);
     }
   }
 #pragma endregion
@@ -407,28 +408,28 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
       return a->second;
     }
   }
-  if (i.start == i.end ||
-      point_bb_map.lower_bound(i.start) == point_bb_map.lower_bound(i.end)) {
-    auto bb_id = (--point_bb_map.lower_bound(i.start));
-    auto bb_regs = bb_used_regs.find(bb_id->second);
-    if (bb_regs != bb_used_regs.end()) {
-      for (auto reg : GLOB_REGS) {
-        if (active.find(reg) == active.end() &&
-            bb_regs->second.find(reg) == bb_regs->second.end()) {
-          r = reg;
-          break;
-        }
-      }
-    } else {
-      // not using any global registers!
-      for (auto reg : GLOB_REGS) {
-        if (active.find(reg) == active.end()) {
-          r = reg;
-          break;
-        }
-      }
+  // if (i.start == i.end ||
+  //     point_bb_map.lower_bound(i.start) == point_bb_map.lower_bound(i.end)) {
+  //   auto bb_id = (--point_bb_map.lower_bound(i.start));
+  //   auto bb_regs = bb_used_regs.find(bb_id->second);
+  //   if (bb_regs != bb_used_regs.end()) {
+  for (auto reg : GLOB_REGS) {
+    if (active.find(reg) == active.end() &&
+        used_regs.find(reg) == used_regs.end()) {
+      r = reg;
+      break;
     }
   }
+  //   } else {
+  //     // not using any global registers!
+  //     for (auto reg : GLOB_REGS) {
+  //       if (active.find(reg) == active.end()) {
+  //         r = reg;
+  //         break;
+  //       }
+  //     }
+  //   }
+  // }
   if (r == -1) {
     for (auto reg : TEMP_REGS) {
       if (active.find(reg) == active.end()) {
