@@ -539,24 +539,24 @@ class Common_Expr_Del : public backend::MirOptimizePass {
 
             */
 
-            // if (!blnd.nodes[nodeId.id]->is_leaf &&
-            //     variables[std::get<mir::inst::VarId>(assignInst->src)]
-            //         .is_temp_var) {
-            //   blnd.add_var(assignInst->dest, nodeId);
-            // } else {
-            auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-            std::vector<mir::inst::Value> values;
-            values.push_back(srcvar);
-            auto op = ExtraNormOp::Assign;
-            auto operands = blnd.cast_operands(values);
-            if (!blnd.query_node(op, operands)) {
-              blnd.add_node(op, operands, assignInst->dest);
+            if (!blnd.nodes[nodeId.id]->is_leaf &&
+                variables[std::get<mir::inst::VarId>(assignInst->src)]
+                    .is_temp_var) {
+              blnd.add_var(assignInst->dest, nodeId);
             } else {
-              auto nodeId = blnd.query_nodeId(op, operands);
-              blnd.add_var(assignInst->dest, nodeId.id);
+              auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
+              std::vector<mir::inst::Value> values;
+              values.push_back(srcvar);
+              auto op = ExtraNormOp::Assign;
+              auto operands = blnd.cast_operands(values);
+              if (!blnd.query_node(op, operands)) {
+                blnd.add_node(op, operands, assignInst->dest);
+              } else {
+                auto nodeId = blnd.query_nodeId(op, operands);
+                blnd.add_var(assignInst->dest, nodeId.id);
+              }
             }
           }
-          // }
           break;
         }
         case mir::inst::InstKind::Load: {
