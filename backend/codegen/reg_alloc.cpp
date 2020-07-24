@@ -159,11 +159,7 @@ class RegAllocator {
     auto r_mapped = reg_map.find(reg);
     if (r_mapped != reg_map.end()) {
       auto bb_iter = point_bb_map.lower_bound(point);
-      if (bb_iter == point_bb_map.end())
-        return;
-      else
-        bb_iter--;
-
+      bb_iter--;
       auto &reg_set = bb_used_regs.insert({bb_iter->second, {}}).first->second;
       reg_set.insert(r_mapped->second);
     }
@@ -220,15 +216,6 @@ class RegAllocator {
 
 void RegAllocator::alloc_regs() {
   construct_reg_map();
-  calc_live_intervals();
-  // for (auto &r : live_intervals) {
-  //   // Live interval is just used as a virtual register map for now.
-  //   // This assigns a spill position for EVERY virtual register, which is
-  //   very
-  //   // very very very inefficient.
-  //   spill_positions.insert({r.first, stack_size});
-  //   stack_size += 4;
-  // }
 
   LOG(TRACE, "color_map") << "Color map:" << std::endl;
   for (auto x : color_map) {
@@ -236,6 +223,23 @@ void RegAllocator::alloc_regs() {
     LOG(TRACE, "color_map") << x.first << " -> ";
     display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
     LOG(TRACE, "color_map") << ": " << x.second << std::endl;
+  }
+
+  calc_live_intervals();
+
+  LOG(TRACE, "bb_reg_use") << "BB starting point" << std::endl;
+  for (auto x : point_bb_map) {
+    LOG(TRACE, "bb_reg_use") << x.first << " -> " << x.second << std::endl;
+  }
+
+  LOG(TRACE, "bb_reg_use") << "BB Reg use:" << std::endl;
+  for (auto x : bb_used_regs) {
+    LOG(TRACE, "bb_reg_use") << x.first << " -> ";
+    for (auto r : x.second) {
+      display_reg_name(LOG(TRACE, "color_map"), r);
+      LOG(TRACE, "bb_reg_use") << " ";
+    }
+    LOG(TRACE, "bb_reg_use") << std::endl;
   }
 
   perform_load_stores();
