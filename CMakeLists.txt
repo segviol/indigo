@@ -15,7 +15,7 @@ set(backend_files
     backend/optimization/livevar_analyse.hpp
     backend/optimization/remove_dead_code.hpp
     backend/optimization/excess_reg_delete.cpp
-    backend/optimization/const_propagation.cpp
+    backend/optimization/const_propagation.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
