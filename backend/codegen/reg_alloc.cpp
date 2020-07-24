@@ -413,12 +413,14 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     if (i.start == i.end ||
         point_bb_map.lower_bound(i.start) == point_bb_map.lower_bound(i.end)) {
       auto bb_id = (--point_bb_map.lower_bound(i.start));
-      auto &bb_regs = bb_used_regs.at(bb_id->second);
-      for (auto reg : GLOB_REGS) {
-        if (active.find(reg) == active.end() &&
-            bb_regs.find(reg) == bb_regs.end()) {
-          r = reg;
-          break;
+      auto bb_regs = bb_used_regs.find(bb_id->second);
+      if (bb_regs != bb_used_regs.end()) {
+        for (auto reg : GLOB_REGS) {
+          if (active.find(reg) == active.end() &&
+              bb_regs->second.find(reg) == bb_regs->second.end()) {
+            r = reg;
+            break;
+          }
         }
       }
     }
