@@ -18,6 +18,7 @@
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 #include "livevar_analyse.hpp"
+#include "phi_merge.hpp"
 
 namespace optimization::common_expr_del {
 class Node;
@@ -44,6 +45,35 @@ typedef std::variant<int, NodeId, std::string> Operand;
 //     if(index()!=)
 //   }
 // };
+class Env {
+ public:
+  mir::inst::MirFunction& func;
+  int varId;
+  Env(mir::inst::MirFunction& func) : func(func) {
+    if (func.variables.size()) {
+      auto end_iter = func.variables.end();
+      end_iter--;
+      varId = end_iter->first;
+    } else {
+      varId = mir::inst::VarId(65535);
+    }
+  }
+  mir::inst::VarId get_new_VarId() { return mir::inst::VarId(++varId); }
+  mir::inst::VarId copy_var(mir::inst::VarId var) {
+    auto new_var = get_new_VarId();
+    func.variables.insert({new_var.id, func.variables.at(var.id)});
+    return new_var;
+  }
+
+  void remove_var(mir::inst::VarId var) {
+    if (func.variables.count(var.id)) {
+      func.variables.erase(var.id);
+    }
+  }
+};
+
+std::shared_ptr<Env> env;
+
 class Node {
  public:
   std::vector<Operand> operands;
@@ -89,13 +119,22 @@ class Node {
       //     local_vars.erase(iter);
       //   }
       // }
-      if (live_vars.size()) {
-        mainVar = live_vars.front();
-        live_vars.pop_front();
-      } else if (local_vars.size()) {
+      // if (live_vars.size()) {
+      //   mainVar = live_vars.front();
+      //   live_vars.pop_front();
+      // } else
+      if (local_vars.size()) {
         // assert(local_vars.size()); store inst has no dest
         mainVar = local_vars.front();
         local_vars.pop_front();
+        for (auto var : local_vars) {
+          env->remove_var(var);
+        }
+      } else if (live_vars.size()) {  // add new var (store op has no local or
+                                      // live vars)
+        // mainVar = env->copy_var(live_vars.front());
+        mainVar = live_vars.front();
+        live_vars.pop_front();
       }
     }
   }
@@ -158,19 +197,7 @@ class BlockNodes {
              std::shared_ptr<livevar_analyse::Block_Live_Var>& blv)
       : variables(variables), blv(blv) {}
 
-  NodeId add_leaf_node(mir::inst::VarId var) {
-    auto id = nodes.size();
-    NodeId nodeId(id);
-    auto node = std::make_shared<Node>();
-    node->value = var;
-    nodes.push_back(node);
-    var_map[var] = nodeId;
-    node_map[*node] = id;
-    // add_var(var, id); leaf var is always regarded as main var
-    return nodeId;
-  }
-
-  NodeId add_leaf_node(mir::inst::Value val, mir::inst::VarId var) {
+  NodeId add_leaf_node(mir::inst::Value val) {
     auto id = nodes.size();
     NodeId nodeId(id);
     auto node = std::make_shared<Node>();
@@ -179,9 +206,7 @@ class BlockNodes {
       var_map[std::get<mir::inst::VarId>(val)] = nodeId;
     }
     nodes.push_back(node);
-    var_map[var] = nodeId;
     node_map[*node] = id;
-    add_var(var, id);
     return nodeId;
   }
 
@@ -348,8 +373,15 @@ class BlockNodes {
                 break;
               }
               case ExtraNormOp::Assign: {
-                auto srcId = std::get<NodeId>(node->operands[0]);
-                auto src = nodes[srcId.id]->mainVar;
+                mir::inst::Value src(0);
+                auto operand = node->operands[0];
+                if (operand.index() == 1) {
+                  auto srcId = std::get<NodeId>(node->operands[0]);
+                  src = nodes[srcId.id]->mainVar;
+                } else {
+                  src = std::get<int>(operand);
+                }
+
                 auto assignInst = std::make_unique<mir::inst::AssignInst>(
                     std::get<mir::inst::VarId>(node->mainVar), src);
                 inst.push_back(std::move(assignInst));
@@ -414,6 +446,9 @@ class BlockNodes {
           default:;
         }
       }
+    }
+    for (auto idx : exportQueue) {
+      auto& node = nodes[idx];
       if (node->live_vars.size()) {
         for (auto var : node->live_vars) {
           auto assignInst =
@@ -521,41 +556,23 @@ class Common_Expr_Del : public backend::MirOptimizePass {
         }
         case mir::inst::InstKind::Assign: {
           auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
-          if ((assignInst->src.index() == 0
-               // ||!blnd.query_var(std::get<mir::inst::VarId>(assignInst->src))
-               )) {
-            blnd.add_leaf_node(assignInst->src, assignInst->dest);
-          } else {
-            if (!blnd.query_var(std::get<mir::inst::VarId>(assignInst->src))) {
-              blnd.add_leaf_node(std::get<mir::inst::VarId>(assignInst->src));
-            }
-            auto nodeId =
-                blnd.query_nodeId(std::get<mir::inst::VarId>(assignInst->src));
-            /*
-
-            the comments is because the semantics of phi must be remained
-            during the mir proecess, and the assignInst excuting which
-            directly add new var on the node will destroy the semantics
-
-            */
-
-            if (!blnd.nodes[nodeId.id]->is_leaf &&
-                variables[std::get<mir::inst::VarId>(assignInst->src)]
-                    .is_temp_var) {
+          if (assignInst->src.index() == 1) {
+            auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
+            if (variables.at(srcvar.id).is_temp_var) {
+              auto nodeId = blnd.query_nodeId(srcvar);
               blnd.add_var(assignInst->dest, nodeId);
-            } else {
-              auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-              std::vector<mir::inst::Value> values;
-              values.push_back(srcvar);
-              auto op = ExtraNormOp::Assign;
-              auto operands = blnd.cast_operands(values);
-              if (!blnd.query_node(op, operands)) {
-                blnd.add_node(op, operands, assignInst->dest);
-              } else {
-                auto nodeId = blnd.query_nodeId(op, operands);
-                blnd.add_var(assignInst->dest, nodeId.id);
-              }
+              break;
             }
+          }
+          std::vector<mir::inst::Value> values;
+          values.push_back(assignInst->src);
+          auto op = ExtraNormOp::Assign;
+          auto operands = blnd.cast_operands(values);
+          if (!blnd.query_node(op, operands)) {
+            blnd.add_node(op, operands, assignInst->dest);
+          } else {
+            auto nodeId = blnd.query_nodeId(op, operands);
+            blnd.add_var(assignInst->dest, nodeId.id);
           }
           break;
         }
@@ -627,13 +644,17 @@ class Common_Expr_Del : public backend::MirOptimizePass {
     blnd.export_insts(block);
   }
   void optimize_func(mir::inst::MirFunction& func) {
+    if (func.type->is_extern) {
+      return;
+    }
     livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
+    env = std::make_shared<Env>(func);
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
-      if (iter->first == 5) {
-        LOG(TRACE) << "sasq" << std::endl;
-      }
+      // if (iter->first == 5) {
+      //   LOG(TRACE) << "sasq" << std::endl;
+      // }
       optimize_block(iter->second, lva.livevars[iter->first], func.variables);
     }
   }
