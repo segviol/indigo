@@ -446,17 +446,25 @@ class BlockNodes {
           default:;
         }
       }
-    }
-    for (auto idx : exportQueue) {
-      auto& node = nodes[idx];
       if (node->live_vars.size()) {
         for (auto var : node->live_vars) {
+          // if(node->op.index()==1&&std::get<ExtraNormOp>(node->op)==ExtraNormOp::Assign&&node->operands)
           auto assignInst =
               std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
           inst.push_back(std::move(assignInst));
         }
       }
     }
+    // for (auto idx : exportQueue) {
+    //   auto& node = nodes[idx];
+    //   if (node->live_vars.size()) {
+    //     for (auto var : node->live_vars) {
+    //       auto assignInst =
+    //           std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
+    //       inst.push_back(std::move(assignInst));
+    //     }
+    //   }
+    // }
     auto& jump = block.jump;
     if (!jump.cond_or_ret.has_value() || jump.cond_or_ret.value().id == 0) {
       return;
