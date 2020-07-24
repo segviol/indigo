@@ -83,7 +83,7 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
       if (is_comparison(x->op) && !met_cmp) {
-        emit_phi_move(use_vars);
+        emit_phi_move(std::move(use_vars));
         met_cmp = true;
       }
       translate_inst(*x);
