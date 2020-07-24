@@ -98,7 +98,8 @@ class RegAllocator {
   optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm;
 
   std::set<Reg> used_regs = {};
-  std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
+  std::set<Reg> used_regs_temp = {};
+  // std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
   std::map<int, uint32_t> point_bb_map;
 
   std::unordered_map<arm::Reg, Interval> live_intervals;
@@ -143,7 +144,7 @@ class RegAllocator {
     } else {
       live_intervals.insert({reg, Interval(point)});
     }
-    add_reg_use_in_bb_at_point(reg, point);
+    // add_reg_use_in_bb_at_point(reg, point);
   }
 
   void add_reg_write(Reg reg, unsigned int point) {
@@ -152,19 +153,19 @@ class RegAllocator {
     } else {
       live_intervals.insert({reg, Interval(point)});
     }
-    add_reg_use_in_bb_at_point(reg, point);
+    // add_reg_use_in_bb_at_point(reg, point);
   }
 
-  void add_reg_use_in_bb_at_point(Reg reg, unsigned int point) {
-    auto r_mapped = reg_map.find(reg);
-    if (r_mapped != reg_map.end()) {
-      auto bb_iter = point_bb_map.lower_bound(point);
-      bb_iter--;
-      auto &reg_set = bb_used_regs.insert({bb_iter->second, {}}).first->second;
-      reg_set.insert(r_mapped->second);
-      used_regs.insert(r_mapped->second);
-    }
-  }
+  // void add_reg_use_in_bb_at_point(Reg reg, unsigned int point) {
+  //   auto r_mapped = reg_map.find(reg);
+  //   if (r_mapped != reg_map.end()) {
+  //     auto bb_iter = point_bb_map.lower_bound(point);
+  //     bb_iter--;
+  //     auto &reg_set = bb_used_regs.insert({bb_iter->second,
+  //     {}}).first->second; reg_set.insert(r_mapped->second);
+  //     used_regs.insert(r_mapped->second);
+  //   }
+  // }
 #pragma endregion
 
   void calc_live_intervals();
@@ -233,15 +234,15 @@ void RegAllocator::alloc_regs() {
     LOG(TRACE, "bb_reg_use") << x.first << " -> " << x.second << std::endl;
   }
 
-  LOG(TRACE, "bb_reg_use") << "BB Reg use:" << std::endl;
-  for (auto x : bb_used_regs) {
-    LOG(TRACE, "bb_reg_use") << x.first << " -> ";
-    for (auto r : x.second) {
-      display_reg_name(LOG(TRACE, "color_map"), r);
-      LOG(TRACE, "bb_reg_use") << " ";
-    }
-    LOG(TRACE, "bb_reg_use") << std::endl;
-  }
+  // LOG(TRACE, "bb_reg_use") << "BB Reg use:" << std::endl;
+  // for (auto x : bb_used_regs) {
+  //   LOG(TRACE, "bb_reg_use") << x.first << " -> ";
+  //   for (auto r : x.second) {
+  //     display_reg_name(LOG(TRACE, "color_map"), r);
+  //     LOG(TRACE, "bb_reg_use") << " ";
+  //   }
+  //   LOG(TRACE, "bb_reg_use") << std::endl;
+  // }
 
   perform_load_stores();
   f.inst = std::move(inst_sink);
@@ -251,9 +252,11 @@ void RegAllocator::alloc_regs() {
     auto &first = f.inst.front();
     auto first_ = static_cast<PushPopInst *>(&*first);
     for (auto r : used_regs) first_->regs.insert(r);
+    for (auto r : used_regs_temp) first_->regs.insert(r);
     auto &last = f.inst.back();
     auto last_ = static_cast<PushPopInst *>(&*last);
     for (auto r : used_regs) last_->regs.insert(r);
+    for (auto r : used_regs_temp) last_->regs.insert(r);
 
     auto use_stack_param = f.ty.get()->params.size() > 4;
     auto offset_size = (used_regs.size() + 2) * 4;
@@ -417,6 +420,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     if (active.find(reg) == active.end() &&
         used_regs.find(reg) == used_regs.end()) {
       r = reg;
+      used_regs_temp.insert(reg);
       break;
     }
   }
