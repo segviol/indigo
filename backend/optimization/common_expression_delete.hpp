@@ -30,8 +30,8 @@ typedef std::variant<NormOp, ExtraNormOp, InNormOp> Op;
 // typedef std::variant<int, mir::inst::VarId, std::string> Value;
 class NodeId {
  public:
-  u_int32_t id;
-  NodeId(u_int32_t id) : id(id) {}
+  uint32_t id;
+  NodeId(uint32_t id) : id(id) {}
   NodeId() {}
   bool operator<(const NodeId& other) const { return id < other.id; }
   bool operator==(const NodeId& other) const { return id == other.id; }
@@ -152,8 +152,8 @@ class BlockNodes {
   std::map<uint32_t, mir::inst::Variable>& variables;
   std::shared_ptr<livevar_analyse::Block_Live_Var>& blv;
 
-  std::map<u_int32_t, bool> added;
-  std::list<u_int32_t> exportQueue;
+  std::map<uint32_t, bool> added;
+  std::list<uint32_t> exportQueue;
   BlockNodes(std::map<uint32_t, mir::inst::Variable>& variables,
              std::shared_ptr<livevar_analyse::Block_Live_Var>& blv)
       : variables(variables), blv(blv) {}
@@ -249,7 +249,7 @@ class BlockNodes {
     return blv->live_vars_out->count(var);
   }
 
-  bool exportNode(u_int32_t idx) {
+  bool exportNode(uint32_t idx) {
     if (added.count(idx)) {
       return false;
     }
@@ -475,7 +475,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
 
   void optimize_block(mir::inst::BasicBlk& block,
                       std::shared_ptr<livevar_analyse::Block_Live_Var>& blv,
-                      std::map<u_int32_t, mir::inst::Variable> variables) {
+                      std::map<uint32_t, mir::inst::Variable> variables) {
     BlockNodes blnd(variables, blv);
     for (auto& inst : block.inst) {
       auto kind = inst->inst_kind();

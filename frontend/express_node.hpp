@@ -10,7 +10,7 @@ using std::shared_ptr;
 using std::string;
 using std::vector;
 
-enum class NodeType { CONST, VAR };
+enum class NodeType { CNS, VAR };
 
 enum class OperationType {
   RETURN_FUNC_CALL,
