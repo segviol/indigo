@@ -133,4 +133,5 @@ int main()
    putch(10);
    swap(t, 2*t ) ;
    completeflowernum() ;
+   return 0;
 }
