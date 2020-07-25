@@ -21,22 +21,22 @@ void SyntaxAnalyze::hp_init_external_function() {
             new FunctionSymbol(funcName, SymbolKind::INT, _initLayerNum)));
       } else if (funcName == "putint") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       } else if (funcName == "putch") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       } else if (funcName == "putarray") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       } else if (funcName == "putf") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       } else if (funcName == "starttime") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       } else if (funcName == "stoptime") {
         symbolTable.push_symbol(SharedSyPtr(
-            new FunctionSymbol(funcName, SymbolKind::VOID, _initLayerNum)));
+            new FunctionSymbol(funcName, SymbolKind::VID, _initLayerNum)));
       }
     }
     inited = true;
@@ -179,7 +179,7 @@ uint32_t SyntaxAnalyze::gm_const_init_val(vector<SharedExNdPtr> &init_values,
   for (; nowValueNum < totalValueNum; nowValueNum++) {
     SharedExNdPtr value;
     value = SharedExNdPtr(new ExpressNode());
-    value->_type = NodeType::CONST;
+    value->_type = NodeType::CNS;
     value->_operation = OperationType::NUMBER;
     value->_value = 0;
     init_values.push_back(value);
@@ -254,7 +254,7 @@ void SyntaxAnalyze::gm_var_def() {
         }
       } else {
         for (auto value : init_values) {
-          if (value->_type == NodeType::CONST) {
+          if (value->_type == NodeType::CNS) {
             inits.push_back(value->_value);
           } else {
             inits.push_back(0);
@@ -292,7 +292,7 @@ void SyntaxAnalyze::gm_var_def() {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CONST && var->_value != 0) {
+        if (var->_type == NodeType::CNS && var->_value != 0) {
           rightVal.emplace<0>(var->_value);
           needAssgin = true;
         } else if (var->_type == NodeType::VAR) {
@@ -313,7 +313,7 @@ void SyntaxAnalyze::gm_var_def() {
     } else {
       SharedExNdPtr var = init_values.front();
 
-      if (var->_type == NodeType::CONST) {
+      if (var->_type == NodeType::CNS) {
         rightVal.emplace<0>(var->_value);
       } else {
         rightVal.emplace<2>(var->_name);
@@ -369,7 +369,7 @@ uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
   for (; nowValueNum < totalValueNum; nowValueNum++) {
     SharedExNdPtr value;
     value = SharedExNdPtr(new ExpressNode());
-    value->_type = NodeType::CONST;
+    value->_type = NodeType::CNS;
     value->_operation = OperationType::NUMBER;
     value->_value = 0;
     init_values.push_back(value);
@@ -383,12 +383,12 @@ void SyntaxAnalyze::hp_gn_binary_mir(string tmpName, SharedExNdPtr first,
   RightVal op1;
   RightVal op2;
 
-  if (first->_type == NodeType::CONST) {
+  if (first->_type == NodeType::CNS) {
     op1.emplace<0>(first->_value);
   } else {
     op1 = first->_name;
   }
-  if (second->_type == NodeType::CONST) {
+  if (second->_type == NodeType::CNS) {
     op2.emplace<0>(second->_value);
   } else {
     op2 = second->_name;
@@ -420,8 +420,8 @@ SharedExNdPtr SyntaxAnalyze::gm_exp() {
 
     second = gm_mul_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       switch (father->_operation) {
       case OperationType::PLUS:
         father->_value = first->_value + second->_value;
@@ -475,8 +475,8 @@ SharedExNdPtr SyntaxAnalyze::gm_mul_exp() {
 
     second = gm_unary_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       switch (father->_operation) {
       case OperationType::MUL:
         father->_value = first->_value * second->_value;
@@ -527,7 +527,7 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp() {
     num = get_least_matched_word().get_self();
     node = SharedExNdPtr(new ExpressNode());
     node->_value = front::word::stringToInt(num);
-    node->_type = NodeType::CONST;
+    node->_type = NodeType::CNS;
     node->_operation = OperationType::NUMBER;
   } else {
     node = SharedExNdPtr(new ExpressNode());
@@ -549,8 +549,8 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp() {
     } else {
       SharedExNdPtr child = gm_unary_exp();
 
-      if (child->_type == NodeType::CONST) {
-        node->_type = NodeType::CONST;
+      if (child->_type == NodeType::CNS) {
+        node->_type = NodeType::CNS;
         switch (node->_operation) {
         case OperationType::UN_MINU:
           node->_value = -child->_value;
@@ -570,7 +570,7 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp() {
         node->_name = nodeId;
 
         tmp = SharedExNdPtr(new ExpressNode());
-        tmp->_type = NodeType::CONST;
+        tmp->_type = NodeType::CNS;
         tmp->_operation = OperationType::NUMBER;
         tmp->_value = 0;
 
@@ -621,24 +621,24 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     if (i < node->_children.size()) {
       index2 = node->_children.at(i);
     } else {
-      index2->_type = NodeType::CONST;
+      index2->_type = NodeType::CNS;
       index2->_operation = OperationType::NUMBER;
       index2->_value = 0;
     }
 
     mulNode->_operation = OperationType::MUL;
-    if (index->_type == NodeType::CONST && d->_type == NodeType::CONST) {
-      mulNode->_type = NodeType::CONST;
+    if (index->_type == NodeType::CNS && d->_type == NodeType::CNS) {
+      mulNode->_type = NodeType::CNS;
       mulNode->_value = index->_value * d->_value;
     } else {
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
-      if (index->_type == NodeType::CONST) {
+      if (index->_type == NodeType::CNS) {
         rightvalue1.emplace<0>(index->_value);
       } else {
         rightvalue1.emplace<2>(index->_name);
       }
-      if (d->_type == NodeType::CONST) {
+      if (d->_type == NodeType::CNS) {
         rightvalue2.emplace<0>(d->_value);
       } else {
         rightvalue2 = d->_name;
@@ -649,18 +649,18 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     mulNode->addChild(d);
 
     addNode->_operation = OperationType::PLUS;
-    if (mulNode->_type == NodeType::CONST && index2->_type == NodeType::CONST) {
-      addNode->_type = NodeType::CONST;
+    if (mulNode->_type == NodeType::CNS && index2->_type == NodeType::CNS) {
+      addNode->_type = NodeType::CNS;
       addNode->_value = mulNode->_value + index2->_value;
     } else {
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
-      if (mulNode->_type == NodeType::CONST) {
+      if (mulNode->_type == NodeType::CNS) {
         rightvalue1.emplace<0>(mulNode->_value);
       } else {
         rightvalue1.emplace<2>(mulNode->_name);
       }
-      if (index2->_type == NodeType::CONST) {
+      if (index2->_type == NodeType::CNS) {
         rightvalue2.emplace<0>(index2->_value);
       } else {
         rightvalue2 = index2->_name;
@@ -681,7 +681,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   addr->addChild(node);
   addr->addChild(index);
 
-  if (index->_type == NodeType::CONST) {
+  if (index->_type == NodeType::CNS) {
     rightvalue1.emplace<0>(index->_value);
   } else {
     rightvalue1 = index->_name;
@@ -727,11 +727,11 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
             std::static_pointer_cast<ArraySymbol>(arr)->_dimensions.size()) {
       node = addr;
     } else if (std::static_pointer_cast<ArraySymbol>(arr)->isConst() &&
-               addr->_children.back()->_type == NodeType::CONST) {
+               addr->_children.back()->_type == NodeType::CNS) {
       SharedExNdPtr constValue;
 
       constValue = SharedExNdPtr(new ExpressNode());
-      constValue->_type = NodeType::CONST;
+      constValue->_type = NodeType::CNS;
       constValue->_operation = OperationType::NUMBER;
       constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)
                                ->_values.at(addr->_children.back()->_value)
@@ -757,7 +757,7 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
 
     if (var->kind() == SymbolKind::INT) {
       if (std::static_pointer_cast<IntSymbol>(var)->isConst()) {
-        node->_type = NodeType::CONST;
+        node->_type = NodeType::CNS;
         node->_operation = OperationType::VAR;
         node->_value = std::static_pointer_cast<IntSymbol>(var)->getValue();
       } else {
@@ -881,7 +881,7 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
   }
 
   for (auto var : params) {
-    if (var->_type == NodeType::CONST) {
+    if (var->_type == NodeType::CNS) {
       rightVal.emplace<0>(var->_value);
     } else {
       rightVal = var->_name;
@@ -911,7 +911,7 @@ void SyntaxAnalyze::gm_func_def() {
     ret = SymbolKind::INT;
   } else {
     match_one_word(Token::VOIDTK);
-    ret = SymbolKind::VOID;
+    ret = SymbolKind::VID;
   }
 
   match_one_word(Token::IDENFR);
@@ -984,7 +984,7 @@ void SyntaxAnalyze::gm_func_param(
       match_one_word(Token::LBRACK);
       dimension = gm_exp();
       match_one_word(Token::RBRACK);
-      if (dimension->_type == NodeType::CONST) {
+      if (dimension->_type == NodeType::CNS) {
         std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(dimension);
       } else {
         SharedSyPtr genValue;
@@ -1100,7 +1100,7 @@ void SyntaxAnalyze::gm_if_stmt() {
 
   match_one_word(Token::RPARENT);
 
-  if (cond->_type == NodeType::CONST) {
+  if (cond->_type == NodeType::CNS) {
     string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
     RightVal right;
     right.emplace<0>(cond->_value);
@@ -1147,7 +1147,7 @@ void SyntaxAnalyze::gm_while_stmt() {
 
   cond = gm_cond();
 
-  if (cond->_type == NodeType::CONST) {
+  if (cond->_type == NodeType::CNS) {
     string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
     RightVal right;
     right.emplace<0>(cond->_value);
@@ -1178,7 +1178,7 @@ void SyntaxAnalyze::gm_return_stmt() {
 
     retValue = gm_exp();
 
-    if (retValue->_type == NodeType::CONST) {
+    if (retValue->_type == NodeType::CNS) {
       string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
       RightVal right;
       right.emplace<0>(retValue->_value);
@@ -1204,7 +1204,7 @@ void SyntaxAnalyze::gm_assign_stmt() {
   rVal = gm_exp();
   match_one_word(Token::SEMICN);
 
-  if (rVal->_type == NodeType::CONST) {
+  if (rVal->_type == NodeType::CNS) {
     rightValue.emplace<0>(rVal->_value);
   } else {
     rightValue = rVal->_name;
@@ -1232,8 +1232,8 @@ SharedExNdPtr SyntaxAnalyze::gm_cond() {
 
     second = gm_and_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       father->_value = first->_value || second->_value;
     } else {
       string tmpName;
@@ -1268,8 +1268,8 @@ SharedExNdPtr SyntaxAnalyze::gm_and_exp() {
 
     second = gm_eq_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       father->_value = first->_value && second->_value;
     } else {
       string tmpName;
@@ -1308,8 +1308,8 @@ SharedExNdPtr SyntaxAnalyze::gm_eq_exp() {
 
     second = gm_rel_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       switch (father->_operation) {
       case OperationType::EQL:
         father->_value = first->_value == second->_value;
@@ -1367,8 +1367,8 @@ SharedExNdPtr SyntaxAnalyze::gm_rel_exp() {
 
     second = gm_exp();
 
-    if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
-      father->_type = NodeType::CONST;
+    if (first->_type == NodeType::CNS && second->_type == NodeType::CNS) {
+      father->_type = NodeType::CNS;
       switch (father->_operation) {
       case OperationType::LSS:
         father->_value = first->_value < second->_value;

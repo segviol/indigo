@@ -15,7 +15,7 @@ using std::vector;
 
 using front::express::SharedExNdPtr;
 
-enum class SymbolKind { INT, VOID, Array, Function, Ptr };
+enum class SymbolKind { INT, VID, Array, Function, Ptr };
 
 // Base class for symbols
 class Symbol {
@@ -66,7 +66,7 @@ public:
 class VoidSymbol final : public Symbol {
 public:
   VoidSymbol() : Symbol("void", -1) {}
-  virtual SymbolKind kind() const { return SymbolKind::VOID; }
+  virtual SymbolKind kind() const { return SymbolKind::VID; }
 
   virtual ~VoidSymbol() {}
 
@@ -104,7 +104,7 @@ public:
     } else {
       int size = 1;
       for (SharedExNdPtr i : _dimensions) {
-        if (i->_type == front::express::NodeType::CONST) {
+        if (i->_type == front::express::NodeType::CNS) {
           size *= i->_value;
         } else {
           _size = 0;
