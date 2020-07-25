@@ -3,7 +3,7 @@
 using namespace front::express;
 
 ExpressNode::ExpressNode() {
-  _type = NodeType::CONST;
+  _type = NodeType::CNS;
   _operation = OperationType::AND;
   _value = 0;
   _name = "";

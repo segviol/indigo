@@ -394,7 +394,7 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
   case front::symbol::SymbolKind::INT:
     ret = SharedTyPtr(new IntTy());
     break;
-  case front::symbol::SymbolKind::VOID:
+  case front::symbol::SymbolKind::VID:
     ret = SharedTyPtr(new VoidTy());
     break;
   default:
@@ -430,7 +430,7 @@ void irGenerator::ir_leave_function() {
   ir_label(_ReturnBlockLabelId);
 
   for (string var : _funcNameToFuncData[_funcStack.back()]._freeList) {
-    ir_function_call("void", symbol::SymbolKind::VOID, "free", {var});
+    ir_function_call("void", symbol::SymbolKind::VID, "free", {var});
   }
 
   switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
@@ -562,7 +562,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
     break;
   }
 
-  case front::symbol::SymbolKind::VOID: {
+  case front::symbol::SymbolKind::VID: {
     destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
     break;
   }
