@@ -1,5 +1,6 @@
-#include <algorithm>
 #include <stdint.h>
+
+#include <algorithm>
 #include <vector>
 
 #include "../arm_code/arm.hpp"
@@ -38,7 +39,7 @@ typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
 class WhileLabels {
-public:
+ public:
   LabelId _beginLabel;
   LabelId _endLabel;
 
@@ -51,7 +52,7 @@ public:
 };
 
 class FunctionData {
-public:
+ public:
   std::map<string, LabelId> _localValueNameToId;
   std::vector<string> _freeList;
   std::uint32_t _nowTmpId;
@@ -59,7 +60,7 @@ public:
 };
 
 class JumpLabelId {
-public:
+ public:
   LabelId _jumpLabelId;
 
   JumpLabelId(LabelId id) : _jumpLabelId(id) {}
@@ -73,7 +74,7 @@ typedef std::variant<shared_ptr<mir::inst::Inst>,
 extern std::vector<string> externalFuncName;
 
 class irGenerator {
-public:
+ public:
   irGenerator();
 
   void outputInstructions(std::ostream &out);
@@ -131,7 +132,7 @@ public:
 
   mir::inst::MirPackage &getPackage() { return _package; }
 
-private:
+ private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
@@ -144,14 +145,14 @@ private:
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
-  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
-  const string _StringNamePrefix = "$$0";
-  const string _TmpNamePrefix = "$$1";
-  const string _ConstNamePrefix = "$$2";
-  const string _VarNamePrefix = "$$3";
-  const string _GenSaveParamVarNamePrefix = "$$4";
-  const string _FunctionNamePrefix = "$$5";
+  const string _VoidVarName = "_Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "__Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "_0";
+  const string _TmpNamePrefix = "_1";
+  const string _ConstNamePrefix = "_2";
+  const string _VarNamePrefix = "_3";
+  const string _GenSaveParamVarNamePrefix = "_4";
+  const string _FunctionNamePrefix = "_5";
 
   LabelId _nowLabelId;
   uint32_t _nowStringId;
@@ -174,6 +175,6 @@ private:
 
   string getGenSaveParamVarName(uint32_t id);
 };
-} // namespace front::irGenerator
+}  // namespace front::irGenerator
 
-#endif // !COMPILER_FRONT_IR_GENERATOR_H_
+#endif  // !COMPILER_FRONT_IR_GENERATOR_H_
