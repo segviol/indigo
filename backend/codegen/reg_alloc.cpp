@@ -17,6 +17,7 @@
 #include "../optimization/optimization.hpp"
 #include "aixlog.hpp"
 
+
 namespace backend::codegen {
 using namespace arm;
 
@@ -468,30 +469,20 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   //   auto bb_id = (--point_bb_map.lower_bound(i.start));
   //   auto bb_regs = bb_used_regs.find(bb_id->second);
   //   if (bb_regs != bb_used_regs.end()) {
-  for (auto reg : GLOB_REGS) {
-    if (active.find(reg) == active.end() &&
-        used_regs.find(reg) == used_regs.end()) {
-      r = reg;
-      used_regs_temp.insert(reg);
-      break;
-    }
-  }
-  //   } else {
-  //     // not using any global registers!
-  //     for (auto reg : GLOB_REGS) {
-  //       if (active.find(reg) == active.end()) {
-  //         r = reg;
-  //         break;
-  //       }
-  //     }
-  //   }
-  // }
   if (r == -1) {
     for (auto reg : TEMP_REGS) {
       if (active.find(reg) == active.end()) {
         r = reg;
         break;
       }
+    }
+  }
+  for (auto reg : GLOB_REGS) {
+    if (active.find(reg) == active.end() &&
+        used_regs.find(reg) == used_regs.end()) {
+      r = reg;
+      used_regs_temp.insert(reg);
+      break;
     }
   }
   if (r == -1) {
