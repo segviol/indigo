@@ -78,8 +78,8 @@ int main(int argc, const char** argv) {
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
-  backend.add_pass(std::make_unique<
-                   optimization::memvar_propagation::Memory_Var_Propagation>());
+  //backend.add_pass(std::make_unique<
+  //                 optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
