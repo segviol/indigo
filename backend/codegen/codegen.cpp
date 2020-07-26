@@ -83,23 +83,30 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
       if (is_comparison(x->op) && !met_cmp) {
-        emit_phi_move(use_vars);
+        emit_phi_move(std::move(use_vars));
         met_cmp = true;
       }
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
+      met_cmp = false;
       translate_inst(*x);
     } else {
       throw new std::bad_cast();
@@ -634,7 +641,11 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId> i) {
   for (auto id : i) {
     auto collapsed = var_collapse.equal_range(id);
-    if (collapsed.first == collapsed.second) continue;
+    if (collapsed.first == collapsed.second) {
+      LOG(DEBUG) << id << " skipped" << std::endl;
+      continue;
+    }
+    LOG(DEBUG) << id << std::endl;
     for (auto it = collapsed.first; it != collapsed.second; it++) {
       auto dest_reg = get_or_alloc_vgp(it->second);
       inst.push_back(std::make_unique<Arith2Inst>(

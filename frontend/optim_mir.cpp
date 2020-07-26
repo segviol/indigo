@@ -1232,9 +1232,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             shared_ptr<mir::inst::PhiInst> in =
                 static_pointer_cast<mir::inst::PhiInst>(inst);
             set<mir::inst::VarId> vars;
+            vars.insert(in->dest);
             for (int k = 0; k < in->vars.size(); k++) {
               vars.insert(in->vars[k]);
             }
+            vars.erase(in->dest);
             if (vars.size() == 1) {
               redundantphi.insert(
                   map<mir::inst::VarId, mir::inst::VarId>::value_type(
@@ -1357,7 +1359,6 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
         }
       }
       // delete define
-      
       for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
         vector<uint32_t>::iterator fi =
             find(defined.begin(), defined.end(), iet->first);
