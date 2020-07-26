@@ -10,6 +10,7 @@ set(PROJECT_EXE ${PROJECT_NAME})
 set(backend_files
     backend/backend.hpp
     backend/backend.cpp
+    backend/optimization/algebraic_simplification.hpp
     backend/optimization/optimization.hpp
     backend/optimization/graph_color.hpp
     backend/optimization/livevar_analyse.hpp
