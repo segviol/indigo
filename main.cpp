@@ -11,12 +11,12 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
+#include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
-#include "backend/optimization/remove_dead_code.hpp"
-#include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
+#include "backend/optimization/remove_dead_code.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
@@ -63,23 +63,23 @@ int main(int argc, const char** argv) {
   LOG(INFO) << "generating SSA" << std::endl;
 
   gen_ssa(inst, package, irgenerator);
-  
+
   // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before") << std::endl;
   if (options.verbose) std::cout << package << std::endl;
   LOG(INFO) << ("generating ARM code");
 
   backend::Backend backend(package, options);
-  backend.add_pass(
-      std::make_unique<optimization::const_propagation::Const_Propagation>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  //backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
+  // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   // backend.add_pass(
   //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
-  backend.add_pass(
-      std::make_unique<optimization::memvar_propagation::Memory_Var_Propagation>());
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
