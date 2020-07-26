@@ -98,7 +98,4 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
  private:
 };
 
-AlgebraicSimplification::AlgebraicSimplification() {}
-
-AlgebraicSimplification::~AlgebraicSimplification() {}
 }
