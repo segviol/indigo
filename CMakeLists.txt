@@ -15,6 +15,8 @@ set(backend_files
     backend/optimization/livevar_analyse.hpp
     backend/optimization/remove_dead_code.hpp
     backend/optimization/excess_reg_delete.cpp
+    backend/optimization/const_propagation.hpp
+    backend/optimization/memvar_propagation.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
@@ -24,8 +26,6 @@ set(backend_files
     backend/optimization/graph_color.hpp)
 
 set(frontend_files
-    frontend/const_prop.hpp
-    frontend/const_prop.cpp
     frontend/express_node.hpp
     frontend/express_node.cpp
     frontend/ir_generator.hpp
