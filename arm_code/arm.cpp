@@ -188,6 +188,15 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::SDiv:
       o << "sdiv";
       break;
+    case OpCode::Lsl:
+      o << "lsl";
+      break;
+    case OpCode::Lsr:
+      o << "lsr";
+      break;
+    case OpCode::Asr:
+      o << "asr";
+      break;
     case OpCode::And:
       o << "and";
       break;
@@ -232,7 +241,6 @@ void display_op(OpCode op, std::ostream &o) {
       break;
     case OpCode::_Mod:
       o << "_MOD";
-
       break;
     default:
       o << "?" << (int)op;
