@@ -145,10 +145,10 @@ class Const_Propagation : public backend::MirOptimizePass {
         bit->second.inst.insert(bit->second.inst.begin() + reit->first,
                                 std::move(reit->second));
       }
-      if (del.size() == 1) {
-        auto iter = bit->second.inst.begin() + del[0];
-        bit->second.inst.erase(iter);
-      }
+      for (int i = del.size() - 1; i >= 0; i--) {
+          auto iter = bit->second.inst.begin() + del[i];
+          bit->second.inst.erase(iter);
+        }
     }
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
