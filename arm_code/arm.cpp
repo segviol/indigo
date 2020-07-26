@@ -209,9 +209,6 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::Bic:
       o << "bic";
       break;
-    case OpCode::Asr:
-      o << "asr";
-      break;
     case OpCode::Cmp:
       o << "cmp";
       break;
