@@ -20,7 +20,6 @@
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
-#include "frontend/const_prop.hpp"
 #include "include/aixlog.hpp"
 #include "include/argparse/argparse.hpp"
 #include "mir/mir.hpp"
