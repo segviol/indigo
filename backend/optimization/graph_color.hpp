@@ -30,12 +30,17 @@ class Conflict_Map {
   std::map<u_int, std::set<mir::inst::VarId>> edge_vars;
   std::stack<mir::inst::VarId> remove_Nodes;
   std::shared_ptr<Color_Map> color_map;
+  std::shared_ptr<std::set<int>> unused_colors;
   mir::inst::MirFunction& func;
   int varId;
   u_int color_num = 8;
   Conflict_Map(std::shared_ptr<Color_Map> color_map,
                mir::inst::MirFunction& func, u_int color_num = 8)
       : color_num(color_num), color_map(color_map), func(func) {
+    unused_colors = std::make_shared<std::set<int>>();
+    for (int i = 0; i < color_num; i++) {
+      unused_colors->insert(i);
+    }
     if (func.variables.size()) {
       auto end_iter = func.variables.end();
       end_iter--;
@@ -219,6 +224,9 @@ class Conflict_Map {
     }
     for (int i = 0; i < color_num; i++) {
       if (colors[i]) {
+        if (unused_colors->count(i)) {
+          unused_colors->erase(i);
+        }
         return i;
       }
     }
@@ -270,6 +278,8 @@ class Graph_Color : public backend::MirOptimizePass {
       blk_livevar_analyse;
 
   std::unordered_map<std::string, std::shared_ptr<Color_Map>> func_color_map;
+  std::unordered_map<std::string, std::shared_ptr<std::set<int>>>
+      func_unused_colors;
   std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
   Graph_Color(u_int color_num) : color_num(color_num) {}
   std::string pass_name() const { return name; }
@@ -319,6 +329,7 @@ class Graph_Color : public backend::MirOptimizePass {
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
         Conflict_Map(func_color_map[funcId], func, color_num));
     auto conflict_map = func_conflict_map[funcId];
+    func_unused_colors.insert({funcId, conflict_map->unused_colors});
     livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
@@ -341,6 +352,11 @@ class Graph_Color : public backend::MirOptimizePass {
       }
     }
     LOG(TRACE) << func.name << " coloring result : " << std::endl;
+    LOG(TRACE) << "unused colors : ";
+    for (auto c : *conflict_map->unused_colors) {
+      LOG(TRACE) << c << " ";
+    }
+    LOG(TRACE) << std::endl;
     for (auto iter = conflict_map->color_map->begin();
          iter != conflict_map->color_map->end(); iter++) {
       LOG(TRACE) << "variable " << iter->first << " color: " << iter->second
@@ -356,6 +372,7 @@ class Graph_Color : public backend::MirOptimizePass {
       optimize_func(iter->first, iter->second);
     }
     extra_data_repo[name] = func_color_map;
+    extra_data_repo["unused_colors"] = func_unused_colors;
   }
 };
 
