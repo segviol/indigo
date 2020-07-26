@@ -64,7 +64,7 @@ class Rewriter {
     int ret = 0;
     auto destId = get_new_varId();
     var_cast_map[ret] = destId.id;
-    func.variables[destId.id] = func.variables[callInst.dest.id];
+    func.variables[destId.id] = subfunc.variables[ret];
     init_inst_after.push_back(
         std::make_unique<mir::inst::AssignInst>(callInst.dest, destId));
     for (auto iter = subfunc.variables.begin(); iter != subfunc.variables.end();
