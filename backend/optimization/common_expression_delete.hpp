@@ -18,7 +18,6 @@
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
 #include "livevar_analyse.hpp"
-#include "phi_merge.hpp"
 
 namespace optimization::common_expr_del {
 class Node;
