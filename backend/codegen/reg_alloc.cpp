@@ -279,7 +279,7 @@ void RegAllocator::alloc_regs() {
     for (auto r : used_regs_temp) last_->regs.insert(r);
 
     auto use_stack_param = f.ty.get()->params.size() > 4;
-    auto offset_size = (used_regs.size() + 2) * 4;
+    auto offset_size = (first_->regs.size()) * 4;
     if (use_stack_param) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Add, REG_FP, REG_FP,
