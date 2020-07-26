@@ -423,14 +423,14 @@ SharedExNdPtr SyntaxAnalyze::gm_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::PLUS:
-        father->_value = first->_value + second->_value;
-        break;
-      case OperationType::MINU:
-        father->_value = first->_value - second->_value;
-        break;
-      default:
-        break;
+        case OperationType::PLUS:
+          father->_value = first->_value + second->_value;
+          break;
+        case OperationType::MINU:
+          father->_value = first->_value - second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -478,17 +478,17 @@ SharedExNdPtr SyntaxAnalyze::gm_mul_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::MUL:
-        father->_value = first->_value * second->_value;
-        break;
-      case OperationType::DIV:
-        father->_value = first->_value / second->_value;
-        break;
-      case OperationType::MOD:
-        father->_value = first->_value % second->_value;
-        break;
-      default:
-        break;
+        case OperationType::MUL:
+          father->_value = first->_value * second->_value;
+          break;
+        case OperationType::DIV:
+          father->_value = first->_value / second->_value;
+          break;
+        case OperationType::MOD:
+          father->_value = first->_value % second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -552,14 +552,14 @@ SharedExNdPtr SyntaxAnalyze::gm_unary_exp() {
       if (child->_type == NodeType::CONST) {
         node->_type = NodeType::CONST;
         switch (node->_operation) {
-        case OperationType::UN_MINU:
-          node->_value = -child->_value;
-          break;
-        case OperationType::UN_NOT:
-          node->_value = !child->_value;
-          break;
-        default:
-          break;
+          case OperationType::UN_MINU:
+            node->_value = -child->_value;
+            break;
+          case OperationType::UN_NOT:
+            node->_value = !child->_value;
+            break;
+          default:
+            break;
         }
       } else {
         SharedExNdPtr tmp;
@@ -835,6 +835,10 @@ SharedExNdPtr SyntaxAnalyze::gm_func_call() {
 
   match_one_word(Token::IDENFR);
   name = get_least_matched_word().get_self();
+  if (name == "starttime" || name == "stoptime") {
+    rightVal.emplace<0>(get_least_matched_word().get_line_num());
+    rightParams.push_back(rightVal);
+  }
 
   func = symbolTable.find_least_layer_symbol(name);
 
@@ -1010,16 +1014,16 @@ void SyntaxAnalyze::gm_func_param(
 
   symbolTable.push_symbol(symbol);
   switch (symbol->kind()) {
-  case SymbolKind::Array:
-    irGenerator.ir_declare_param(symbol->getName(), SymbolKind::Ptr,
-                                 symbol->getId());
-    break;
-  case SymbolKind::INT:
-    irGenerator.ir_declare_param(symbol->getName(), SymbolKind::INT,
-                                 symbol->getId());
-    break;
-  default:
-    break;
+    case SymbolKind::Array:
+      irGenerator.ir_declare_param(symbol->getName(), SymbolKind::Ptr,
+                                   symbol->getId());
+      break;
+    case SymbolKind::INT:
+      irGenerator.ir_declare_param(symbol->getName(), SymbolKind::INT,
+                                   symbol->getId());
+      break;
+    default:
+      break;
   }
 }
 
@@ -1311,14 +1315,14 @@ SharedExNdPtr SyntaxAnalyze::gm_eq_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::EQL:
-        father->_value = first->_value == second->_value;
-        break;
-      case OperationType::NEQ:
-        father->_value = first->_value != second->_value;
-        break;
-      default:
-        break;
+        case OperationType::EQL:
+          father->_value = first->_value == second->_value;
+          break;
+        case OperationType::NEQ:
+          father->_value = first->_value != second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
@@ -1370,20 +1374,20 @@ SharedExNdPtr SyntaxAnalyze::gm_rel_exp() {
     if (first->_type == NodeType::CONST && second->_type == NodeType::CONST) {
       father->_type = NodeType::CONST;
       switch (father->_operation) {
-      case OperationType::LSS:
-        father->_value = first->_value < second->_value;
-        break;
-      case OperationType::LEQ:
-        father->_value = first->_value <= second->_value;
-        break;
-      case OperationType::GRE:
-        father->_value = first->_value > second->_value;
-        break;
-      case OperationType::GEQ:
-        father->_value = first->_value >= second->_value;
-        break;
-      default:
-        break;
+        case OperationType::LSS:
+          father->_value = first->_value < second->_value;
+          break;
+        case OperationType::LEQ:
+          father->_value = first->_value <= second->_value;
+          break;
+        case OperationType::GRE:
+          father->_value = first->_value > second->_value;
+          break;
+        case OperationType::GEQ:
+          father->_value = first->_value >= second->_value;
+          break;
+        default:
+          break;
       }
     } else {
       string tmpName;
