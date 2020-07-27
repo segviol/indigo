@@ -20,7 +20,7 @@ class VarMirFold final : public backend::MirOptimizePass {
         switch (instIter->get()->inst_kind()) {
           case mir::inst::InstKind::Op: {
             std::shared_ptr<mir::inst::OpInst> opInst =
-                std::make_shared<mir::inst::OpInst>(instIter->get());
+                std::make_shared<mir::inst::OpInst>(*((mir::inst::OpInst*)instIter->get()));
             switch (opInst->op) {
               case mir::inst::Op::Add: {
                 if (opInst->lhs.is_immediate() &&
