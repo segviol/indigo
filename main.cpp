@@ -68,7 +68,7 @@ int main(int argc, const char** argv) {
   // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
   LOG(INFO) << ("Mir_Before") << std::endl;
   if (options.verbose) std::cout << package << std::endl;
-  LOG(INFO) << ("generating ARM code");
+  LOG(INFO) << ("generating ARM code") << std::endl;
 
   backend::Backend backend(package, options);
   // backend.add_pass(
