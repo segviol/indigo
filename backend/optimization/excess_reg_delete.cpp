@@ -17,13 +17,21 @@ void ExcessRegDelete::optimize_arm(
       bool del = false;
       if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
         if (x->op == arm::OpCode::Mov && (x->r1 == x->r2)) {
+          // Delete `mov rA, rA`
           del = true;
-        } else {
         }
-      } else {
-      }
-      if (!del) {
-        new_inst.push_back(std::move(f->inst[i]));
+      } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
+        if (i < f->inst.size() - 1) {
+          if (auto x_ = dynamic_cast<LabelInst *>(&*f->inst[i + 1])) {
+            if (x->cond == arm::ConditionCode::Always && x->l == x_->label) {
+              // delete `b label1; label1:`
+              del = true;
+            }
+          }
+        }
+        if (!del) {
+          new_inst.push_back(std::move(f->inst[i]));
+        }
       }
     }
 
