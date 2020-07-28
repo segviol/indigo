@@ -37,7 +37,8 @@ class Cast_Inst : public backend::MirOptimizePass {
         if (inst->inst_kind() == mir::inst::InstKind::PtrOffset) {
           auto ptrInst = dynamic_cast<mir::inst::PtrOffsetInst*>(&i);
           offset_map.insert({ptrInst->dest, {ptrInst->ptr, ptrInst->offset}});
-          iter = insts.erase(iter);
+          // iter = insts.erase(iter);
+          iter++;
         } else {
           iter++;
         }
