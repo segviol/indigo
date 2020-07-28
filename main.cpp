@@ -19,6 +19,7 @@
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
+#include "backend/optimization/var_mir_fold.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/syntax_analyze.hpp"
@@ -74,6 +75,7 @@ int main(int argc, const char** argv) {
   backend::Backend backend(package, options);
   // backend.add_pass(
   //     std::make_unique<optimization::const_propagation::Const_Propagation>());
+  backend.add_pass(std::make_unique<optimization::var_mir_fold::VarMirFold>());
   backend.add_pass(
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());

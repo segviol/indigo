@@ -605,13 +605,6 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
 
   // in function, there should be a virtual d in dimensions.at(0)
   for (i = 1; i < dimesions.size(); i++) {
-    if (i == 1) {
-      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
-      if (index->_type == NodeType::VAR) {
-        irGenerator.ir_assign(tmpOff, index->_name);
-      }
-    }
-
     SharedExNdPtr d = dimesions.at(i);
 
     SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
@@ -631,6 +624,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       mulNode->_type = NodeType::CNS;
       mulNode->_value = index->_value * d->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
       if (index->_type == NodeType::CNS) {
@@ -653,6 +650,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       addNode->_type = NodeType::CNS;
       addNode->_value = mulNode->_value + index2->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
       if (mulNode->_type == NodeType::CNS) {
@@ -673,6 +674,27 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     index = addNode;
   }
 
+  SharedExNdPtr byteIndex = SharedExNdPtr(new ExpressNode());
+  byteIndex->_operation = OperationType::MUL;
+  if (index->_type == NodeType::CNS) {
+    byteIndex->_type = NodeType::CNS;
+    byteIndex->_value = index->_value * mir::types::INT_SIZE;
+  } else {
+    if (tmpOff.empty()) {
+      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+    }
+
+    byteIndex->_type = NodeType::VAR;
+    byteIndex->_name = tmpOff;
+
+    rightvalue1 = index->_name;
+    rightvalue2.emplace<0>(mir::types::INT_SIZE);
+
+    irGenerator.ir_op(tmpOff, rightvalue1, rightvalue2, Op::Mul);
+  }
+  byteIndex->addChild(index);
+  index = byteIndex;
+
   SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
 
   addr->_type = NodeType::VAR;
@@ -686,7 +708,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   } else {
     rightvalue1 = index->_name;
   }
-  irGenerator.ir_offset(tmpPtr, tmpPtr, rightvalue1);
+  irGenerator.ir_op(tmpPtr, tmpPtr, rightvalue1, Op::Add);
 
   return addr;
 }
@@ -733,9 +755,10 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       constValue = SharedExNdPtr(new ExpressNode());
       constValue->_type = NodeType::CNS;
       constValue->_operation = OperationType::NUMBER;
-      constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)
-                               ->_values.at(addr->_children.back()->_value)
-                               ->_value;
+      constValue->_value =
+          std::static_pointer_cast<ArraySymbol>(arr)
+              ->_values.at(addr->_children.back()->_children.front()->_value)
+              ->_value;
       node = constValue;
     } else {
       SharedExNdPtr loadValue;
@@ -1134,7 +1157,68 @@ void SyntaxAnalyze::gm_if_stmt() {
   }
 }
 
-void SyntaxAnalyze::gm_while_stmt() {
+void SyntaxAnalyze::gm_while_stmt() { gm_while_stmt_flat(); }
+
+void SyntaxAnalyze::gm_while_stmt_flat() {
+  SharedExNdPtr cond;
+  LabelId whileTrue = irGenerator.getNewLabelId();
+  LabelId whileEnd = irGenerator.getNewLabelId();
+  LabelId whileBegin = irGenerator.getNewLabelId();
+  std::optional<string> condStr;
+  irGenerator::WhileLabels whileLabels =
+      irGenerator::WhileLabels(whileBegin, whileEnd);
+  uint32_t condIndex;
+  uint32_t endWhileIndex;
+
+  irGenerator.pushWhile(whileLabels);
+
+  match_one_word(Token::WHILETK);
+  match_one_word(Token::LPARENT);
+
+  condIndex = get_matched_index();
+  cond = gm_cond();
+
+  if (cond->_type == NodeType::CNS) {
+    string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
+    RightVal right;
+    right.emplace<0>(cond->_value);
+    irGenerator.ir_assign(tmpName, right);
+    condStr = tmpName;
+  } else {
+    condStr = cond->_name;
+  }
+  irGenerator.ir_jump(mir::inst::JumpInstructionKind::BrCond, whileTrue,
+                      whileEnd, condStr, mir::inst::JumpKind::Loop);
+  irGenerator.ir_label(whileTrue);
+
+  match_one_word(Token::RPARENT);
+
+  gm_stmt();
+
+  irGenerator.ir_label(whileBegin);
+
+  endWhileIndex = get_matched_index();
+  set_matched_index(condIndex);
+  cond = gm_cond();
+  set_matched_index(endWhileIndex);
+
+  if (cond->_type == NodeType::CNS) {
+    string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
+    RightVal right;
+    right.emplace<0>(cond->_value);
+    irGenerator.ir_assign(tmpName, right);
+    condStr = tmpName;
+  } else {
+    condStr = cond->_name;
+  }
+  irGenerator.ir_jump(mir::inst::JumpInstructionKind::BrCond, whileTrue,
+                      whileEnd, condStr, mir::inst::JumpKind::Loop);
+  irGenerator.ir_label(whileEnd);
+
+  irGenerator.popWhile();
+}
+
+void SyntaxAnalyze::gm_while_stmt_normal() {
   SharedExNdPtr cond;
   LabelId whileTrue = irGenerator.getNewLabelId();
   LabelId whileEnd = irGenerator.getNewLabelId();
