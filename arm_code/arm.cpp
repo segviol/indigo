@@ -114,8 +114,8 @@ Reg make_register(RegisterKind k, uint32_t num) {
 
 void RegisterOperand::display(std::ostream &o) const {
   display_reg_name(o, reg);
-
   if (shift != RegisterShiftKind::Lsl || shift_amount != 0) {
+    o << ", ";
     display_shift(o, shift);
     if (shift != RegisterShiftKind::Rrx) {
       o << " #" << shift_amount;
