@@ -366,7 +366,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     if (auto o = offset.get_if<int32_t>()) {
-      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o) * 4);
+      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o));
     } else {
       auto o_ = offset.get_if<mir::inst::VarId>();
       throw prelude::NotImplementedException();
@@ -376,7 +376,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
     if (x != stack_space_allocation.end()) {
       auto reg = alloc_vgp();
       if (auto o = offset.get_if<int32_t>()) {
-        return MemoryOperand(REG_SP, (x->second + *o) * 4);
+        return MemoryOperand(REG_SP, (x->second + *o));
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
         throw prelude::NotImplementedException();
@@ -388,9 +388,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
         return MemoryOperand(reg, *o * 4);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
-        return MemoryOperand(reg,
-                             RegisterOperand(get_or_alloc_vgp(*o_),
-                                             arm::RegisterShiftKind::Lsl, 2));
+        return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
       }
     }
   }
