@@ -266,6 +266,28 @@ class LoadInst final : public Inst {
   }
 };
 
+/// Dereference instruction. `$dest = load $val`
+class LoadOffsetInst final : public Inst {
+ public:
+  LoadOffsetInst(Value src, VarId dest, Value offset = 0)
+      : src(src), Inst(dest), offset(offset) {}
+  Value src;
+  Value offset;
+  virtual InstKind inst_kind() { return InstKind::Load; }
+  virtual void display(std::ostream& o) const;
+  virtual ~LoadOffsetInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (src.index() == 1) {
+      s.insert(std::get<VarId>(src));
+    }
+    if (offset.index() == 1) {
+      s.insert(std::get<VarId>(offset));
+    }
+    return s;
+  }
+};
+
 /// Store instruction. `store $val to $dest`
 class StoreInst final : public Inst {
  public:
@@ -281,6 +303,30 @@ class StoreInst final : public Inst {
     s.insert(dest);
     if (val.index() == 1) {
       s.insert(std::get<VarId>(val));
+    }
+    return s;
+  }
+};
+
+/// Store instruction. `store $val to $dest($offset)`
+class StoreOffsetInst final : public Inst {
+ public:
+  StoreOffsetInst(Value val, VarId dest, Value offset = 0)
+      : val(val), Inst(dest), offset(offset) {}
+  Value val;
+  Value offset;
+  virtual InstKind inst_kind() { return InstKind::Store; }
+  virtual void display(std::ostream& o) const;
+  virtual ~StoreOffsetInst() {}
+  std::set<VarId> useVars()
+      const {  // for storeInst,dest is also use(not defined)
+    auto s = std::set<VarId>();
+    s.insert(dest);
+    if (val.index() == 1) {
+      s.insert(std::get<VarId>(val));
+    }
+    if (offset.index() == 1) {
+      s.insert(std::get<VarId>(offset));
     }
     return s;
   }
