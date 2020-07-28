@@ -1134,7 +1134,9 @@ void SyntaxAnalyze::gm_if_stmt() {
   }
 }
 
-void SyntaxAnalyze::gm_while_stmt() {
+void SyntaxAnalyze::gm_while_stmt() { gm_while_stmt_flat(); }
+
+void SyntaxAnalyze::gm_while_stmt_flat() {
   SharedExNdPtr cond;
   LabelId whileTrue = irGenerator.getNewLabelId();
   LabelId whileEnd = irGenerator.getNewLabelId();
@@ -1190,6 +1192,45 @@ void SyntaxAnalyze::gm_while_stmt() {
                       whileEnd, condStr, mir::inst::JumpKind::Loop);
   irGenerator.ir_label(whileEnd);
 
+  irGenerator.popWhile();
+}
+
+void SyntaxAnalyze::gm_while_stmt_normal() {
+  SharedExNdPtr cond;
+  LabelId whileTrue = irGenerator.getNewLabelId();
+  LabelId whileEnd = irGenerator.getNewLabelId();
+  LabelId whileBegin = irGenerator.getNewLabelId();
+  std::optional<string> condStr;
+  irGenerator::WhileLabels whileLabels =
+      irGenerator::WhileLabels(whileBegin, whileEnd);
+
+  irGenerator.pushWhile(whileLabels);
+  irGenerator.ir_label(whileBegin);
+
+  match_one_word(Token::WHILETK);
+  match_one_word(Token::LPARENT);
+
+  cond = gm_cond();
+
+  if (cond->_type == NodeType::CNS) {
+    string tmpName = irGenerator.getNewTmpValueName(TyKind::Int);
+    RightVal right;
+    right.emplace<0>(cond->_value);
+    irGenerator.ir_assign(tmpName, right);
+    condStr = tmpName;
+  } else {
+    condStr = cond->_name;
+  }
+  irGenerator.ir_jump(mir::inst::JumpInstructionKind::BrCond, whileTrue,
+                      whileEnd, condStr, mir::inst::JumpKind::Loop);
+  irGenerator.ir_label(whileTrue);
+
+  match_one_word(Token::RPARENT);
+  gm_stmt();
+
+  irGenerator.ir_jump(mir::inst::JumpInstructionKind::Br, whileBegin, -1,
+                      std::nullopt, mir::inst::JumpKind::Loop);
+  irGenerator.ir_label(whileEnd);
   irGenerator.popWhile();
 }
 

@@ -1,11 +1,11 @@
-#include <algorithm>
 #include <assert.h>
+
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <vector>
 
 #include "../mir/mir.hpp"
-
 #include "express_node.hpp"
 #include "ir_generator.hpp"
 #include "symbol.hpp"
@@ -46,7 +46,7 @@ using word::Word;
 enum class ValueMode { right, left };
 
 class SyntaxAnalyze {
-public:
+ public:
   SyntaxAnalyze();
   SyntaxAnalyze(vector<Word> &in_word_list);
   ~SyntaxAnalyze();
@@ -59,7 +59,7 @@ public:
 
   irGenerator::irGenerator &getIrGenerator() { return irGenerator; }
 
-private:
+ private:
   const std::uint32_t _initLayerNum = 0;
 
   size_t matched_index = -1;
@@ -102,6 +102,8 @@ private:
   void gm_stmt();
   void gm_if_stmt();
   void gm_while_stmt();
+  void gm_while_stmt_normal();
+  void gm_while_stmt_flat();
   void gm_return_stmt();
   void gm_assign_stmt();
 
@@ -126,6 +128,6 @@ private:
   size_t get_matched_index();
   void set_matched_index(size_t new_index);
 };
-} // namespace front::syntax
+}  // namespace front::syntax
 
-#endif // !COMPILER_FRONT_SYNTAX_H_
+#endif  // !COMPILER_FRONT_SYNTAX_H_
