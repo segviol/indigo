@@ -11,6 +11,7 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/algebraic_simplification.hpp"
 #include "backend/optimization/block_merge.hpp"
+#include "backend/optimization/cast_inst.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
@@ -78,7 +79,7 @@ int main(int argc, const char** argv) {
           optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  //backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
+  // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
@@ -88,6 +89,9 @@ int main(int argc, const char** argv) {
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
+
+  backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
+
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
