@@ -15,76 +15,60 @@ class VarMirFold final : public backend::MirOptimizePass {
                      mir::inst::MirFunction& mirFunction) {
     for (auto blksIter = mirFunction.basic_blks.begin();
          blksIter != mirFunction.basic_blks.end(); blksIter++) {
-      for (auto instIter = blksIter->second.inst.begin();
-           instIter != blksIter->second.inst.end(); instIter++) {
-        switch (instIter->get()->inst_kind()) {
+      for (size_t i = 0; i < blksIter->second.inst.size(); i++) {
+        std::shared_ptr<mir::inst::Inst> inst =
+            std::make_shared<mir::inst::Inst>(*(blksIter->second.inst.at(i)));
+        switch (inst->inst_kind()) {
           case mir::inst::InstKind::Op: {
             std::shared_ptr<mir::inst::OpInst> opInst =
-                std::make_shared<mir::inst::OpInst>(*((mir::inst::OpInst*)instIter->get()));
+                std::static_pointer_cast<mir::inst::OpInst>(inst);
             switch (opInst->op) {
               case mir::inst::Op::Add: {
-                if (opInst->lhs.is_immediate() &&
-                    *opInst->lhs.get_if<int32_t>() == 0) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->rhs));
-                  blksIter->second.inst.erase(instIter);
-                } else if (opInst->rhs.is_immediate() &&
-                           *opInst->rhs.get_if<int32_t>() == 0) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->lhs));
-                  blksIter->second.inst.erase(instIter);
+                if (isSpecifyImmediate(opInst->lhs, 0)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->rhs));
+                } else if (isSpecifyImmediate(opInst->rhs, 0)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->lhs));
                 }
                 break;
               }
               case mir::inst::Op::Sub: {
-                if (opInst->rhs.is_immediate() &&
-                    *opInst->rhs.get_if<int32_t>() == 0) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->lhs));
-                  blksIter->second.inst.erase(instIter);
+                if (isSpecifyImmediate(opInst->rhs, 0)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->lhs));
                 }
                 break;
               }
               case mir::inst::Op::Mul: {
-                if (opInst->lhs.is_immediate() &&
-                        *opInst->lhs.get_if<int32_t>() == 0 ||
-                    opInst->rhs.is_immediate() &&
-                        *opInst->rhs.get_if<int32_t>() == 0) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, mir::inst::Value(0)));
-                  blksIter->second.inst.erase(instIter);
-                } else if (opInst->lhs.is_immediate() &&
-                           *opInst->lhs.get_if<int32_t>() == 1) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->rhs));
-                  blksIter->second.inst.erase(instIter);
-                } else if (opInst->rhs.is_immediate() &&
-                           *opInst->rhs.get_if<int32_t>() == 1) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->lhs));
-                  blksIter->second.inst.erase(instIter);
+                if (isSpecifyImmediate(opInst->lhs, 0) ||
+                    isSpecifyImmediate(opInst->rhs, 0)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, mir::inst::Value(0)));
+                } else if (isSpecifyImmediate(opInst->lhs, 1)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->rhs));
+                } else if (isSpecifyImmediate(opInst->rhs, 1)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->lhs));
                 }
                 break;
               }
               case mir::inst::Op::Div: {
-                if (opInst->lhs.is_immediate() &&
-                    *opInst->lhs.get_if<int32_t>() == 0) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, mir::inst::Value(0)));
-                  blksIter->second.inst.erase(instIter);
-                } else if (opInst->rhs.is_immediate() &&
-                           *opInst->rhs.get_if<int32_t>() == 1) {
-                  blksIter->second.inst.insert(
-                      instIter + 1, std::make_unique<mir::inst::AssignInst>(
-                                        opInst->dest, opInst->lhs));
-                  blksIter->second.inst.erase(instIter);
+                if (isSpecifyImmediate(opInst->lhs, 0)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, mir::inst::Value(0)));
+                } else if (isSpecifyImmediate(opInst->rhs, 1)) {
+                  replaceInst(blksIter->second.inst, i,
+                              std::make_unique<mir::inst::AssignInst>(
+                                  opInst->dest, opInst->lhs));
                 }
                 break;
               }
@@ -116,6 +100,15 @@ class VarMirFold final : public backend::MirOptimizePass {
   }
 
  private:
+  bool isSpecifyImmediate(mir::inst::Value& value, int32_t number) {
+    return (value.is_immediate() && *(value.get_if<int32_t>()) == number);
+  }
+
+  void replaceInst(std::vector<std::unique_ptr<mir::inst::Inst>>& insts,
+                   size_t index, std::unique_ptr<mir::inst::Inst>&& inst) {
+    insts.insert(insts.begin() + index + 1, inst);
+    insts.erase(insts.begin() + index);
+  }
 };
 
 }  // namespace optimization::var_mir_fold
