@@ -14,12 +14,15 @@ void ExcessRegDelete::optimize_arm(
 
     for (int i = 0; i < f->inst.size(); i++) {
       auto inst_ = &*f->inst[i];
+      bool del = false;
       if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
         if (x->op == arm::OpCode::Mov && (x->r1 == x->r2)) {
+          del = true;
         } else {
-          new_inst.push_back(std::move(f->inst[i]));
         }
       } else {
+      }
+      if (!del) {
         new_inst.push_back(std::move(f->inst[i]));
       }
     }
