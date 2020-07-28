@@ -673,6 +673,29 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     index = addNode;
   }
 
+  if (!tmpOff.empty()) {
+    SharedExNdPtr byteIndex = SharedExNdPtr(new ExpressNode());
+    byteIndex->_operation = OperationType::MUL;
+    if (index->_type == NodeType::CNS) {
+      byteIndex->_type = NodeType::CNS;
+      byteIndex->_value = index->_value * mir::types::INT_SIZE;
+    } else {
+      byteIndex->_type = NodeType::VAR;
+      byteIndex->_name = tmpOff;
+
+      if (index->_type == NodeType::CNS) {
+        rightvalue1.emplace<0>(index->_value);
+      } else {
+        rightvalue1 = index->_name;
+      }
+      rightvalue2.emplace<0>(mir::types::INT_SIZE);
+
+      irGenerator.ir_op(tmpOff, rightvalue1, rightvalue2, Op::Mul);
+    }
+    byteIndex->addChild(index);
+    index = byteIndex;
+  }
+
   SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
 
   addr->_type = NodeType::VAR;
@@ -686,7 +709,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   } else {
     rightvalue1 = index->_name;
   }
-  irGenerator.ir_offset(tmpPtr, tmpPtr, rightvalue1);
+  irGenerator.ir_op(tmpPtr, tmpPtr, rightvalue1, Op::Add);
 
   return addr;
 }
