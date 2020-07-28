@@ -106,7 +106,7 @@ class VarMirFold final : public backend::MirOptimizePass {
 
   void replaceInst(std::vector<std::unique_ptr<mir::inst::Inst>>& insts,
                    size_t index, std::unique_ptr<mir::inst::Inst>&& inst) {
-    insts.insert(insts.begin() + index + 1, inst);
+    insts.insert(insts.begin() + index + 1, std::move(inst));
     insts.erase(insts.begin() + index);
   }
 };
