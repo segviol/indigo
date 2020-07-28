@@ -118,7 +118,7 @@ void RegisterOperand::display(std::ostream &o) const {
     o << ", ";
     display_shift(o, shift);
     if (shift != RegisterShiftKind::Rrx) {
-      o << " #" << shift_amount;
+      o << " #" << (unsigned int)shift_amount;
     }
   }
 }
