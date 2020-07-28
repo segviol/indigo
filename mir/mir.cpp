@@ -110,8 +110,18 @@ void LoadInst::display(std::ostream& o) const {
   o << dest << " = load " << src;
 }
 
+void LoadOffsetInst::display(std::ostream& o) const {
+  o << dest << " = load "
+    << "[ " << src << " , " << offset << " ]";
+}
+
 void StoreInst::display(std::ostream& o) const {
   o << "store " << val << " to " << dest;
+}
+
+void StoreOffsetInst::display(std::ostream& o) const {
+  o << "store " << val << " to "
+    << "[ " << dest << " , " << offset << " ]";
 }
 
 void PtrOffsetInst::display(std::ostream& o) const {
