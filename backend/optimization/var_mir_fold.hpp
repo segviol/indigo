@@ -16,8 +16,8 @@ class VarMirFold final : public backend::MirOptimizePass {
     for (auto blksIter = mirFunction.basic_blks.begin();
          blksIter != mirFunction.basic_blks.end(); blksIter++) {
       for (size_t i = 0; i < blksIter->second.inst.size(); i++) {
-        std::shared_ptr<mir::inst::Inst> inst =
-            std::make_shared<mir::inst::Inst>(*(blksIter->second.inst.at(i)));
+        mir::inst::Inst* inst =
+            blksIter->second.inst.at(i).get();
         switch (inst->inst_kind()) {
           case mir::inst::InstKind::Op: {
             std::shared_ptr<mir::inst::OpInst> opInst =
