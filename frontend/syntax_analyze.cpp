@@ -605,13 +605,6 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
 
   // in function, there should be a virtual d in dimensions.at(0)
   for (i = 1; i < dimesions.size(); i++) {
-    if (i == 1) {
-      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
-      if (index->_type == NodeType::VAR) {
-        irGenerator.ir_assign(tmpOff, index->_name);
-      }
-    }
-
     SharedExNdPtr d = dimesions.at(i);
 
     SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
@@ -631,6 +624,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       mulNode->_type = NodeType::CNS;
       mulNode->_value = index->_value * d->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
       if (index->_type == NodeType::CNS) {
@@ -653,6 +650,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       addNode->_type = NodeType::CNS;
       addNode->_value = mulNode->_value + index2->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
       if (mulNode->_type == NodeType::CNS) {
@@ -673,28 +674,26 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     index = addNode;
   }
 
-  if (!tmpOff.empty()) {
-    SharedExNdPtr byteIndex = SharedExNdPtr(new ExpressNode());
-    byteIndex->_operation = OperationType::MUL;
-    if (index->_type == NodeType::CNS) {
-      byteIndex->_type = NodeType::CNS;
-      byteIndex->_value = index->_value * mir::types::INT_SIZE;
-    } else {
-      byteIndex->_type = NodeType::VAR;
-      byteIndex->_name = tmpOff;
-
-      if (index->_type == NodeType::CNS) {
-        rightvalue1.emplace<0>(index->_value);
-      } else {
-        rightvalue1 = index->_name;
-      }
-      rightvalue2.emplace<0>(mir::types::INT_SIZE);
-
-      irGenerator.ir_op(tmpOff, rightvalue1, rightvalue2, Op::Mul);
+  SharedExNdPtr byteIndex = SharedExNdPtr(new ExpressNode());
+  byteIndex->_operation = OperationType::MUL;
+  if (index->_type == NodeType::CNS) {
+    byteIndex->_type = NodeType::CNS;
+    byteIndex->_value = index->_value * mir::types::INT_SIZE;
+  } else {
+    if (tmpOff.empty()) {
+      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
     }
-    byteIndex->addChild(index);
-    index = byteIndex;
+
+    byteIndex->_type = NodeType::VAR;
+    byteIndex->_name = tmpOff;
+
+    rightvalue1 = index->_name;
+    rightvalue2.emplace<0>(mir::types::INT_SIZE);
+
+    irGenerator.ir_op(tmpOff, rightvalue1, rightvalue2, Op::Mul);
   }
+  byteIndex->addChild(index);
+  index = byteIndex;
 
   SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
 
