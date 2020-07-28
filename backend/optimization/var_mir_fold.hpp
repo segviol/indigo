@@ -20,8 +20,7 @@ class VarMirFold final : public backend::MirOptimizePass {
             blksIter->second.inst.at(i).get();
         switch (inst->inst_kind()) {
           case mir::inst::InstKind::Op: {
-            std::shared_ptr<mir::inst::OpInst> opInst =
-                std::static_pointer_cast<mir::inst::OpInst>(inst);
+            mir::inst::OpInst* opInst = (mir::inst::OpInst*) inst;
             switch (opInst->op) {
               case mir::inst::Op::Add: {
                 if (isSpecifyImmediate(opInst->lhs, 0)) {
