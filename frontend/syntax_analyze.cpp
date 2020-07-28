@@ -755,9 +755,10 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       constValue = SharedExNdPtr(new ExpressNode());
       constValue->_type = NodeType::CNS;
       constValue->_operation = OperationType::NUMBER;
-      constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)
-                               ->_values.at(addr->_children.back()->_value)
-                               ->_value;
+      constValue->_value =
+          std::static_pointer_cast<ArraySymbol>(arr)
+              ->_values.at(addr->_children.back()->_children.front()->_value)
+              ->_value;
       node = constValue;
     } else {
       SharedExNdPtr loadValue;
