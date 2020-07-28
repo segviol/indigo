@@ -359,13 +359,14 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(
     mir::inst::VarId v_, mir::inst::Value& offset) {
+  // TODO: Remove "*4" after fixing offset
   // auto v = get_collapsed_var(v_);
   auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     if (auto o = offset.get_if<int32_t>()) {
-      return MemoryOperand(REG_FP, (v - 4) * 4 + *o);
+      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o) * 4);
     } else {
       auto o_ = offset.get_if<mir::inst::VarId>();
       throw prelude::NotImplementedException();
@@ -375,7 +376,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
     if (x != stack_space_allocation.end()) {
       auto reg = alloc_vgp();
       if (auto o = offset.get_if<int32_t>()) {
-        return MemoryOperand(REG_SP, x->second + *o);
+        return MemoryOperand(REG_SP, (x->second + *o) * 4);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
         throw prelude::NotImplementedException();
@@ -384,10 +385,12 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
       // If this is just an ordinary pointer type
       Reg reg = get_or_alloc_vgp(v);
       if (auto o = offset.get_if<int32_t>()) {
-        return MemoryOperand(reg, *o);
+        return MemoryOperand(reg, *o * 4);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
-        return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
+        return MemoryOperand(reg,
+                             RegisterOperand(get_or_alloc_vgp(*o_),
+                                             arm::RegisterShiftKind::Lsl, 2));
       }
     }
   }
