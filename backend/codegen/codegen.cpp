@@ -319,6 +319,15 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::Value& v_) {
     return translate_var_to_memory_arg(*x_);
   }
 }
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(
+    mir::inst::Value& v_, mir::inst::Value& offset) {
+  if (auto x = v_.get_if<int32_t>()) {
+    throw new prelude::NotImplementedException();
+  } else {
+    auto x_ = v_.get_if<mir::inst::VarId>();
+    return translate_var_to_memory_arg(*x_, offset);
+  }
+}
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   // auto v = get_collapsed_var(v_);
@@ -495,14 +504,14 @@ void Codegen::translate_inst(mir::inst::LoadInst& i) {
 void Codegen::translate_inst(mir::inst::StoreOffsetInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(
       arm::OpCode::StR, translate_value_to_reg(i.val),
-      translate_var_to_memory_arg(i.dest));
+      translate_var_to_memory_arg(i.dest, i.offset));
   inst.push_back(std::move(ins));
 }
 
 void Codegen::translate_inst(mir::inst::LoadOffsetInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(
       arm::OpCode::LdR, translate_var_reg(i.dest),
-      translate_var_to_memory_arg(i.src));
+      translate_var_to_memory_arg(i.src, i.offset));
   inst.push_back(std::move(ins));
 }
 

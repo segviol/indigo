@@ -129,6 +129,8 @@ class Codegen final {
 
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v);
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::Value& v);
+  arm::MemoryOperand translate_var_to_memory_arg(mir::inst::Value& v,
+                                                 mir::inst::Value& offset);
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v,
                                                  mir::inst::Value& offset);
 
