@@ -129,6 +129,8 @@ class Codegen final {
 
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v);
   arm::MemoryOperand translate_var_to_memory_arg(mir::inst::Value& v);
+  arm::MemoryOperand translate_var_to_memory_arg(mir::inst::VarId v,
+                                                 mir::inst::Value& offset);
 
   void scan();
   void scan_stack();
@@ -146,6 +148,8 @@ class Codegen final {
   void translate_inst(mir::inst::CallInst& i);
   void translate_inst(mir::inst::StoreInst& i);
   void translate_inst(mir::inst::LoadInst& i);
+  void translate_inst(mir::inst::StoreOffsetInst& i);
+  void translate_inst(mir::inst::LoadOffsetInst& i);
   void translate_inst(mir::inst::RefInst& i);
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
