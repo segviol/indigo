@@ -666,23 +666,22 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
     case mir::inst::Op::Gt:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Gt, reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::Gt, reverse_params);
       break;
     case mir::inst::Op::Lt:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Lt, reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::Lt, reverse_params);
       break;
     case mir::inst::Op::Gte:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Ge, reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::Ge, reverse_params);
       break;
     case mir::inst::Op::Lte:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Le, reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::Le, reverse_params);
       break;
     case mir::inst::Op::Eq:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::Equal, reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::Equal, reverse_params);
       break;
     case mir::inst::Op::Neq:
-      emit_compare(i.dest, i.lhs, i.rhs, ConditionCode::NotEqual,
-                   reverse_params);
+      emit_compare(i.dest, lhs, rhs, ConditionCode::NotEqual, reverse_params);
       break;
   }
 }
@@ -692,8 +691,9 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                            bool reversed) {
   auto lhsv = translate_value_to_reg(lhs);
   auto rhsv = translate_value_to_operand2(rhs);
-  if (reversed) cond = reverse_cond(cond);
-
+  if (reversed) {
+    cond = reverse_cond(cond);
+  }
   inst.push_back(
       std::make_unique<Arith2Inst>(OpCode::Cmp, translate_value_to_reg(lhs),
                                    translate_value_to_operand2(rhs)));
