@@ -99,6 +99,12 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
+    } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+      met_cmp = false;
+      translate_inst(*x);
+    } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
+      met_cmp = false;
+      translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
@@ -313,6 +319,15 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::Value& v_) {
     return translate_var_to_memory_arg(*x_);
   }
 }
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(
+    mir::inst::Value& v_, mir::inst::Value& offset) {
+  if (auto x = v_.get_if<int32_t>()) {
+    throw new prelude::NotImplementedException();
+  } else {
+    auto x_ = v_.get_if<mir::inst::VarId>();
+    return translate_var_to_memory_arg(*x_, offset);
+  }
+}
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
   // auto v = get_collapsed_var(v_);
@@ -337,6 +352,43 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
         auto reg = alloc_vgp();
         reg_map.insert({v, reg});
         return reg;
+      }
+    }
+  }
+}
+
+arm::MemoryOperand Codegen::translate_var_to_memory_arg(
+    mir::inst::VarId v_, mir::inst::Value& offset) {
+  // TODO: Remove "*4" after fixing offset
+  // auto v = get_collapsed_var(v_);
+  auto v = v_;
+  // If it's param, load before use
+  if (v >= 4 && v <= param_size) {
+    auto reg = alloc_vgp();
+    if (auto o = offset.get_if<int32_t>()) {
+      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o));
+    } else {
+      auto o_ = offset.get_if<mir::inst::VarId>();
+      throw prelude::NotImplementedException();
+    }
+  } else {
+    auto x = stack_space_allocation.find(v);
+    if (x != stack_space_allocation.end()) {
+      auto reg = alloc_vgp();
+      if (auto o = offset.get_if<int32_t>()) {
+        return MemoryOperand(REG_SP, (x->second + *o));
+      } else {
+        auto o_ = offset.get_if<mir::inst::VarId>();
+        throw prelude::NotImplementedException();
+      }
+    } else {
+      // If this is just an ordinary pointer type
+      Reg reg = get_or_alloc_vgp(v);
+      if (auto o = offset.get_if<int32_t>()) {
+        return MemoryOperand(reg, *o);
+      } else {
+        auto o_ = offset.get_if<mir::inst::VarId>();
+        return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
       }
     }
   }
@@ -447,6 +499,20 @@ void Codegen::translate_inst(mir::inst::LoadInst& i) {
   auto ins = std::make_unique<LoadStoreInst>(
       arm::OpCode::LdR, translate_var_reg(i.dest),
       translate_var_to_memory_arg(i.src));
+  inst.push_back(std::move(ins));
+}
+
+void Codegen::translate_inst(mir::inst::StoreOffsetInst& i) {
+  auto ins = std::make_unique<LoadStoreInst>(
+      arm::OpCode::StR, translate_value_to_reg(i.val),
+      translate_var_to_memory_arg(i.dest, i.offset));
+  inst.push_back(std::move(ins));
+}
+
+void Codegen::translate_inst(mir::inst::LoadOffsetInst& i) {
+  auto ins = std::make_unique<LoadStoreInst>(
+      arm::OpCode::LdR, translate_var_reg(i.dest),
+      translate_var_to_memory_arg(i.src, i.offset));
   inst.push_back(std::move(ins));
 }
 

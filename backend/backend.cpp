@@ -81,6 +81,24 @@ void Backend::do_mir_to_arm_transform() {
   }
 }
 
+void Backend::show_passes(std::ostream& o) {
+  for (auto& pass : mir_passes) {
+    if (!should_run_pass(pass->pass_name())) {
+      o << "Skip: " << pass->pass_name() << std::endl;
+    } else {
+      o << " Run: " << pass->pass_name() << std::endl;
+    }
+  }
+  o << " Run: mir_to_arm" << std::endl;
+  for (auto& pass : arm_passes) {
+    if (!should_run_pass(pass->pass_name())) {
+      o << "Skip: " << pass->pass_name() << std::endl;
+    } else {
+      o << " Run: " << pass->pass_name() << std::endl;
+    }
+  }
+}
+
 arm::ArmCode Backend::generate_code() {
   do_mir_optimization();
   do_mir_to_arm_transform();
