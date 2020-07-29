@@ -584,8 +584,8 @@ void Codegen::translate_inst(mir::inst::PtrOffsetInst& i) {
 
 inline bool can_reverse_param(mir::inst::Op op) {
   const std::set<mir::inst::Op> not_reversible = {
-      mir::inst::Op::Div, mir::inst::Op::Rem, mir::inst::Op::Shl,
-      mir::inst::Op::Shr, mir::inst::Op::ShrA};
+      mir::inst::Op::Div, mir::inst::Op::Rem,  mir::inst::Op::Shl,
+      mir::inst::Op::Shr, mir::inst::Op::ShrA, mir::inst::Op::Not};
   return not_reversible.find(op) == not_reversible.end();
 }
 
@@ -638,6 +638,12 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::Orr, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Not:
+      inst.push_back(std::make_unique<Arith2Inst>(
+          arm::OpCode::Mvn, translate_var_reg(i.dest),
+          translate_value_to_operand2(lhs)));
       break;
 
     case mir::inst::Op::Shl:
