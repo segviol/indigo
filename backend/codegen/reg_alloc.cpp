@@ -128,6 +128,8 @@ class RegAllocator {
   int stack_offset = 0;
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
+  bool bb_reset = true;
+
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
     if (auto x = std::get_if<RegisterOperand>(&reg)) {
@@ -787,22 +789,15 @@ void RegAllocator::perform_load_stores() {
     } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
       invalidate_read(i);
 
-      if (x->label.find(".bb" == 0)) {
-        // HACK: Force store cross-block variables before changing basic block
-        for (auto it = active_reg_map.begin(); it != active_reg_map.end();
-             it++) {
-          if (spill_positions.find(it->first) != spill_positions.end()) {
-            force_free(it->second);
-            active.erase(it->second);
-          }
-        }
-      }
-
       inst_sink.push_back(std::move(f.inst[i]));
       if (x->label.find(".ld_pc") == 0 && inst_sink.size() >= 2 &&
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
         // HACK: If it's load_pc label, delay store once more
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
+      }
+      if (x->label.find(".bb" == 0)) {
+        // HACK: Force store cross-block variables before changing basic block
+        bb_reset = true;
       }
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
       if (delayed_store) {
@@ -826,6 +821,19 @@ void RegAllocator::perform_load_stores() {
         active.erase(Reg(2));
         active.erase(Reg(3));
         active.erase(Reg(12));
+      } else if (x->op == arm::OpCode::B) {
+        if (bb_reset) {
+          // HACK: Force store cross-block variables before changing basic block
+          for (auto it = active_reg_map.begin(); it != active_reg_map.end();
+               it++) {
+            if (spill_positions.find(it->first) != spill_positions.end()) {
+              force_free(it->second);
+              active.erase(it->second);
+            }
+          }
+          bb_reset = false;
+        }
+        inst_sink.push_back(std::move(f.inst[i]));
       } else {
         inst_sink.push_back(std::move(f.inst[i]));
       }
