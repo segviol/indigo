@@ -47,6 +47,16 @@ struct Interval {
   void add_ending_point(unsigned int end_) {
     if (end_ > end) end = end_;
   }
+  Interval with_starting_point(unsigned int start_) {
+    Interval that = *this;
+    that.start = start_;
+    return that;
+  }
+  Interval with_ending_point(unsigned int end_) {
+    Interval that = *this;
+    end = end_;
+    return that;
+  }
   unsigned int length() { return end - start; }
   bool overlaps(const Interval other) {
     return end > other.start && start < other.end;
@@ -681,6 +691,7 @@ void RegAllocator::force_free(Reg r) {
         int stack_pos = get_or_alloc_spill_pos(y.first);
         inst_sink.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        spilled_regs.insert({y.first, x->second});
         trace << " " << y.first << " " << y.second << " @"
               << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
