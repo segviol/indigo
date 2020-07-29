@@ -43,7 +43,7 @@ string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
 void add_passes(backend::Backend& backend) {
-  //backend.add_pass(
+  // backend.add_pass(
   //      std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::var_mir_fold::VarMirFold>());
   backend.add_pass(
@@ -57,7 +57,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
   backend.add_pass(std::make_unique<
                    optimization::memvar_propagation::Memory_Var_Propagation>());
-  //backend.add_pass(
+  // backend.add_pass(
   //      std::make_unique<optimization::const_propagation::Const_Propagation>());
   // backend.add_pass(
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
@@ -68,7 +68,8 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
-  backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
+  backend.add_pass(
+      std::make_unique<optimization::graph_color::Graph_Color>(5, true));
 
   // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
