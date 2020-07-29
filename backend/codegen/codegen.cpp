@@ -366,7 +366,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     if (auto o = offset.get_if<int32_t>()) {
-      return MemoryOperand(REG_FP, ((v - 4) + *o));
+      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o));
     } else {
       auto o_ = offset.get_if<mir::inst::VarId>();
       throw prelude::NotImplementedException();
