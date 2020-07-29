@@ -535,19 +535,22 @@ void RegAllocator::replace_read(Reg &r, int i,
     LOG(TRACE) << "graph " << reg_map_r->second << std::endl;
     r = reg_map_r->second;
     return;
-  } else if (auto spill_r = spill_positions.find(r);
-             spill_r != spill_positions.end()) {
+  } else if (auto spill_r = spilled_regs.find(r);
+             spill_r != spilled_regs.end()) {
     // this register is allocated in stack
     bool del = false;
 
     Reg rd;
+    auto spill_pos = get_or_alloc_spill_pos(r);
+    auto interval = spill_r->second;
+    interval.start = i;
+    spilled_regs.erase(r);
     if (pre_alloc_transient) {
       rd = pre_alloc_transient.value();
     } else {
-      rd = alloc_transient_reg(Interval(i), r);
+      rd = alloc_transient_reg(interval, r);
     }
 
-    auto spill_pos = get_or_alloc_spill_pos(r);
     if (inst_sink.size() > 0) {
       auto &x = inst_sink.back();
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
@@ -591,19 +594,23 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
     r = reg_map_r->second;
     return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
-  } else if (auto spill_r = spill_positions.find(r);
-             spill_r != spill_positions.end()) {
+  } else if (auto spill_r = spilled_regs.find(r);
+             spill_r != spilled_regs.end()) {
     Reg rd;
+    auto pos = get_or_alloc_spill_pos(r);
+    auto interval = spill_r->second;
+    interval.start = i;
+    spilled_regs.erase(r);
     if (pre_alloc_transient) {
       rd = pre_alloc_transient.value();
     } else {
-      rd = alloc_transient_reg(Interval(i), {});
+      rd = alloc_transient_reg(interval, r);
     }
 
     r = rd;
     display_reg_name(LOG(TRACE), r_);
     LOG(TRACE) << " at: " << i << " ";
-    LOG(TRACE) << "spill " << spill_r->second << std::endl;
+    LOG(TRACE) << "spill " << pos << std::endl;
     return {r_, rd, ReplaceWriteKind::Spill};
   } else {
     // Is temporary register
