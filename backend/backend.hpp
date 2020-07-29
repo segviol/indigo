@@ -1,6 +1,7 @@
 #pragma once
 #include <any>
 #include <map>
+#include <ostream>
 
 #include "../arm_code/arm.hpp"
 #include "../mir/mir.hpp"
@@ -40,6 +41,9 @@ class Backend {
 
   /// Generate final code
   arm::ArmCode generate_code();
+
+  /// Dry run, show which pass will be run to ostream.
+  void show_passes(std::ostream&);
 
  private:
   mir::inst::MirPackage& package;
