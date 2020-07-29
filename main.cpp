@@ -13,6 +13,7 @@
 #include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/cast_inst.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
+#include "backend/optimization/const_merge.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
 #include "backend/optimization/graph_color.hpp"
@@ -51,6 +52,9 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
+  backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
   backend.add_pass(std::make_unique<
                    optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(
