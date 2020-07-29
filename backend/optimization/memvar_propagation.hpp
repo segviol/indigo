@@ -16,6 +16,89 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
   std::string pass_name() const { return name; }
 
   void optimize_func(mir::inst::MirFunction& func) {
+    std::map<mir::inst::VarId, int32_t> const_assign;
+    std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
+    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
+      auto& bb = bit->second;
+      for (auto& inst : bb.inst) {
+        auto& i = *inst;
+        if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+          if (x->src.index() == 0) {
+            const_assign.insert(std::map<mir::inst::VarId, int32_t>::value_type(
+                x->dest, std::get<0>(x->src)));
+          }
+        }
+      }
+    }
+    std::vector<std::unique_ptr<mir::inst::Inst>> insert;
+    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
+      auto& bb = bit->second;
+      int index = 0;
+      std::map<int, std::unique_ptr<mir::inst::Inst>> replace;
+      std::vector<int> del;
+      for (auto& inst : bb.inst) {
+        auto& i = *inst;
+        if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+          if (x->src.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->src));
+            if (it != const_assign.end()) {
+              x->src.emplace<0>(it->second);
+            }
+          }
+        } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
+          for (int j = 0; j < x->params.size(); j++) {
+            if (x->params[j].index() == 1) {
+              std::map<mir::inst::VarId, int32_t>::iterator it =
+                  const_assign.find(std::get<1>(x->params[j]));
+              if (it != const_assign.end()) {
+                x->params[j].emplace<0>(it->second);
+              }
+            }
+          }
+        } else if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
+          if (x->lhs.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->lhs));
+            if (it != const_assign.end()) {
+              x->lhs.emplace<0>(it->second);
+            }
+          }
+          if (x->rhs.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->rhs));
+            if (it != const_assign.end()) {
+              x->rhs.emplace<0>(it->second);
+            }
+          }
+        } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
+          if (x->src.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->src));
+            if (it != const_assign.end()) {
+              x->src.emplace<0>(it->second);
+            }
+          }
+        } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
+          if (x->val.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->val));
+            if (it != const_assign.end()) {
+              x->val.emplace<0>(it->second);
+            }
+          }
+        } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
+          if (x->offset.index() == 1) {
+            std::map<mir::inst::VarId, int32_t>::iterator it =
+                const_assign.find(std::get<1>(x->offset));
+            if (it != const_assign.end()) {
+              x->offset.emplace<0>(it->second);
+            }
+          }
+        }
+        index++;
+      }
+    }
     /*
     store val to s_dest
     l_dest = load src
@@ -25,7 +108,6 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
       2. call
       3. end of the block
     */
-    std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
     std::map<mir::inst::VarId, mir::inst::VarId> reg_load;
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
