@@ -366,7 +366,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
     if (auto o = offset.get_if<int32_t>()) {
-      return MemoryOperand(REG_FP, ((v - 4) * 4 + *o));
+      return MemoryOperand(REG_FP, ((v - 4) + *o));
     } else {
       auto o_ = offset.get_if<mir::inst::VarId>();
       throw prelude::NotImplementedException();
@@ -385,7 +385,7 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
       // If this is just an ordinary pointer type
       Reg reg = get_or_alloc_vgp(v);
       if (auto o = offset.get_if<int32_t>()) {
-        return MemoryOperand(reg, *o * 4);
+        return MemoryOperand(reg, *o);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
         return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
