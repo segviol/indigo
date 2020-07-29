@@ -276,7 +276,8 @@ void SyntaxAnalyze::gm_var_def() {
       string initPtr;
       bool needAssgin;
       int offset = 0;
-      RightVal offsetRight;
+      RightVal rightvalue1;
+      RightVal rightvalue2;
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
 
@@ -302,11 +303,15 @@ void SyntaxAnalyze::gm_var_def() {
 
         if (needAssgin) {
           if (offset > 0) {
-            offsetRight.emplace<0>(offset);
-            irGenerator.ir_offset(initPtr, initPtr, offsetRight);
+            string addr;
+
+            addr = irGenerator.getNewTmpValueName(mir::types::TyKind::Ptr);
+            rightvalue1.emplace<0>(offset * mir::types::INT_SIZE);
+            irGenerator.ir_op(addr, initPtr, rightvalue1, Op::Add);
+            irGenerator.ir_store(addr, rightVal);
+          } else {
+            irGenerator.ir_store(initPtr, rightVal);
           }
-          irGenerator.ir_store(initPtr, rightVal);
-          offset = 0;
         }
         offset++;
       }
