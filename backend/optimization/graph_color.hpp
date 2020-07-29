@@ -273,6 +273,7 @@ class Graph_Color : public backend::MirOptimizePass {
  public:
   u_int color_num = 8;
   const std::string name = "graph_color";
+  bool enable;
   std::map<mir::types::LabelId,
            std::shared_ptr<livevar_analyse::Livevar_Analyse>>
       blk_livevar_analyse;
@@ -281,7 +282,8 @@ class Graph_Color : public backend::MirOptimizePass {
   std::unordered_map<std::string, std::shared_ptr<std::set<int>>>
       func_unused_colors;
   std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
-  Graph_Color(u_int color_num) : color_num(color_num) {}
+  Graph_Color(u_int color_num, bool enable = true)
+      : color_num(color_num), enable(enable) {}
   std::string pass_name() const { return name; }
   std::map<mir::inst::VarId, std::set<mir::types::LabelId>> var_blks;
 
@@ -335,17 +337,20 @@ class Graph_Color : public backend::MirOptimizePass {
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
       init_cross_blk_vars(iter->second, cross_blk_vars);
     }
-    for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
-         ++iter) {
-      init_conflict_map(lva.livevars[iter->first], conflict_map,
-                        cross_blk_vars);
+    if (enable) {
+      for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
+           ++iter) {
+        init_conflict_map(lva.livevars[iter->first], conflict_map,
+                          cross_blk_vars);
+      }
+      conflict_map->init_edge_vars();
+      while (!conflict_map->dynamic_Map.empty()) {
+        conflict_map->remove_edge_less_colors();
+        conflict_map->remove_edge_larger_colors();
+      }
+      conflict_map->rebuild();
     }
-    conflict_map->init_edge_vars();
-    while (!conflict_map->dynamic_Map.empty()) {
-      conflict_map->remove_edge_less_colors();
-      conflict_map->remove_edge_larger_colors();
-    }
-    conflict_map->rebuild();
+
     for (auto& var : cross_blk_vars) {
       if (!conflict_map->color_map->count(var)) {
         conflict_map->color_map->insert(std::make_pair(var, -1));
