@@ -276,7 +276,8 @@ void SyntaxAnalyze::gm_var_def() {
       string initPtr;
       bool needAssgin;
       int offset = 0;
-      RightVal offsetRight;
+      RightVal rightvalue1;
+      RightVal rightvalue2;
 
       initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
 
@@ -302,11 +303,15 @@ void SyntaxAnalyze::gm_var_def() {
 
         if (needAssgin) {
           if (offset > 0) {
-            offsetRight.emplace<0>(offset);
-            irGenerator.ir_offset(initPtr, initPtr, offsetRight);
+            string addr;
+
+            addr = irGenerator.getNewTmpValueName(mir::types::TyKind::Ptr);
+            rightvalue1.emplace<0>(offset * mir::types::INT_SIZE);
+            irGenerator.ir_op(addr, initPtr, rightvalue1, Op::Add);
+            irGenerator.ir_store(addr, rightVal);
+          } else {
+            irGenerator.ir_store(initPtr, rightVal);
           }
-          irGenerator.ir_store(initPtr, rightVal);
-          offset = 0;
         }
         offset++;
       }
@@ -605,13 +610,6 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
 
   // in function, there should be a virtual d in dimensions.at(0)
   for (i = 1; i < dimesions.size(); i++) {
-    if (i == 1) {
-      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
-      if (index->_type == NodeType::VAR) {
-        irGenerator.ir_assign(tmpOff, index->_name);
-      }
-    }
-
     SharedExNdPtr d = dimesions.at(i);
 
     SharedExNdPtr mulNode = SharedExNdPtr(new ExpressNode());
@@ -631,6 +629,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       mulNode->_type = NodeType::CNS;
       mulNode->_value = index->_value * d->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       mulNode->_type = NodeType::VAR;
       mulNode->_name = tmpOff;
       if (index->_type == NodeType::CNS) {
@@ -653,6 +655,10 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
       addNode->_type = NodeType::CNS;
       addNode->_value = mulNode->_value + index2->_value;
     } else {
+      if (tmpOff.empty()) {
+        tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+      }
+
       addNode->_type = NodeType::VAR;
       addNode->_name = tmpOff;
       if (mulNode->_type == NodeType::CNS) {
@@ -673,6 +679,27 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
     index = addNode;
   }
 
+  SharedExNdPtr byteIndex = SharedExNdPtr(new ExpressNode());
+  byteIndex->_operation = OperationType::MUL;
+  if (index->_type == NodeType::CNS) {
+    byteIndex->_type = NodeType::CNS;
+    byteIndex->_value = index->_value * mir::types::INT_SIZE;
+  } else {
+    if (tmpOff.empty()) {
+      tmpOff = irGenerator.getNewTmpValueName(TyKind::Int);
+    }
+
+    byteIndex->_type = NodeType::VAR;
+    byteIndex->_name = tmpOff;
+
+    rightvalue1 = index->_name;
+    rightvalue2.emplace<0>(mir::types::INT_SIZE);
+
+    irGenerator.ir_op(tmpOff, rightvalue1, rightvalue2, Op::Mul);
+  }
+  byteIndex->addChild(index);
+  index = byteIndex;
+
   SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
 
   addr->_type = NodeType::VAR;
@@ -686,7 +713,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   } else {
     rightvalue1 = index->_name;
   }
-  irGenerator.ir_offset(tmpPtr, tmpPtr, rightvalue1);
+  irGenerator.ir_op(tmpPtr, tmpPtr, rightvalue1, Op::Add);
 
   return addr;
 }
@@ -733,9 +760,10 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       constValue = SharedExNdPtr(new ExpressNode());
       constValue->_type = NodeType::CNS;
       constValue->_operation = OperationType::NUMBER;
-      constValue->_value = std::static_pointer_cast<ArraySymbol>(arr)
-                               ->_values.at(addr->_children.back()->_value)
-                               ->_value;
+      constValue->_value =
+          std::static_pointer_cast<ArraySymbol>(arr)
+              ->_values.at(addr->_children.back()->_children.front()->_value)
+              ->_value;
       node = constValue;
     } else {
       SharedExNdPtr loadValue;

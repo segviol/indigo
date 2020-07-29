@@ -11,6 +11,7 @@
 #include "backend/codegen/reg_alloc.hpp"
 #include "backend/optimization/algebraic_simplification.hpp"
 #include "backend/optimization/block_merge.hpp"
+#include "backend/optimization/cast_inst.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
@@ -38,46 +39,12 @@ using std::string;
 const bool debug = false;
 
 string read_input(std::string&);
-
 Options parse_options(int argc, const char** argv);
 
-int main(int argc, const char** argv) {
-  auto options = parse_options(argc, argv);
-  // frontend
-  std::vector<front::word::Word> word_arr(VECTOR_SIZE);
-  word_arr.clear();
-
-  string input_str = read_input(options.in_file);
-
-  word_analyse(input_str, word_arr);
-
-  front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
-  syntax_analyze.gm_comp_unit();
-
-  if (options.verbose) syntax_analyze.outputInstructions(std::cout);
-
-  front::irGenerator::irGenerator& irgenerator =
-      syntax_analyze.getIrGenerator();
-  std::map<string, std::vector<front::irGenerator::Instruction>> inst =
-      irgenerator.getfuncNameToInstructions();
-  mir::inst::MirPackage& package = irgenerator.getPackage();
-
-  LOG(INFO) << "generating SSA" << std::endl;
-
-  gen_ssa(inst, package, irgenerator);
-
-  // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
-  LOG(INFO) << ("Mir_Before") << std::endl;
-  if (options.verbose) std::cout << package << std::endl;
-  LOG(INFO) << ("generating ARM code") << std::endl;
-
-  backend::Backend backend(package, options);
+void add_passes(backend::Backend& backend) {
   // backend.add_pass(
   //     std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::var_mir_fold::VarMirFold>());
-  backend.add_pass(
-      std::make_unique<
-          optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
@@ -88,23 +55,77 @@ int main(int argc, const char** argv) {
                    optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(
+      std::make_unique<
+          optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
+
+  // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
+}
 
-  auto code = backend.generate_code();
-  if (options.verbose) {
-    LOG(TRACE) << "CODE:" << std::endl;
-    std::cout << code;
+int main(int argc, const char** argv) {
+  auto options = parse_options(argc, argv);
+
+  if (options.dry_run) {
+    // Only show which passes will be run
+    auto pkg = mir::inst::MirPackage();
+    backend::Backend backend(pkg, options);
+    add_passes(backend);
+    backend.show_passes(std::cout);
+    return 0;
+  } else {
+    // Run.
+    // ==== Frontend ====
+    std::vector<front::word::Word> word_arr(VECTOR_SIZE);
+    word_arr.clear();
+
+    string input_str = read_input(options.in_file);
+
+    word_analyse(input_str, word_arr);
+
+    front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
+    syntax_analyze.gm_comp_unit();
+
+    if (options.verbose) syntax_analyze.outputInstructions(std::cout);
+
+    front::irGenerator::irGenerator& irgenerator =
+        syntax_analyze.getIrGenerator();
+    std::map<string, std::vector<front::irGenerator::Instruction>> inst =
+        irgenerator.getfuncNameToInstructions();
+    mir::inst::MirPackage& package = irgenerator.getPackage();
+
+    LOG(INFO) << "generating SSA" << std::endl;
+
+    gen_ssa(inst, package, irgenerator);
+
+    // LOG(TRACE) << "Mir" << std::endl << package << std::endl;
+    LOG(INFO) << ("Mir_Before") << std::endl;
+    if (options.verbose) std::cout << package << std::endl;
+    LOG(INFO) << ("generating ARM code") << std::endl;
+
+    // ==== Backend ====
+
+    backend::Backend backend(package, options);
+    add_passes(backend);
+    auto code = backend.generate_code();
+    if (options.verbose) {
+      LOG(TRACE) << "CODE:" << std::endl;
+      std::cout << code;
+    }
+
+    LOG(INFO) << "writing to output file: " << options.out_file;
+
+    ofstream output_file(options.out_file);
+    output_file << code << std::endl;
+    return 0;
   }
-
-  LOG(INFO) << "writing to output file: " << options.out_file;
-
-  ofstream output_file(options.out_file);
-  output_file << code << std::endl;
-  return 0;
 }
 
 string read_input(std::string& input_filename) {
@@ -148,6 +169,10 @@ Options parse_options(int argc, const char** argv) {
       .help("Optimize code (no effect)")
       .implicit_value(true)
       .default_value(false);
+  parser.add_argument("--dry-run")
+      .help("Dry run. Show the sequence of passes but does not generate code")
+      .implicit_value(true)
+      .default_value(false);
 
   try {
     parser.parse_args(argc, argv);
@@ -171,6 +196,7 @@ Options parse_options(int argc, const char** argv) {
   options.out_file = parser.get<std::string>("--output");
 
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
+  options.dry_run = parser.get<bool>("--dry-run");
 
   if (parser.present("--run-pass")) {
     auto out = parser.get<std::string>("--run-pass");
