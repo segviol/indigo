@@ -23,7 +23,7 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
       func_livevar_analyse;
   bool remove_dead_code(std::shared_ptr<livevar_analyse::Block_Live_Var> blv,
                         mir::inst::BasicBlk& block,
-                        std::map<uint32_t, mir::inst::Variable> vartable) {
+                        std::map<uint32_t, mir::inst::Variable>& vartable) {
     bool modify = false;
     auto tmp = blv->live_vars_out;
     for (auto riter = block.inst.rbegin(); riter != block.inst.rend();) {
@@ -45,6 +45,7 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
         riter = std::vector<std::unique_ptr<mir::inst::Inst>>::reverse_iterator(
             block.inst.erase((++riter).base()));
         blv->instLiveVars.erase(blv->instLiveVars.begin() + idx);
+        vartable.erase(defvar.id);
         blv->update(idx - 1);
         modify = true;
       } else {
@@ -66,9 +67,6 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
-    if (funcId == "main") {
-      LOG(TRACE) << 'a' << std::endl;
-    }
     func_livevar_analyse[funcId] =
         std::make_shared<livevar_analyse::Livevar_Analyse>(func);
     func_livevar_analyse[funcId]->build();
