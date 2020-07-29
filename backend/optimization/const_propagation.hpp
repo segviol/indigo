@@ -138,27 +138,10 @@ class Const_Propagation : public backend::MirOptimizePass {
         }
         index++;
       }
-      std::map<int, std::unique_ptr<mir::inst::Inst>>::iterator reit;
-      for (reit = replace.begin(); reit != replace.end(); reit++) {
-        auto iter = bit->second.inst.begin() + reit->first;
-        bit->second.inst.erase(iter);
-        bit->second.inst.insert(bit->second.inst.begin() + reit->first,
-                                std::move(reit->second));
-      }
-      for (int i = del.size() - 1; i >= 0; i--) {
-          auto iter = bit->second.inst.begin() + del[i];
-          bit->second.inst.erase(iter);
-        }
+
+      
     }
-    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
-      auto& bb = bit->second;
-      if (bb.preceding.size() == 0) {
-        for (int i = 0; i < insert.size(); i++) {
-          bb.inst.insert(bb.inst.begin(), std::move(insert[i]));
-        }
-        break;
-      }
-    }
+
   }
 
   void optimize_mir(mir::inst::MirPackage& package,
