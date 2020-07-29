@@ -775,13 +775,23 @@ void RegAllocator::perform_load_stores() {
       inst_sink.push_back(std::move(f.inst[i]));
     } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
       invalidate_read(i);
-      inst_sink.push_back(std::move(f.inst[i]));
 
-      // HACK: If it's load_pc label, delay store once more
-      if (x->label.find("_$ld_pc") == 0 && inst_sink.size() >= 2 &&
+      if (x->label.find(".ld_pc") == 0 && inst_sink.size() >= 2 &&
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
+        // HACK: If it's load_pc label, delay store once more
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
+      } else if (x->label.find(".bb" == 0)) {
+        // HACK: Force store cross-block variables before changing basic block
+        for (auto it = active_reg_map.begin(); it != active_reg_map.end();
+             it++) {
+          if (spill_positions.find(it->first) != spill_positions.end()) {
+            force_free(it->second);
+            active.erase(it->second);
+          }
+        }
       }
+
+      inst_sink.push_back(std::move(f.inst[i]));
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
       if (delayed_store) {
         // TODO: check if this is right
