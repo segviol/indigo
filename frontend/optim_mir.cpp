@@ -1149,7 +1149,6 @@ void generate_SSA(map<int, BasicBlock*> nodes,
   map<int, vector<int>> dom_tree = build_dom_tree(dom);
   for (int i = 0; i < vars.size(); i++) {
     V.clear();
-    cout << "$#@% " << vars[i] << endl;
     push(rename(vars[i]));
     rename_var(vars[i], find_entry(nodes), nodes, dom_tree);
   }
