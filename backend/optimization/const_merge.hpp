@@ -159,6 +159,9 @@ class Merge_Const : public backend::MirOptimizePass {
           case Op::ShrA:
             res = lhs >> rhs;
             break;
+          case Op::Not:
+            res = ~lhs;
+            break;
         }
         inst = std::make_unique<mir::inst::AssignInst>(opInst->dest, res);
         const_var_map.insert({opInst->dest, res});
