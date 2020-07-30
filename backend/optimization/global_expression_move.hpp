@@ -57,6 +57,10 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     var_replace::Var_Replace vp(func);
     env = std::make_shared<Env>(func, lva, vp);
     for (auto& blkpair : func.basic_blks) {
+      if (blkpair.first == 20) {
+        std::cout << 'q';
+      }
+      std::cout << func.name << " - " << blkpair.first << std::endl;
       auto& block = blkpair.second;
       auto& blv = lva.livevars[blkpair.first];
       auto& variables = func.variables;
@@ -89,6 +93,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                 break;
               }
               id = env->vp.defpoint.at(lhs).first;
+
             } else if (!opInst->rhs.is_immediate()) {
               auto rhs = std::get<mir::inst::VarId>(opInst->rhs);
               if (!blv->live_vars_in->count(rhs)) {
@@ -96,9 +101,12 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
               }
               id = env->vp.defpoint.at(rhs).first;
             }
+            if (id == blkpair.first) {
+              break;
+            }
             vp.setdefpoint(inst->dest, blkpair.first,
                            func.basic_blks.at(id).inst.size());
-
+            func.variables.at(inst->dest.id).is_temp_var = false;
             func.basic_blks.at(id).inst.push_back(std::move(inst));
             iter = block.inst.erase(iter);
             continue;
