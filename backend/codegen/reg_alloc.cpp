@@ -234,7 +234,7 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
-  void force_free(Reg r);
+  void force_free(Reg r, bool also_erase_map = true);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
@@ -685,7 +685,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
   }
 }
 
-void RegAllocator::force_free(Reg r) {
+void RegAllocator::force_free(Reg r, bool also_erase_map) {
   auto &trace = LOG(TRACE);
   display_reg_name(trace, r);
   if (auto x = active.find(r); x != active.end()) {
@@ -699,7 +699,7 @@ void RegAllocator::force_free(Reg r) {
         trace << " " << y.first << " " << y.second << " @"
               << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
-        active_reg_map.erase(y.first);
+        if (also_erase_map) active_reg_map.erase(y.first);
         return;
       }
     }
@@ -830,6 +830,7 @@ void RegAllocator::perform_load_stores() {
           while (it != active_reg_map.end()) {
             if (spilled_cross_block_reg.find(it->first) !=
                 spilled_cross_block_reg.end()) {
+              force_free(it->second, false);
               active.erase(it->second);
               it = active_reg_map.erase(it);
             } else {
