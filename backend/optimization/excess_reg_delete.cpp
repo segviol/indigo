@@ -42,26 +42,26 @@ void ExcessRegDelete::optimize_arm(
             }
           }
         }
-        // } else if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
-        //   const std::set<OpCode> shifts = {OpCode::Lsl, OpCode::Lsr,
-        //   OpCode::Asr};
-        //   // Simplify `shift rA, #n; ldr/str rB, [rD, rA]`
-        //   if (auto r2 = std::get_if<int32_t>(&x->r2);
-        //       x->cond == arm::ConditionCode::Always && r2 &&
-        //       shifts.find(x->op) != shifts.end() && i < f->inst.size() - 1)
-        //       {
-        //     if (auto x_ = dynamic_cast<LoadStoreInst *>(&*f->inst[i + 1]))
-        //     {
-        //       if (auto mem = std::get_if<MemoryOperand>(&x_->mem)) {
-        //         if (auto off = std::get_if<RegisterOperand>(&mem->offset))
-        //         {
-        //           off->shift_amount += *r2;
-        //           del = true;
-        //         }
-        //       }
-        //     }
-        //   }
+      } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       }
+      //   const std::set<OpCode> shifts = {OpCode::Lsl, OpCode::Lsr,
+      //   OpCode::Asr};
+      //   // Simplify `shift rA, #n; ldr/str rB, [rD, rA]`
+      //   if (auto r2 = std::get_if<int32_t>(&x->r2);
+      //       x->cond == arm::ConditionCode::Always && r2 &&
+      //       shifts.find(x->op) != shifts.end() && i < f->inst.size() - 1)
+      //       {
+      //     if (auto x_ = dynamic_cast<LoadStoreInst *>(&*f->inst[i + 1]))
+      //     {
+      //       if (auto mem = std::get_if<MemoryOperand>(&x_->mem)) {
+      //         if (auto off = std::get_if<RegisterOperand>(&mem->offset))
+      //         {
+      //           off->shift_amount += *r2;
+      //           del = true;
+      //         }
+      //       }
+      //     }
+      //   }
 
       if (!del) {
         new_inst.push_back(std::move(f->inst[i]));
