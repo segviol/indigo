@@ -43,10 +43,13 @@ void display_op(std::ostream& o, Op val) {
       o << "!=";
       break;
     case Op::And:
-      o << "&&";
+      o << "&";
       break;
     case Op::Or:
-      o << "||";
+      o << "|";
+      break;
+    case Op::Not:
+      o << "!";
       break;
     case Op::Shl:
       o << "<<";
