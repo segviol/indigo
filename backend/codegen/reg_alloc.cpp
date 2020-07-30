@@ -47,6 +47,16 @@ struct Interval {
   void add_ending_point(unsigned int end_) {
     if (end_ > end) end = end_;
   }
+  Interval with_starting_point(unsigned int start_) {
+    Interval that = *this;
+    that.start = start_;
+    return that;
+  }
+  Interval with_ending_point(unsigned int end_) {
+    Interval that = *this;
+    end = end_;
+    return that;
+  }
   unsigned int length() { return end - start; }
   bool overlaps(const Interval other) {
     return end > other.start && start < other.end;
@@ -110,6 +120,7 @@ class RegAllocator {
   std::unordered_map<arm::Reg, Reg> active_reg_map;
   std::unordered_map<arm::Reg, Interval> spilled_regs;
   std::unordered_map<arm::Reg, int> spill_positions;
+  std::unordered_set<Reg> spilled_cross_block_reg;
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
@@ -117,6 +128,8 @@ class RegAllocator {
   int stack_size;
   int stack_offset = 0;
   std::optional<std::pair<Reg, Reg>> delayed_store;
+
+  bool bb_reset = true;
 
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
@@ -221,7 +234,7 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
-  void force_free(Reg r);
+  void force_free(Reg r, bool also_erase_map = true);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
@@ -396,6 +409,7 @@ void RegAllocator::construct_reg_map() {
           trace << " <- sp + " << stack_size << std::endl;
         }
         stack_size += 4;
+        spilled_cross_block_reg.insert(vreg_id);
       }
     } else {
       // local variable
@@ -535,19 +549,22 @@ void RegAllocator::replace_read(Reg &r, int i,
     LOG(TRACE) << "graph " << reg_map_r->second << std::endl;
     r = reg_map_r->second;
     return;
-  } else if (auto spill_r = spill_positions.find(r);
-             spill_r != spill_positions.end()) {
+  } else if (auto spill_r = spilled_regs.find(r);
+             spill_r != spilled_regs.end()) {
     // this register is allocated in stack
     bool del = false;
 
     Reg rd;
+    auto spill_pos = get_or_alloc_spill_pos(r);
+    auto interval = spill_r->second;
+    interval.start = i;
+    spilled_regs.erase(r);
     if (pre_alloc_transient) {
       rd = pre_alloc_transient.value();
     } else {
-      rd = alloc_transient_reg(Interval(i), r);
+      rd = alloc_transient_reg(interval, r);
     }
 
-    auto spill_pos = get_or_alloc_spill_pos(r);
     if (inst_sink.size() > 0) {
       auto &x = inst_sink.back();
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
@@ -591,19 +608,43 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
     r = reg_map_r->second;
     return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
-  } else if (auto spill_r = spill_positions.find(r);
-             spill_r != spill_positions.end()) {
+  } else if (spilled_cross_block_reg.find(r) != spilled_cross_block_reg.end()) {
+    // When encountering write actions to cross-block regs, write immediately
     Reg rd;
     if (pre_alloc_transient) {
       rd = pre_alloc_transient.value();
     } else {
-      rd = alloc_transient_reg(Interval(i), {});
+      auto it = active_reg_map.find(r);
+      if (it != active_reg_map.end()) {
+        rd = it->second;
+      } else {
+        auto interval = live_intervals.at(r).with_starting_point(i);
+        ;
+        rd = alloc_transient_reg(interval, r);
+      }
+    }
+
+    r = rd;
+    display_reg_name(LOG(TRACE), r_);
+    LOG(TRACE) << " at: " << i << " to be spilled" << std::endl;
+    return {r_, rd, ReplaceWriteKind::Spill};
+  } else if (auto spill_r = spilled_regs.find(r);
+             spill_r != spilled_regs.end()) {
+    Reg rd;
+    auto pos = get_or_alloc_spill_pos(r);
+    auto interval = spill_r->second;
+    interval.start = i;
+    spilled_regs.erase(r);
+    if (pre_alloc_transient) {
+      rd = pre_alloc_transient.value();
+    } else {
+      rd = alloc_transient_reg(interval, r);
     }
 
     r = rd;
     display_reg_name(LOG(TRACE), r_);
     LOG(TRACE) << " at: " << i << " ";
-    LOG(TRACE) << "spill " << spill_r->second << std::endl;
+    LOG(TRACE) << "spill " << pos << std::endl;
     return {r_, rd, ReplaceWriteKind::Spill};
   } else {
     // Is temporary register
@@ -664,7 +705,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
   }
 }
 
-void RegAllocator::force_free(Reg r) {
+void RegAllocator::force_free(Reg r, bool also_erase_map) {
   auto &trace = LOG(TRACE);
   display_reg_name(trace, r);
   if (auto x = active.find(r); x != active.end()) {
@@ -674,10 +715,11 @@ void RegAllocator::force_free(Reg r) {
         int stack_pos = get_or_alloc_spill_pos(y.first);
         inst_sink.push_back(std::make_unique<LoadStoreInst>(
             OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        spilled_regs.insert({y.first, x->second});
         trace << " " << y.first << " " << y.second << " @"
               << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
-        active_reg_map.erase(y.first);
+        if (also_erase_map) active_reg_map.erase(y.first);
         return;
       }
     }
@@ -768,12 +810,16 @@ void RegAllocator::perform_load_stores() {
       inst_sink.push_back(std::move(f.inst[i]));
     } else if (auto x = dynamic_cast<LabelInst *>(inst_)) {
       invalidate_read(i);
-      inst_sink.push_back(std::move(f.inst[i]));
 
-      // HACK: If it's load_pc label, delay store once more
-      if (x->label.find("_$ld_pc") == 0 && inst_sink.size() >= 2 &&
+      inst_sink.push_back(std::move(f.inst[i]));
+      if (x->label.find(".ld_pc") == 0 && inst_sink.size() >= 2 &&
           dynamic_cast<LoadStoreInst *>(&**(inst_sink.end() - 2))) {
+        // HACK: If it's load_pc label, delay store once more
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
+      }
+      if (x->label.find(".bb" == 0)) {
+        // HACK: Force store cross-block variables before changing basic block
+        bb_reset = true;
       }
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
       if (delayed_store) {
@@ -797,6 +843,23 @@ void RegAllocator::perform_load_stores() {
         active.erase(Reg(2));
         active.erase(Reg(3));
         active.erase(Reg(12));
+      } else if (x->op == arm::OpCode::B) {
+        if (bb_reset) {
+          auto it = active_reg_map.begin();
+
+          while (it != active_reg_map.end()) {
+            if (spilled_cross_block_reg.find(it->first) !=
+                spilled_cross_block_reg.end()) {
+              force_free(it->second, false);
+              active.erase(it->second);
+              it = active_reg_map.erase(it);
+            } else {
+              it++;
+            }
+          }
+          bb_reset = false;
+        }
+        inst_sink.push_back(std::move(f.inst[i]));
       } else {
         inst_sink.push_back(std::move(f.inst[i]));
       }
