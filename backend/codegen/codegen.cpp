@@ -83,7 +83,8 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     auto& i = *inst;
     if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
       if (is_comparison(x->op) && !met_cmp) {
-        emit_phi_move(std::move(use_vars));
+        emit_phi_move(use_vars);
+        use_vars.clear();
         met_cmp = true;
       }
       translate_inst(*x);
@@ -710,7 +711,7 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
       OpCode::Mov, translate_var_reg(dest), Operand2(1), cond));
 }
 
-void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId> i) {
+void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
   for (auto id : i) {
     auto collapsed = var_collapse.equal_range(id);
     if (collapsed.first == collapsed.second) {
