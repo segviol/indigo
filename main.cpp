@@ -16,6 +16,7 @@
 #include "backend/optimization/const_merge.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
+#include "backend/optimization/global_expression_move.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
@@ -50,6 +51,12 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+  // inside block only and remove tmp vars
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
+  // delete common exprs new created and replace not phi vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<
