@@ -608,6 +608,26 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
   } else if (auto reg_map_r = reg_map.find(r); reg_map_r != reg_map.end()) {
     r = reg_map_r->second;
     return {r_, reg_map_r->second, ReplaceWriteKind::Graph};
+  } else if (spilled_cross_block_reg.find(r) != spilled_cross_block_reg.end()) {
+    // When encountering write actions to cross-block regs, write immediately
+    Reg rd;
+    if (pre_alloc_transient) {
+      rd = pre_alloc_transient.value();
+    } else {
+      auto it = active_reg_map.find(r);
+      if (it != active_reg_map.end()) {
+        rd = it->second;
+      } else {
+        auto interval = live_intervals.at(r).with_starting_point(i);
+        ;
+        rd = alloc_transient_reg(interval, r);
+      }
+    }
+
+    r = rd;
+    display_reg_name(LOG(TRACE), r_);
+    LOG(TRACE) << " at: " << i << " to be spilled" << std::endl;
+    return {r_, rd, ReplaceWriteKind::Spill};
   } else if (auto spill_r = spilled_regs.find(r);
              spill_r != spilled_regs.end()) {
     Reg rd;
