@@ -517,15 +517,15 @@ map<mir::inst::VarId, set<int>> active_var(map<int, BasicBlock*> nodes) {
 
   // step4: build the blocks.
   map<mir::inst::VarId, set<int>> blocks;
-  mir::inst::VarId s0(0);
+  //mir::inst::VarId s0(0);
   for (it = global.begin(); it != global.end(); it++) {
     if (it->second.size() > 0) {
       for (int i = 0; i < it->second.size(); i++) {
-        if (it->second[i] != s0) {
+        //if (it->second[i] != s0) {
           set<int> s = blockHasVar(it->second[i], def, use);
           blocks.insert(
               map<mir::inst::VarId, set<int>>::value_type(it->second[i], s));
-        }
+        //}
       }
     }
   }
@@ -1149,6 +1149,7 @@ void generate_SSA(map<int, BasicBlock*> nodes,
   map<int, vector<int>> dom_tree = build_dom_tree(dom);
   for (int i = 0; i < vars.size(); i++) {
     V.clear();
+    cout << "$#@% " << vars[i] << endl;
     push(rename(vars[i]));
     rename_var(vars[i], find_entry(nodes), nodes, dom_tree);
   }
@@ -1176,7 +1177,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       shared_ptr<mir::types::FunctionTy> type = it->second.type;
       int n = type->params.size();
       notRename.clear();
-      for (int i = 0; i <= n; i++) {
+      for (int i = 1; i <= n; i++) {
         mir::inst::VarId s(i);
         notRename.push_back(s);
       }
