@@ -30,16 +30,31 @@ void ExcessRegDelete::optimize_arm(
             }
           }
         }
+        if (x->cond != arm::ConditionCode::Always && i < f->inst.size() - 2) {
+          // simplify `bA label1; b label2; label1:` to `b~A label2; label1:`
+          auto x1 = dynamic_cast<BrInst *>(&*f->inst[i + 1]);
+          auto x2 = dynamic_cast<LabelInst *>(&*f->inst[i + 2]);
+          if (x1 && x2) {
+            if (x->l == x2->label && (x1->cond == arm::ConditionCode::Always ||
+                                      x1->cond == invert_cond(x->cond))) {
+              x1->cond = invert_cond(x->cond);
+              del = true;
+            }
+          }
+        }
         // } else if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
         //   const std::set<OpCode> shifts = {OpCode::Lsl, OpCode::Lsr,
         //   OpCode::Asr};
         //   // Simplify `shift rA, #n; ldr/str rB, [rD, rA]`
         //   if (auto r2 = std::get_if<int32_t>(&x->r2);
         //       x->cond == arm::ConditionCode::Always && r2 &&
-        //       shifts.find(x->op) != shifts.end() && i < f->inst.size() - 1) {
-        //     if (auto x_ = dynamic_cast<LoadStoreInst *>(&*f->inst[i + 1])) {
+        //       shifts.find(x->op) != shifts.end() && i < f->inst.size() - 1)
+        //       {
+        //     if (auto x_ = dynamic_cast<LoadStoreInst *>(&*f->inst[i + 1]))
+        //     {
         //       if (auto mem = std::get_if<MemoryOperand>(&x_->mem)) {
-        //         if (auto off = std::get_if<RegisterOperand>(&mem->offset)) {
+        //         if (auto off = std::get_if<RegisterOperand>(&mem->offset))
+        //         {
         //           off->shift_amount += *r2;
         //           del = true;
         //         }
