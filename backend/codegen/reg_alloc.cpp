@@ -120,6 +120,7 @@ class RegAllocator {
   std::unordered_map<arm::Reg, Reg> active_reg_map;
   std::unordered_map<arm::Reg, Interval> spilled_regs;
   std::unordered_map<arm::Reg, int> spill_positions;
+  std::unordered_set<Reg> spilled_cross_block_reg;
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
@@ -408,6 +409,7 @@ void RegAllocator::construct_reg_map() {
           trace << " <- sp + " << stack_size << std::endl;
         }
         stack_size += 4;
+        spilled_cross_block_reg.insert(vreg_id);
       }
     } else {
       // local variable
@@ -823,12 +825,15 @@ void RegAllocator::perform_load_stores() {
         active.erase(Reg(12));
       } else if (x->op == arm::OpCode::B) {
         if (bb_reset) {
-          // HACK: Force store cross-block variables before changing basic block
-          for (auto it = active_reg_map.begin(); it != active_reg_map.end();
-               it++) {
-            if (spill_positions.find(it->first) != spill_positions.end()) {
-              force_free(it->second);
+          auto it = active_reg_map.begin();
+
+          while (it != active_reg_map.end()) {
+            if (spilled_cross_block_reg.find(it->first) !=
+                spilled_cross_block_reg.end()) {
               active.erase(it->second);
+              it = active_reg_map.erase(it);
+            } else {
+              it++;
             }
           }
           bb_reset = false;
