@@ -29,11 +29,12 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                 if (!opPtr->lhs.is_immediate() && opPtr->rhs.is_immediate()) {
                   int32_t num = *(opPtr->rhs.get_if<int32_t>());
                   if (num != 0 && (std::abs(num) & (std::abs(num) - 1)) == 0) {
-                    int index;
-                    int mul;
+                    uint32_t index;
+                    uint32_t mul;
 
                     mul = std::abs(num);
-                    for (index = 0; (mul & 1) == 0; mul >>= 1, index++);
+                    for (index = 0; (mul & 1) == 0; mul >>= 1, index++)
+                      ;
                     opPtr->op = mir::inst::Op::Shl;
                     opPtr->rhs = mir::inst::Value(index);
 
@@ -52,8 +53,8 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                 if (!opPtr->lhs.is_immediate() && opPtr->rhs.is_immediate()) {
                   int32_t num = *(opPtr->rhs.get_if<int32_t>());
                   if (num != 0 && (std::abs(num) & (std::abs(num) - 1)) == 0) {
-                    int index;
-                    int mul;
+                    uint32_t index;
+                    uint32_t mul;
 
                     mul = std::abs(num);
                     for (index = 0; (mul & 1) == 0; mul >>= 1, index++)
@@ -73,6 +74,20 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                 break;
               }
               case mir::inst::Op::Rem: {
+                if (!opPtr->lhs.is_immediate() && opPtr->rhs.is_immediate()) {
+                  int32_t num = *(opPtr->rhs.get_if<int32_t>());
+                  if (num != 0 && (std::abs(num) & (std::abs(num) - 1)) == 0) {
+                    uint32_t index;
+                    uint32_t rem;
+
+                    rem = std::abs(num);
+                    for (index = 0; (rem & 1) == 0; rem >>= 1, index++)
+                      ;
+                    opPtr->op = mir::inst::Op::And;
+                    opPtr->rhs = mir::inst::Value(((uint32_t)1 << index) - 1);
+                    // TODO: deal the problem of negative lhs
+                  }
+                }
                 break;
               }
               default:
@@ -87,7 +102,8 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
     }
   }
 
-  void optimize_mir(mir::inst::MirPackage& package, std::map<std::string, std::any>& extra_data_repo) {
+  void optimize_mir(mir::inst::MirPackage& package,
+                    std::map<std::string, std::any>& extra_data_repo) {
     for (auto& i : package.functions) {
       if (!i.second.type->is_extern) {
         optimize_func(i.first, i.second);
@@ -98,4 +114,4 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
  private:
 };
 
-}
+}  // namespace optimization::algebraic_simplification

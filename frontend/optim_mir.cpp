@@ -517,15 +517,15 @@ map<mir::inst::VarId, set<int>> active_var(map<int, BasicBlock*> nodes) {
 
   // step4: build the blocks.
   map<mir::inst::VarId, set<int>> blocks;
-  mir::inst::VarId s0(0);
+  // mir::inst::VarId s0(0);
   for (it = global.begin(); it != global.end(); it++) {
     if (it->second.size() > 0) {
       for (int i = 0; i < it->second.size(); i++) {
-        if (it->second[i] != s0) {
-          set<int> s = blockHasVar(it->second[i], def, use);
-          blocks.insert(
-              map<mir::inst::VarId, set<int>>::value_type(it->second[i], s));
-        }
+        // if (it->second[i] != s0) {
+        set<int> s = blockHasVar(it->second[i], def, use);
+        blocks.insert(
+            map<mir::inst::VarId, set<int>>::value_type(it->second[i], s));
+        //}
       }
     }
   }
@@ -1176,7 +1176,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       shared_ptr<mir::types::FunctionTy> type = it->second.type;
       int n = type->params.size();
       notRename.clear();
-      for (int i = 0; i <= n; i++) {
+      for (int i = 1; i <= n; i++) {
         mir::inst::VarId s(i);
         notRename.push_back(s);
       }
@@ -1187,6 +1187,27 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       map<int, vector<int>> df = dominac_frontier(dom, nodes);
       vector<mir::inst::VarId> vars = get_vars(iter->second);
       generate_SSA(nodes, blocks, df, vars, dom);
+      map<int, BasicBlock*>::iterator iit = nodes.find(1048576);
+      if (iit != nodes.end()) {
+        if (iit->second->inst[iit->second->inst.size() - 1].index() == 1) {
+          optional<mir::inst::VarId> var =
+              get<1>(iit->second->inst[iit->second->inst.size() - 1])
+                  ->cond_or_ret;
+          if (var.has_value()) {
+            mir::inst::VarId s0(0);
+            mir::inst::VarId dest(0);
+            get<1>(iit->second->inst[iit->second->inst.size() - 1])
+                ->cond_or_ret = s0;
+            mir::inst::Value src(var.value());
+            shared_ptr<mir::inst::Inst> assign =
+                shared_ptr<mir::inst::AssignInst>(
+                    new mir::inst::AssignInst(dest, src));
+            iit->second->inst.insert(
+                iit->second->inst.begin() + iit->second->inst.size() - 1,
+                assign);
+          }
+        }
+      }
       mir::types::LabelId exitid = irgenerator.getNewLabelId();
       vector<uint32_t> defined;
       for (int i = 0; i <= n; i++) {
@@ -1572,4 +1593,21 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       }
     }
   }
+  /*for (it = p.functions.begin(); it != p.functions.end(); it++) {
+    std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator iter;
+    for (iter = it->second.basic_blks.begin();
+         iter != it->second.basic_blks.end(); iter++) {
+      if (iter->second.id == 1048576) {
+        optional<mir::inst::VarId> var = iter->second.jump.cond_or_ret;
+        mir::inst::VarId dest(0);
+        mir::inst::Value src(var.value());
+        shared_ptr<mir::inst::Inst> assign =
+            shared_ptr<mir::inst::AssignInst>(
+                new mir::inst::AssignInst(dest, src));
+        iter->second.inst.push_back(unique_ptr<mir::inst::Inst>(assign.get()));
+        mir::inst::VarId s0(0);
+        iter->second.jump.cond_or_ret = s0;
+      }
+    }
+  }*/
 }
