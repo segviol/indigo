@@ -1194,16 +1194,19 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           optional<mir::inst::VarId> var =
               get<1>(iit->second->inst[iit->second->inst.size() - 1])
                   ->cond_or_ret;
-          mir::inst::VarId s0(0);
-          get<1>(iit->second->inst[iit->second->inst.size() - 1])->cond_or_ret =
-              s0;
-          mir::inst::VarId dest(0);
-          mir::inst::Value src(var.value());
-          shared_ptr<mir::inst::Inst> assign =
-              shared_ptr<mir::inst::AssignInst>(
-                  new mir::inst::AssignInst(dest, src));
-          iit->second->inst.insert(iit->second->inst.begin() +
-                                   iit->second->inst.size() - 1, assign);
+          if (var.has_value()) {
+            mir::inst::VarId s0(0);
+            mir::inst::VarId dest(0);
+            get<1>(iit->second->inst[iit->second->inst.size() - 1])
+                ->cond_or_ret = s0;
+            mir::inst::Value src(var.value());
+            shared_ptr<mir::inst::Inst> assign =
+                shared_ptr<mir::inst::AssignInst>(
+                    new mir::inst::AssignInst(dest, src));
+            iit->second->inst.insert(
+                iit->second->inst.begin() + iit->second->inst.size() - 1,
+                assign);
+          }
         }
       }
       mir::types::LabelId exitid = irgenerator.getNewLabelId();
