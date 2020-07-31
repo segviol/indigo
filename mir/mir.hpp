@@ -20,6 +20,7 @@ enum class Op {
   Sub,
   Mul,
   Div,
+  MulSh,
   Rem,
   Gt,
   Lt,

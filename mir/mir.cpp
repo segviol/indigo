@@ -18,6 +18,9 @@ void display_op(std::ostream& o, Op val) {
     case Op::Mul:
       o << "*";
       break;
+    case Op::MulSh:
+      o << "MulSh";
+      break;
     case Op::Div:
       o << "/";
       break;
