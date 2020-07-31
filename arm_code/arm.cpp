@@ -185,6 +185,9 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::Mul:
       o << "mul";
       break;
+    case OpCode::SMMul:
+      o << "smmul";
+      break;
     case OpCode::SDiv:
       o << "sdiv";
       break;

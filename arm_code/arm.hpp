@@ -248,6 +248,8 @@ enum class OpCode {
   Rsb,
   // Multiply
   Mul,
+  // Signed Most Significant Word Multiply
+  SMMul,
   // Signed Divide
   SDiv,
   // And

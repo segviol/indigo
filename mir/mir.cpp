@@ -18,6 +18,9 @@ void display_op(std::ostream& o, Op val) {
     case Op::Mul:
       o << "*";
       break;
+    case Op::MulSh:
+      o << "MulSh";
+      break;
     case Op::Div:
       o << "/";
       break;
@@ -47,6 +50,9 @@ void display_op(std::ostream& o, Op val) {
       break;
     case Op::Or:
       o << "|";
+      break;
+    case Op::Xor:
+      o << "^";
       break;
     case Op::Not:
       o << "!";
