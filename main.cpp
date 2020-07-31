@@ -76,7 +76,7 @@ void add_passes(backend::Backend& backend) {
           optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(
-      std::make_unique<optimization::graph_color::Graph_Color>(5, true));
+      std::make_unique<optimization::graph_color::Graph_Color>(8, true));
 
   // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
@@ -160,7 +160,7 @@ Options parse_options(int argc, const char** argv) {
   parser.add_argument("-o", "--output")
       .help("Output file")
       .nargs(1)
-      .default_value("out.s");
+      .default_value(std::string("out.s"));
   parser.add_argument("-v", "--verbose")
       .help("Set verbosity")
       .default_value(false)
