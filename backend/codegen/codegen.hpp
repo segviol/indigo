@@ -156,7 +156,7 @@ class Codegen final {
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
 
-  void emit_phi_move(std::unordered_set<mir::inst::VarId> i);
+  void emit_phi_move(std::unordered_set<mir::inst::VarId>& i);
   void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                     mir::inst::Value& rhs, arm::ConditionCode cond,
                     bool reversed);
