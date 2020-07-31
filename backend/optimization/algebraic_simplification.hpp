@@ -44,11 +44,11 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       opPtr->rhs = mir::inst::Value(index);
 
                       if (num < 0) {
-                        blksIter->second.inst.insert(
-                            instIter + 1, std::make_unique<mir::inst::OpInst>(
-                                              opPtr->dest, mir::inst::Value(0),
-                                              mir::inst::Value(opPtr->dest),
-                                              mir::inst::Op::Sub));
+                        insertInst(blksIter->second.inst, i + 1,
+                                   std::make_unique<mir::inst::OpInst>(
+                                       opPtr->dest, mir::inst::Value(0),
+                                       mir::inst::Value(opPtr->dest),
+                                       mir::inst::Op::Sub));
                       }
                     }
                   }
@@ -74,11 +74,11 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       opPtr->rhs = mir::inst::Value(index);
 
                       if (num < 0) {
-                        blksIter->second.inst.insert(
-                            instIter + 1, std::make_unique<mir::inst::OpInst>(
-                                              opPtr->dest, mir::inst::Value(0),
-                                              mir::inst::Value(opPtr->dest),
-                                              mir::inst::Op::Sub));
+                        insertInst(blksIter->second.inst, i + 1,
+                                   std::make_unique<mir::inst::OpInst>(
+                                       opPtr->dest, mir::inst::Value(0),
+                                       mir::inst::Value(opPtr->dest),
+                                       mir::inst::Op::Sub));
                       }
                     } else {
                       uint32_t numAbs;
