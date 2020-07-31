@@ -120,10 +120,11 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       insertInst(
                           blksIter->second.inst, i + 3,
                           std::unique_ptr<mir::inst::Inst>(
-                              new mir::inst::OpInst(mir::inst::VarId(tmp1),
-                                                    mir::inst::Value(tmp2),
-                                                    mir::inst::Value(shPost),
-                                                    mir::inst::Op::ShrA)));
+                              new mir::inst::OpInst(
+                                  mir::inst::VarId(tmp1),
+                                  mir::inst::Value(mir::inst::VarId(tmp2)),
+                                  mir::inst::Value(shPost),
+                                  mir::inst::Op::ShrA)));
                       tmp2 = getNewVar(mirFunction);
                       insertInst(
                           blksIter->second.inst, i + 4,
@@ -135,24 +136,28 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       insertInst(
                           blksIter->second.inst, i + 5,
                           std::unique_ptr<mir::inst::Inst>(
-                              new mir::inst::OpInst(mir::inst::VarId(tmp3),
-                                                    mir::inst::Value(tmp1),
-                                                    mir::inst::Value(tmp2),
-                                                    mir::inst::Op::Sub)));
+                              new mir::inst::OpInst(
+                                  mir::inst::VarId(tmp3),
+                                  mir::inst::Value(mir::inst::VarId(tmp1)),
+                                  mir::inst::Value(mir::inst::VarId(tmp2)),
+                                  mir::inst::Op::Sub)));
                       tmp1 = getNewVar(mirFunction);
                       insertInst(
                           blksIter->second.inst, i + 6,
                           std::unique_ptr<mir::inst::Inst>(
-                              new mir::inst::OpInst(mir::inst::VarId(tmp1),
-                                                    mir::inst::Value(tmp3),
-                                                    mir::inst::Value(dSign),
-                                                    mir::inst::Op::Xor)));
-                      insertInst(blksIter->second.inst, i + 7,
-                                 std::unique_ptr<mir::inst::Inst>(
-                                     new mir::inst::OpInst(
-                                         opPtr->dest, mir::inst::Value(tmp1),
-                                         mir::inst::Value(dSign),
-                                         mir::inst::Op::Sub)));
+                              new mir::inst::OpInst(
+                                  mir::inst::VarId(tmp1),
+                                  mir::inst::Value(mir::inst::VarId(tmp3)),
+                                  mir::inst::Value(dSign),
+                                  mir::inst::Op::Xor)));
+                      insertInst(
+                          blksIter->second.inst, i + 7,
+                          std::unique_ptr<mir::inst::Inst>(
+                              new mir::inst::OpInst(
+                                  opPtr->dest,
+                                  mir::inst::Value(mir::inst::VarId(tmp1)),
+                                  mir::inst::Value(dSign),
+                                  mir::inst::Op::Sub)));
                       blksIter->second.inst.erase(
                           blksIter->second.inst.begin() + i);
                     }
