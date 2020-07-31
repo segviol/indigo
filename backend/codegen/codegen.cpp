@@ -648,12 +648,6 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
-    case mir::inst::Op::Xor:
-      inst.push_back(std::make_unique<Arith3Inst>(
-          arm::OpCode::Eor, translate_var_reg(i.dest),
-          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
-      break;
-
     case mir::inst::Op::Not:
       inst.push_back(std::make_unique<Arith2Inst>(
           arm::OpCode::Mvn, translate_var_reg(i.dest),
