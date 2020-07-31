@@ -124,6 +124,7 @@ class Variable : public prelude::Displayable {
   types::SharedTyPtr ty;
   bool is_memory_var;
   bool is_temp_var;
+  int priority = 0;
 
   types::SharedTyPtr type() const {
     if (is_memory_var) {
@@ -172,7 +173,6 @@ class Inst : public prelude::Displayable {
 class AssignInst final : public Inst {
  public:
   Value src;
-
   AssignInst(VarId _dest, Value _src) : Inst(_dest), src(_src) {}
   virtual InstKind inst_kind() { return InstKind::Assign; }
   virtual void display(std::ostream& o) const;
