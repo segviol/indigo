@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <list>
 #include <map>
 #include <memory>
@@ -23,27 +24,64 @@
 
 namespace optimization::global_expr_move {
 
+class Op {
+ public:
+  mir::inst::Op op;
+  mir::inst::Value lhs;
+  mir::inst::Value rhs;
+  Op(mir::inst::Op op, mir::inst::Value lhs, mir::inst::Value rhs)
+      : op(op), lhs(lhs), rhs(rhs) {}
+
+  bool eqaul(mir::inst::Value val1, mir::inst::Value val2) const {
+    if (val1.index() != val2.index()) {
+      return false;
+    }
+    if (val1.index() == 0) {
+      return std::get<int>(val1) == std::get<int>(val2);
+    }
+    return std::get<mir::inst::VarId>(val1).id ==
+           std::get<mir::inst::VarId>(val2).id;
+  }
+  bool operator==(const Op& other) const {
+    return op == other.op && eqaul(lhs, other.lhs) && eqaul(rhs, other.rhs);
+  }
+  Op& operator=(const Op& other) = default;
+};
+struct hasher {
+  size_t operator()(const Op& p) const {
+    int lhs = p.lhs.index() == 0 ? std::get<int>(p.lhs)
+                                 : std::get<mir::inst::VarId>(p.lhs).id;
+    int rhs = p.rhs.index() == 0 ? std::get<int>(p.rhs)
+                                 : std::get<mir::inst::VarId>(p.rhs).id;
+
+    return std::hash<int>()(lhs) ^ std::hash<int>()(rhs);
+  }
+};
+
 class BlockOps {
  public:
-  std::set<
-      std::pair<mir::inst::Op, std::pair<mir::inst::Value, mir::inst::Value>>>
-      ops;
+  std::unordered_set<Op, hasher> ops;
   BlockOps(mir::inst::BasicBlk& blk) {
     for (auto& inst : blk.inst) {
       auto& i = *inst;
       if (inst->inst_kind() == mir::inst::InstKind::Op) {
         auto opInst = dynamic_cast<mir::inst::OpInst*>(&i);
-        ops.insert({opInst->op, {opInst->lhs, opInst->rhs}});
+        ops.insert(Op(opInst->op, opInst->lhs, opInst->rhs));
       }
     }
   }
 
-  bool has_op(
-      std::pair<mir::inst::Op, std::pair<mir::inst::Value, mir::inst::Value>>
-          op) {
-    return ops.count(op);
+  bool has_op(Op op) {
+    // for (auto& op : ops) {
+    //   auto opInst =
+    //       mir::inst::OpInst(mir::inst::VarId(0), op.lhs, op.rhs, op.op);
+    //   std::cout << opInst << std::endl;
+    // }
+
+    return ops.find(op) != ops.end();
   }
 };
+
 class Env {
  public:
   mir::inst::MirFunction& func;
@@ -82,41 +120,43 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                                                inst->op);
   }
 
-  mir::types::LabelId bfs(
-      int start,
-      std::pair<mir::inst::Op, std::pair<mir::inst::Value, mir::inst::Value>>
-          op) {
-    std::list<mir::types::LabelId> queue;
-    std::set<mir::types::LabelId> visited;
-    visited.insert(start);
-    for (auto pre : env->func.basic_blks.at(start).preceding) {
-      if (pre != start) {
-        queue.push_back(pre);
-      }
-    }
+  std::set<int> get_precedings(int start) {
+    auto prec = env->func.basic_blks.at(start).preceding;
+    std::set<int> res;
+    std::list<int> queue(prec.begin(), prec.end());
     while (!queue.empty()) {
-      bool all_has_op = true;
-      for (auto pre : queue) {
-        if (!env->blk_op_map.at(pre).has_op(op)) {
-          all_has_op = false;
-          break;
-        }
-      }
-      if (all_has_op) {
-        if (queue.size() == 1) {
-          return queue.front();
-        }
-      }
-      auto front = queue.front();
+      auto f = queue.front();
       queue.pop_front();
-      if (visited.count(front)) {
+      if (res.count(f)) {
         continue;
       }
-      visited.insert(front);
-      for (auto pre : env->func.basic_blks.at(front).preceding) {
-        if (visited.count(pre)) {
-          queue.push_back(pre);
-        }
+      res.insert(f);
+      auto prec = env->func.basic_blks.at(f).preceding;
+      for (auto p : prec) {
+        queue.push_back(p);
+      }
+    }
+    return res;
+  }
+
+  mir::types::LabelId bfs(int start, Op op) {
+    auto prec = env->func.basic_blks.at(start).preceding;
+    if (prec.size() == 0) {
+      return start;
+    }
+    auto f = *prec.begin();
+    auto res = get_precedings(f);
+    prec.erase(prec.begin());
+    for (auto p : prec) {
+      auto precs = get_precedings(p);
+      std::set<int> tmp;
+      std::set_intersection(res.begin(), res.end(), precs.begin(), precs.end(),
+                            std::inserter(tmp, tmp.begin()));
+      res = std::set(tmp);
+    }
+    for (auto p : res) {
+      if (env->blk_op_map.at(p).has_op(op)) {
+        return p;
       }
     }
     return start;
@@ -144,9 +184,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
         if (visited.count(start)) {
           continue;
         }
-        if (start == 6) {
-          std::cout << "as";
-        }
+
         auto& blk = func.basic_blks.at(start);
         {  // visit logic
           auto& block = blk;
@@ -175,20 +213,20 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                       !blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, {opInst->op, {opInst->lhs, opInst->rhs}});
+                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
                 } else if (!opInst->lhs.is_immediate()) {
                   auto lhs = std::get<mir::inst::VarId>(opInst->lhs);
                   if (!blv->live_vars_in->count(lhs)) {
                     break;
                   }
-                  id = bfs(start, {opInst->op, {opInst->lhs, opInst->rhs}});
+                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
 
                 } else if (!opInst->rhs.is_immediate()) {
                   auto rhs = std::get<mir::inst::VarId>(opInst->rhs);
                   if (!blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, {opInst->op, {opInst->lhs, opInst->rhs}});
+                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
                 }
                 if (id == start) {
                   break;
