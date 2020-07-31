@@ -14,11 +14,11 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
   void optimize_func(std::string name, mir::inst::MirFunction& mirFunction) {
     for (auto blksIter = mirFunction.basic_blks.begin();
          blksIter != mirFunction.basic_blks.end(); blksIter++) {
-      for (auto instIter = blksIter->second.inst.begin();
-           instIter != blksIter->second.inst.end(); instIter++) {
-        switch (instIter->get()->inst_kind()) {
+      for (size_t i = 0; i < blksIter->second.inst.size(); i++) {
+        mir::inst::Inst* instIter = blksIter->second.inst.at(i).get();
+        switch (instIter->inst_kind()) {
           case mir::inst::InstKind::Op: {
-            mir::inst::OpInst* opPtr = (mir::inst::OpInst*)instIter->get();
+            mir::inst::OpInst* opPtr = (mir::inst::OpInst*)instIter;
             switch (opPtr->op) {
               case mir::inst::Op::Mul: {
                 if (opPtr->lhs.is_immediate() && !opPtr->rhs.is_immediate()) {
@@ -102,60 +102,59 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       uint32_t tmp3;
 
                       tmp1 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 1,
+                      insertInst(
+                          blksIter->second.inst, i + 1,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(
                                   mir::inst::VarId(tmp1), mir::inst::Value(m1),
                                   opPtr->lhs, mir::inst::Op::MulSh)));
                       tmp2 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 2,
+                      insertInst(
+                          blksIter->second.inst, i + 2,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(
                                   mir::inst::VarId(tmp2),
                                   mir::inst::Value(mir::inst::VarId(tmp1)),
                                   opPtr->lhs, mir::inst::Op::Add)));
                       tmp1 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 3,
+                      insertInst(
+                          blksIter->second.inst, i + 3,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(mir::inst::VarId(tmp1),
                                                     mir::inst::Value(tmp2),
                                                     mir::inst::Value(shPost),
                                                     mir::inst::Op::ShrA)));
                       tmp2 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 4,
+                      insertInst(
+                          blksIter->second.inst, i + 4,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(
                                   mir::inst::VarId(tmp2), opPtr->lhs,
                                   mir::inst::Value(31), mir::inst::Op::ShrA)));
                       tmp3 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 5,
+                      insertInst(
+                          blksIter->second.inst, i + 5,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(mir::inst::VarId(tmp3),
                                                     mir::inst::Value(tmp1),
                                                     mir::inst::Value(tmp2),
                                                     mir::inst::Op::Sub)));
                       tmp1 = getNewVar(mirFunction);
-                      blksIter->second.inst.insert(
-                          instIter + 6,
+                      insertInst(
+                          blksIter->second.inst, i + 6,
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(mir::inst::VarId(tmp1),
                                                     mir::inst::Value(tmp3),
                                                     mir::inst::Value(dSign),
                                                     mir::inst::Op::Xor)));
-                      blksIter->second.inst.insert(
-                          instIter + 7,
-                          std::unique_ptr<mir::inst::Inst>(
-                              new mir::inst::OpInst(opPtr->dest,
-                                                    mir::inst::Value(tmp1),
-                                                    mir::inst::Value(dSign),
-                                                    mir::inst::Op::Sub)));
-
-                      blksIter->second.inst.erase(instIter);
+                      insertInst(blksIter->second.inst, i + 7,
+                                 std::unique_ptr<mir::inst::Inst>(
+                                     new mir::inst::OpInst(
+                                         opPtr->dest, mir::inst::Value(tmp1),
+                                         mir::inst::Value(dSign),
+                                         mir::inst::Op::Sub)));
+                      blksIter->second.inst.erase(
+                          blksIter->second.inst.begin() + i);
                     }
                   }
                 }
@@ -229,6 +228,15 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                                          std::make_shared<mir::types::IntTy>()),
                                      false, true)));
     return maxId;
+  }
+
+  void insertInst(std::vector<std::unique_ptr<mir::inst::Inst>>& insts,
+                  size_t i, std::unique_ptr<mir::inst::Inst>&& inst) {
+    if (i < insts.size()) {
+      insts.insert(insts.begin() + i, std::move(inst));
+    } else {
+      insts.push_back(std::move(inst));
+    }
   }
 };
 
