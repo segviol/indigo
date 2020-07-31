@@ -120,10 +120,22 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                                                inst->op);
   }
 
+  bool prec_meaningful(int start, int prec) {
+    auto& func = env->func;
+    auto& precblk = func.basic_blks.at(prec);
+    return !(precblk.jump.jump_kind == mir::inst::JumpKind::Loop &&
+             precblk.jump.bb_true == start);
+  }
+
   std::set<int> get_precedings(int start) {
     auto prec = env->func.basic_blks.at(start).preceding;
     std::set<int> res;
-    std::list<int> queue(prec.begin(), prec.end());
+    std::list<int> queue;
+    for (auto p : prec) {
+      if (prec_meaningful(start, p)) {
+        queue.push_back(p);
+      }
+    }
     while (!queue.empty()) {
       auto f = queue.front();
       queue.pop_front();
@@ -133,7 +145,9 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
       res.insert(f);
       auto prec = env->func.basic_blks.at(f).preceding;
       for (auto p : prec) {
-        queue.push_back(p);
+        if (prec_meaningful(f, p)) {
+          queue.push_back(p);
+        }
       }
     }
     return res;
@@ -144,16 +158,25 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     if (prec.size() == 0) {
       return start;
     }
-    auto f = *prec.begin();
-    auto res = get_precedings(f);
-    prec.erase(prec.begin());
-    for (auto p : prec) {
-      auto precs = get_precedings(p);
-      std::set<int> tmp;
-      std::set_intersection(res.begin(), res.end(), precs.begin(), precs.end(),
-                            std::inserter(tmp, tmp.begin()));
-      res = std::set(tmp);
+    std::set<int> res;
+    if (prec.size() == 1) {
+      auto p = bfs(*prec.begin(), op);
+      if (env->blk_op_map.at(p).has_op(op)) {
+        res.insert(p);
+      }
+    } else {
+      auto f = *prec.begin();
+      res = get_precedings(f);
+      prec.erase(prec.begin());
+      for (auto p : prec) {
+        auto precs = get_precedings(p);
+        std::set<int> tmp;
+        std::set_intersection(res.begin(), res.end(), precs.begin(),
+                              precs.end(), std::inserter(tmp, tmp.begin()));
+        res = std::set(tmp);
+      }
     }
+
     for (auto p : res) {
       if (env->blk_op_map.at(p).has_op(op)) {
         return p;
