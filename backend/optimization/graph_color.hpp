@@ -31,6 +31,7 @@ class Conflict_Map {
   std::stack<mir::inst::VarId> remove_Nodes;
   std::shared_ptr<Color_Map> color_map;
   std::shared_ptr<std::set<int>> unused_colors;
+  std::map<mir::inst::VarId, int> priority_map;
   mir::inst::MirFunction& func;
   int varId;
   u_int color_num = 8;
@@ -74,10 +75,18 @@ class Conflict_Map {
     }
   }
 
+  int get_priority(mir::inst::VarId var) {
+    if (func.variables.count(var.id)) {
+      return func.variables.at(var.id).priority;
+    }
+    return priority_map.at(var);
+  }
+
   void merge(mir::inst::VarId var1, mir::inst::VarId var2) {
     if (!merged_Map.count(var2)) {
       merged_Map[var2] = std::set<mir::inst::VarId>();
     }
+    int priority = func.variables.at(var1.id).priority;
     if (merged_var_Map.count(var1)) {
       auto old_merged_var = merged_var_Map.at(var1);
       if (old_merged_var == var2) {
@@ -86,11 +95,14 @@ class Conflict_Map {
       for (auto& var : merged_Map.at(old_merged_var)) {
         merged_var_Map[var] = var2;
         merged_Map[var2].insert(var);
+        priority = std::max(priority, func.variables.at(var.id).priority);
       }
+      priority_map.insert({var2, priority});
       merged_Map.erase(old_merged_var);
     } else {
       merged_var_Map[var1] = var2;
       merged_Map[var2].insert(var1);
+      priority_map.insert({var2, priority});
     }
   }
 
@@ -208,11 +220,14 @@ class Conflict_Map {
     if (!edge_vars.size()) {
       return;
     }
-    auto min_edge_iter = edge_vars.begin();
-    auto min_edge = min_edge_iter->first;
-    assert(min_edge >= color_num);
-    auto iter = min_edge_iter->second.begin();
-    remove_node(*iter, false);
+    int priority = 9999;
+    mir::inst::VarId var;
+    for (auto& pair : dynamic_Map) {
+      if (get_priority(pair.first) < priority) {
+        var = pair.first;
+      }
+    }
+    remove_node(var, false);
   }
 
   bool empty() { return dynamic_Map.empty(); }
