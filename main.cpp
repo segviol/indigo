@@ -54,8 +54,8 @@ void add_passes(backend::Backend& backend) {
   // inside block only and remove tmp vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
-  backend.add_pass(
-      std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
   // delete common exprs new created and replace not phi vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
