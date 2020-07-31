@@ -130,7 +130,7 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                           std::unique_ptr<mir::inst::Inst>(
                               new mir::inst::OpInst(
                                   mir::inst::VarId(tmp2), opPtr->lhs,
-                                  mir::inst::Value(31), mir::inst::Op::Shr)));
+                                  mir::inst::Value(31), mir::inst::Op::ShrA)));
                       tmp3 = getNewVar(mirFunction);
                       insertInst(
                           blksIter->second.inst, i + 5,
