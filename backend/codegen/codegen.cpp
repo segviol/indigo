@@ -623,6 +623,13 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
           RegisterOperand(translate_value_to_reg(rhs))));
       break;
 
+    case mir::inst::Op::MulSh:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::SMMul, translate_var_reg(i.dest),
+          translate_value_to_reg(lhs),
+          RegisterOperand(translate_value_to_reg(rhs))));
+      break;
+
     case mir::inst::Op::Div:
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::SDiv, translate_var_reg(i.dest),
@@ -638,6 +645,12 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
     case mir::inst::Op::Or:
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::Orr, translate_var_reg(i.dest),
+          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+      break;
+
+    case mir::inst::Op::Xor:
+      inst.push_back(std::make_unique<Arith3Inst>(
+          arm::OpCode::Eor, translate_var_reg(i.dest),
           translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
       break;
 
