@@ -76,10 +76,14 @@ class Conflict_Map {
   }
 
   int get_priority(mir::inst::VarId var) {
+    int pri;
     if (func.variables.count(var.id)) {
-      return func.variables.at(var.id).priority;
+      pri = func.variables.at(var.id).priority;
+    } else {
+      pri = priority_map.at(var);
     }
-    return priority_map.at(var);
+    assert(pri == 0);
+    return pri;
   }
 
   void merge(mir::inst::VarId var1, mir::inst::VarId var2) {
@@ -221,10 +225,20 @@ class Conflict_Map {
       return;
     }
     int priority = 9999;
+    // mir::inst::VarId var;
+    // for (auto& pair : dynamic_Map) {
+    //   if (get_priority(pair.first) < priority) {
+    //     var = pair.first;
+    //   }
+    // }
     mir::inst::VarId var;
-    for (auto& pair : dynamic_Map) {
-      if (get_priority(pair.first) < priority) {
-        var = pair.first;
+    for (auto& edgepair : edge_vars) {
+      for (auto var1 : edgepair.second) {
+        auto pri1 = get_priority(var1);
+        if (pri1 < priority) {
+          priority = pri1;
+          var = var1;
+        }
       }
     }
     remove_node(var, false);
