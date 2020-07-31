@@ -42,8 +42,7 @@ void ExcessRegDelete::optimize_arm(
             }
           }
         }
-      } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_);
-                 x && new_inst.size() >= 1) {
+      } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
         // Simplify `ldr xA, memA; str xA, memA`
         if (auto x1 = dynamic_cast<LoadStoreInst *>(&*new_inst.back())) {
           if (x1->op == arm::OpCode::LdR && x->op == arm::OpCode::StR &&
