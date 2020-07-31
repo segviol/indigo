@@ -69,7 +69,7 @@ void add_passes(backend::Backend& backend) {
           optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(
-      std::make_unique<optimization::graph_color::Graph_Color>(8, true));
+      std::make_unique<optimization::graph_color::Graph_Color>(7, true));
 
   // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
