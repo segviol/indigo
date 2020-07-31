@@ -92,8 +92,8 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                       if ((l = upLog2(numAbs)) < 1) {
                         l = 1;
                       }
-                      m = 1 + ((int64_t)1 << (32 + l + 1)) / numAbs;
-                      m1 = m - ((int64_t)1 << 32);
+                      m = 1 + ((uint64_t)1 << (32 + l - 1)) / numAbs;
+                      m1 = m - ((uint64_t)1 << 32);
                       dSign = (num >= 0 ? 0 : -1);
                       shPost = l - 1;
 
