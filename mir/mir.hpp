@@ -30,6 +30,7 @@ enum class Op {
   Neq,
   And,
   Or,
+  Xor,
   Not,
   Shl,
   Shr,
