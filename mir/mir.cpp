@@ -51,6 +51,9 @@ void display_op(std::ostream& o, Op val) {
     case Op::Or:
       o << "|";
       break;
+    case Op::Xor:
+      o << "^";
+      break;
     case Op::Not:
       o << "!";
       break;
