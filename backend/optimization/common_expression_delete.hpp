@@ -473,17 +473,15 @@ class BlockNodes {
     }
     auto varId = jump.cond_or_ret.value();
     auto& node = nodes[var_map[varId].id];
-    if (node->mainVar.index() == 0) {
-      mir::inst::VarId var = std::get<mir::inst::VarId>(node->mainVar);
-      jump.cond_or_ret = var;
-      for (auto iter = block.inst.begin(); iter != block.inst.end();) {
-        if (iter->get()->dest == var) {
-          block.inst.push_back(std::move(*iter));
-          block.inst.erase(iter);
-          break;
-        } else {
-          iter++;
-        }
+    mir::inst::VarId var = std::get<mir::inst::VarId>(node->mainVar);
+    jump.cond_or_ret = var;
+    for (auto iter = block.inst.begin(); iter != block.inst.end();) {
+      if (iter->get()->dest == var) {
+        block.inst.push_back(std::move(*iter));
+        block.inst.erase(iter);
+        break;
+      } else {
+        iter++;
       }
     }
   }
