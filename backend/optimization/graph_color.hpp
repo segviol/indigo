@@ -82,7 +82,7 @@ class Conflict_Map {
     } else {
       pri = priority_map.at(var);
     }
-    assert(pri == 0);
+    // assert(pri == 0);
     return pri;
   }
 
