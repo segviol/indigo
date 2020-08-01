@@ -33,7 +33,7 @@ class Rewriter {
   int labelId;
   int cur_blkId;
   int sub_endId;
-
+  const int Inline_Var_Priority = -5;
   Rewriter(mir::inst::MirFunction& func, mir::inst::MirFunction& subfunc,
            mir::inst::CallInst& callInst, bool is_first_block, int cur_blkId)
       : func(func), subfunc(subfunc), cur_blkId(cur_blkId) {
@@ -53,6 +53,7 @@ class Rewriter {
         auto imm = std::get<int>(callInst.params[i]);
         auto destId = get_new_varId();
         func.variables[destId] = subfunc.variables.at(para);
+        func.variables[destId].priority = Inline_Var_Priority;
         init_inst_before.push_back(
             std::make_unique<mir::inst::AssignInst>(destId, imm));
         var_cast_map[para] = destId.id;
@@ -78,6 +79,7 @@ class Rewriter {
         var_cast_map[iter->first] = new_id;
         func.variables.insert(
             std::make_pair(new_id, subfunc.variables.at(iter->first)));
+        func.variables[new_id].priority = Inline_Var_Priority;
       }
     }
     for (auto iter = subfunc.basic_blks.begin();
