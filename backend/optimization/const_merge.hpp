@@ -145,10 +145,10 @@ class Merge_Const : public backend::MirOptimizePass {
             res = lhs <= rhs;
             break;
           case Op::And:
-            res = lhs && rhs;
+            res = lhs & rhs;
             break;
           case Op::Or:
-            res = lhs || rhs;
+            res = lhs | rhs;
             break;
           case Op::Shl:
             res = lhs << rhs;
@@ -158,6 +158,12 @@ class Merge_Const : public backend::MirOptimizePass {
             break;
           case Op::ShrA:
             res = lhs >> rhs;
+            break;
+          case Op::MulSh:
+            res = (int32_t)(((int64_t)lhs * (int64_t)rhs) >> 32);
+            break;
+          case Op::Xor:
+            res = lhs ^ rhs;
             break;
           case Op::Not:
             res = ~lhs;
