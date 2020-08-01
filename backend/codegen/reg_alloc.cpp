@@ -117,7 +117,7 @@ class RegAllocator {
   // key: physical register; value: allocation interval
   std::unordered_map<arm::Reg, Interval> active;
   // key: virtual register; value: physical register
-  std::unordered_map<arm::Reg, Reg> active_reg_map;
+  std::list<std::pair<Reg, Reg>> active_reg_map;
   std::unordered_map<arm::Reg, Interval> spilled_regs;
   std::unordered_map<arm::Reg, int> spill_positions;
   std::unordered_set<Reg> spilled_cross_block_reg;
@@ -216,10 +216,14 @@ class RegAllocator {
     while (it != active.end()) {
       if (it->second.end <= pos) {
         // The register is no longer to be read from, thus is freed
-        for (auto r : active_reg_map) {
+        auto ait = active_reg_map.begin();
+        while (ait != active_reg_map.end()) {
+          auto r = *ait;
           if (r.second == it->first) {
-            active_reg_map.erase(r.first);
+            active_reg_map.erase(ait);
             break;
+          } else {
+            ait++;
           }
         }
         LOG(DEBUG) << it->first << " ";
@@ -234,7 +238,7 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
-  void force_free(Reg r, bool also_erase_map = true);
+  void force_free(Reg r, bool also_erase_map = true, bool write_back = true);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
     if (auto p = spill_positions.find(r); p != spill_positions.end()) {
@@ -440,9 +444,19 @@ void RegAllocator::replace_read(MemoryOperand &r, int i) {
 Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   Reg r = -1;
   if (orig) {
-    auto a = active_reg_map.find(orig.value());
-    if (a != active_reg_map.end()) {
-      return a->second;
+    LOG(TRACE) << "orig ";
+    display_reg_name(LOG(TRACE), orig.value());
+    LOG(TRACE) << " ";
+    auto it = active_reg_map.begin();
+    while (it != active_reg_map.end()) {
+      if (it->first == orig)
+        break;
+      else
+        it++;
+    }
+    if (it != active_reg_map.end()) {
+      LOG(TRACE) << "r-> " << it->second << std::endl;
+      return it->second;
     }
   }
   // if (i.start == i.end ||
@@ -493,17 +507,8 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
 
       throw std::runtime_error(ss.str());
     }
-    Reg spill_virt, spill_phys;
-    int start_min = INT32_MAX;
-    for (auto [virt_reg, phys_reg] : active_reg_map) {
-      auto interval = active.at(phys_reg);
-      if (interval.start < start_min) {
-        start_min = interval.start;
-        spill_virt = virt_reg;
-        spill_phys = phys_reg;
-      }
-    }
-
+    auto [spill_virt, spill_phys] = active_reg_map.front();
+    active_reg_map.pop_front();
     auto interval = active.at(spill_phys);
     interval.start = i.start;
     int spill_pos = get_or_alloc_spill_pos(spill_virt);
@@ -521,14 +526,24 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
 
     r = spill_phys;
     spilled_regs.insert({spill_virt, interval});
-    active_reg_map.erase(spill_virt);
+    {
+      auto it = active_reg_map.begin();
+      while (it != active_reg_map.end()) {
+        if (it->first == orig) {
+          active_reg_map.erase(it);
+          break;
+        } else
+          it++;
+      }
+    }
     active.erase(spill_phys);
   }
   this->active.insert({r, i});
   if (orig) {
-    this->active_reg_map.insert({orig.value(), r});
+    this->active_reg_map.push_back({orig.value(), r});
   }
   display_active_regs();
+  LOG(TRACE) << "-> " << r << std::endl;
   return r;
 }
 
@@ -614,7 +629,13 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
     if (pre_alloc_transient) {
       rd = pre_alloc_transient.value();
     } else {
-      auto it = active_reg_map.find(r);
+      auto it = active_reg_map.begin();
+      while (it != active_reg_map.end()) {
+        if (it->first == r)
+          break;
+        else
+          it++;
+      }
       if (it != active_reg_map.end()) {
         rd = it->second;
       } else {
@@ -705,7 +726,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
   }
 }
 
-void RegAllocator::force_free(Reg r, bool also_erase_map) {
+void RegAllocator::force_free(Reg r, bool also_erase_map, bool write_back) {
   auto &trace = LOG(TRACE);
   display_reg_name(trace, r);
   if (auto x = active.find(r); x != active.end()) {
@@ -713,13 +734,23 @@ void RegAllocator::force_free(Reg r, bool also_erase_map) {
       if (y.second == r) {
         // Spill to stack
         int stack_pos = get_or_alloc_spill_pos(y.first);
-        inst_sink.push_back(std::make_unique<LoadStoreInst>(
-            OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+        if (write_back)
+          inst_sink.push_back(std::make_unique<LoadStoreInst>(
+              OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
         spilled_regs.insert({y.first, x->second});
         trace << " " << y.first << " " << y.second << " @"
               << (stack_pos + stack_offset) << std::endl;
         active.erase(x);
-        if (also_erase_map) active_reg_map.erase(y.first);
+        if (also_erase_map) {
+          auto it = active_reg_map.begin();
+          while (it != active_reg_map.end()) {
+            if (it->first == y.first) {
+              active_reg_map.erase(it);
+              break;
+            } else
+              it++;
+          }
+        }
         return;
       }
     }
@@ -749,6 +780,7 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 }
 
 void RegAllocator::perform_load_stores() {
+  std::unordered_set<Reg> wrote_to = {};
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
     LOG(TRACE) << " " << std::endl << *inst_ << std::endl;
@@ -757,6 +789,7 @@ void RegAllocator::perform_load_stores() {
       replace_read(x->r2, i);
       invalidate_read(i);
       auto prw = pre_replace_write(x->rd, i);
+      wrote_to.insert(prw.from);
       inst_sink.push_back(std::move(f.inst[i]));
       replace_write(prw, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
@@ -764,6 +797,7 @@ void RegAllocator::perform_load_stores() {
         replace_read(x->r2, i);
         invalidate_read(i);
         auto prw = pre_replace_write(x->r1, i);
+        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else if (x->op == arm::OpCode::MovT) {
@@ -771,6 +805,7 @@ void RegAllocator::perform_load_stores() {
         replace_read(x->r1, i);
         invalidate_read(i);
         auto prw = pre_replace_write(r, i, x->r1);
+        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
@@ -786,6 +821,7 @@ void RegAllocator::perform_load_stores() {
       if (x->op == arm::OpCode::LdR) {
         invalidate_read(i);
         auto prw = pre_replace_write(x->rd, i);
+        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
@@ -818,7 +854,6 @@ void RegAllocator::perform_load_stores() {
         std::swap(*(inst_sink.end() - 2), *(inst_sink.end() - 1));
       }
       if (x->label.find(".bb" == 0)) {
-        // HACK: Force store cross-block variables before changing basic block
         bb_reset = true;
       }
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
@@ -850,13 +885,15 @@ void RegAllocator::perform_load_stores() {
           while (it != active_reg_map.end()) {
             if (spilled_cross_block_reg.find(it->first) !=
                 spilled_cross_block_reg.end()) {
-              force_free(it->second, false);
+              force_free(it->second, false,
+                         wrote_to.find(it->first) != wrote_to.end());
               active.erase(it->second);
               it = active_reg_map.erase(it);
             } else {
               it++;
             }
           }
+          wrote_to.clear();
           bb_reset = false;
         }
         inst_sink.push_back(std::move(f.inst[i]));
