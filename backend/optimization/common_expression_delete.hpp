@@ -17,6 +17,7 @@
 #include "../../include/aixlog.hpp"
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
+#include "./var_replace.hpp"
 #include "livevar_analyse.hpp"
 
 namespace optimization::common_expr_del {
@@ -468,6 +469,7 @@ class BlockNodes {
         }
       }
     }
+
     auto& jump = block.jump;
     if (!jump.cond_or_ret.has_value() || jump.cond_or_ret.value().id == 0) {
       return;
@@ -487,6 +489,29 @@ class BlockNodes {
         break;
       } else {
         iter++;
+      }
+    }
+
+    // replace
+    var_replace::Var_Replace vp(env->func);
+    for (auto idx : exportQueue) {
+      auto& node = nodes[idx];
+      if (node->live_vars.size()) {
+        std::optional<mir::inst::VarId> not_phi_var;
+        for (auto var : node->live_vars) {
+          if (!env->func.variables.at(var.id).is_phi_var) {
+            not_phi_var = var;
+            break;
+          }
+        }
+        if (not_phi_var.has_value()) {
+          for (auto var : node->live_vars) {
+            if (!env->func.variables.at(var.id).is_phi_var &&
+                var != not_phi_var.value()) {
+              vp.replace(var, not_phi_var.value());
+            }
+          }
+        }
       }
     }
   }
@@ -664,6 +689,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
     }
     livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
+
     env = std::make_shared<Env>(func);
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
