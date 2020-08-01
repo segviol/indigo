@@ -53,7 +53,6 @@ struct VarId : public prelude::Displayable {
   VarId(VarId&& other) = default;
   VarId(const uint32_t id) : id(id) {}
   uint32_t id;
-
 #if PRETTIFY_MIR_VAR
   virtual void display(std::ostream& o) const {
     if (id < 65536)
@@ -119,13 +118,18 @@ class Variable : public prelude::Displayable {
   Variable() {
     is_memory_var = false;
     is_temp_var = false;
+    is_phi_var = false;
   }
   Variable(types::SharedTyPtr ty, bool is_memory_var = false,
-           bool is_temp_var = false)
-      : ty(ty), is_memory_var(is_memory_var), is_temp_var(is_temp_var) {}
+           bool is_temp_var = false, bool is_phi_var = false)
+      : ty(ty),
+        is_memory_var(is_memory_var),
+        is_temp_var(is_temp_var),
+        is_phi_var(is_phi_var) {}
   types::SharedTyPtr ty;
   bool is_memory_var;
   bool is_temp_var;
+  bool is_phi_var;
   int priority = 0;
 
   types::SharedTyPtr type() const {
@@ -168,6 +172,7 @@ class Inst : public prelude::Displayable {
   virtual InstKind inst_kind() = 0;
   virtual void display(std::ostream& o) const = 0;
   virtual std::set<VarId> useVars() const = 0;
+  virtual void replace(VarId from, VarId to) = 0;
   virtual ~Inst() {}
 };
 
@@ -185,6 +190,11 @@ class AssignInst final : public Inst {
       s.insert(std::get<VarId>(src));
     }
     return s;
+  }
+  void replace(VarId from, VarId to) {
+    if (src.index() == 1 && std::get<VarId>(src) == from) {
+      src = to;
+    }
   }
 };
 
@@ -210,6 +220,15 @@ class OpInst final : public Inst {
     }
     return s;
   }
+  void replace(VarId from, VarId to) {
+    if (lhs.index() == 1 && std::get<VarId>(lhs) == from) {
+      lhs = to;
+    }
+
+    if (rhs.index() == 1 && std::get<VarId>(rhs) == from) {
+      rhs = to;
+    }
+  }
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -232,6 +251,13 @@ class CallInst final : public Inst {
     }
     return s;
   }
+  void replace(VarId from, VarId to) {
+    for (auto& para : params) {
+      if (para.index() == 1 && std::get<VarId>(para) == from) {
+        para = to;
+      }
+    }
+  }
 };
 
 /// Reference instruction. `$dest = &$val`
@@ -249,6 +275,7 @@ class RefInst final : public Inst {
     if (auto val = std::get_if<VarId>(&this->val)) s.insert(*val);
     return s;
   }
+  void replace(VarId from, VarId to) {}
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -266,6 +293,11 @@ class LoadInst final : public Inst {
       s.insert(std::get<VarId>(src));
     }
     return s;
+  }
+  void replace(VarId from, VarId to) {
+    if (src.index() == 1 && std::get<VarId>(src) == from) {
+      src = to;
+    }
   }
 };
 
@@ -289,6 +321,14 @@ class LoadOffsetInst final : public Inst {
     }
     return s;
   }
+  void replace(VarId from, VarId to) {
+    if (src.index() == 1 && std::get<VarId>(src) == from) {
+      src = to;
+    }
+    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
+      offset = to;
+    }
+  }
 };
 
 /// Store instruction. `store $val to $dest`
@@ -308,6 +348,14 @@ class StoreInst final : public Inst {
       s.insert(std::get<VarId>(val));
     }
     return s;
+  }
+  void replace(VarId from, VarId to) {
+    if (val.index() == 1 && std::get<VarId>(val) == from) {
+      val = to;
+    }
+    if (dest == from) {
+      dest = to;
+    }
   }
 };
 
@@ -333,6 +381,17 @@ class StoreOffsetInst final : public Inst {
     }
     return s;
   }
+  void replace(VarId from, VarId to) {
+    if (val.index() == 1 && std::get<VarId>(val) == from) {
+      val = to;
+    }
+    if (dest == from) {
+      dest = to;
+    }
+    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
+      offset = to;
+    }
+  }
 };
 
 /// Offset ptr by offset. `$dest = $ptr + $offset`
@@ -354,6 +413,14 @@ class PtrOffsetInst final : public Inst {
     }
     return s;
   }
+  void replace(VarId from, VarId to) {
+    if (ptr == from) {
+      ptr = to;
+    }
+    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
+      offset = to;
+    }
+  }
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
@@ -374,6 +441,8 @@ class PhiInst final : public Inst {
     }
     return s;
   }
+
+  void replace(VarId from, VarId to) {}  // phi should not be replaced
 };
 
 class JumpInstruction final : public prelude::Displayable {
@@ -398,6 +467,12 @@ class JumpInstruction final : public prelude::Displayable {
       s.insert(cond_or_ret.value());
     }
     return s;
+  }
+
+  void replace(VarId from, VarId to) {
+    if (cond_or_ret.has_value() && cond_or_ret.value() == from) {
+      cond_or_ret = to;
+    }
   }
   virtual void display(std::ostream& o) const;
   virtual ~JumpInstruction() {}
