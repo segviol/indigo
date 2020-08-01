@@ -193,6 +193,7 @@ class BlockNodes {
 
   std::map<uint32_t, bool> added;
   std::list<uint32_t> exportQueue;
+  ~BlockNodes() {}
   BlockNodes(std::map<uint32_t, mir::inst::Variable>& variables,
              std::shared_ptr<livevar_analyse::Block_Live_Var>& blv)
       : variables(variables), blv(blv) {}
@@ -475,15 +476,19 @@ class BlockNodes {
     }
     auto varId = jump.cond_or_ret.value();
     auto& node = nodes[var_map[varId].id];
-    if (node->mainVar.index() == 0) {
-      mir::inst::VarId var;
-      if (node->live_vars.size()) {
-        var = node->live_vars.front();
+    mir::inst::VarId var = std::get<mir::inst::VarId>(node->mainVar);
+    jump.cond_or_ret = var;
+    for (auto iter = block.inst.begin(); iter != block.inst.end();) {
+      auto& inst = *iter;
+      if (inst->dest == var && inst->inst_kind() == mir::inst::InstKind::Op) {
+        int idx = iter - block.inst.begin();
+        block.inst.push_back(std::move(inst));
+        iter = block.inst.begin() + idx;
+        iter = block.inst.erase(iter);
+
+        break;
       } else {
-        var = node->local_vars.front();
-        auto assignInst =
-            std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
-        inst.push_back(std::move(assignInst));
+        iter++;
       }
     }
 
