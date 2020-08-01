@@ -478,7 +478,7 @@ class BlockNodes {
     jump.cond_or_ret = var;
     for (auto iter = block.inst.begin(); iter != block.inst.end();) {
       auto& inst = *iter;
-      if (inst->dest == var) {
+      if (inst->dest == var && inst->inst_kind() == mir::inst::InstKind::Op) {
         int idx = iter - block.inst.begin();
         block.inst.push_back(std::move(inst));
         iter = block.inst.begin() + idx;
