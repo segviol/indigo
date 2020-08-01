@@ -192,6 +192,7 @@ class BlockNodes {
 
   std::map<uint32_t, bool> added;
   std::list<uint32_t> exportQueue;
+  ~BlockNodes() {}
   BlockNodes(std::map<uint32_t, mir::inst::Variable>& variables,
              std::shared_ptr<livevar_analyse::Block_Live_Var>& blv)
       : variables(variables), blv(blv) {}
@@ -476,9 +477,13 @@ class BlockNodes {
     mir::inst::VarId var = std::get<mir::inst::VarId>(node->mainVar);
     jump.cond_or_ret = var;
     for (auto iter = block.inst.begin(); iter != block.inst.end();) {
-      if (iter->get()->dest == var) {
-        block.inst.push_back(std::move(*iter));
-        block.inst.erase(iter);
+      auto& inst = *iter;
+      if (inst->dest == var) {
+        int idx = iter - block.inst.begin();
+        block.inst.push_back(std::move(inst));
+        iter = block.inst.begin() + idx;
+        iter = block.inst.erase(iter);
+
         break;
       } else {
         iter++;
