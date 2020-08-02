@@ -99,7 +99,7 @@ class Conflict_Map {
       for (auto& var : merged_Map.at(old_merged_var)) {
         merged_var_Map[var] = var2;
         merged_Map[var2].insert(var);
-        priority = std::max(priority, func.variables.at(var.id).priority);
+        priority += func.variables.at(var.id).priority;
       }
       priority_map.insert({var2, priority});
       merged_Map.erase(old_merged_var);
