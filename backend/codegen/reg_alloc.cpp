@@ -359,7 +359,9 @@ void RegAllocator::calc_live_intervals() {
         add_reg_write(x->r1, i);
         if (auto r2 = std::get_if<RegisterOperand>(&x->r2);
             r2 && r2->shift_amount == 0) {
-          reg_affine.insert({x->r1, x->r2.get_reg()});
+          if (!is_virtual_register(x->r1) &&
+              !is_virtual_register(x->r2.get_reg()))
+            reg_affine.insert({x->r1, x->r2.get_reg()});
         }
       } else {
         add_reg_read(x->r1, i);
@@ -813,9 +815,15 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 }
 
 void RegAllocator::calc_reg_affinity() {
-  for (auto [reg_dst, reg_src] : reg_affine) {
+  for (auto [reg_dst_, reg_src_] : reg_affine) {
+    auto reg_dst = reg_dst_;
+    auto reg_src = reg_src_;
+
     if (auto it = reg_map.find(reg_src);
-        it != reg_map.end() && reg_assign_count.at(reg_dst) == 1) {
+        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
+        spilled_cross_block_reg.find(reg_dst) ==
+            spilled_cross_block_reg.end() &&
+        reg_assign_count.at(reg_dst) == 1) {
       auto li_dst = live_intervals.at(reg_dst);
       bool overlaps = false;
       auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
