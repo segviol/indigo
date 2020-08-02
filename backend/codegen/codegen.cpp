@@ -397,7 +397,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
         return MemoryOperand(reg, *o);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
-        return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
+        return MemoryOperand(reg, std::get<RegisterOperand>(
+                                      translate_value_to_operand2(offset)));
       }
     }
   }
