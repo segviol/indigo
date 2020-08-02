@@ -17,7 +17,6 @@
 #include "../optimization/optimization.hpp"
 #include "aixlog.hpp"
 
-
 namespace backend::codegen {
 using namespace arm;
 
@@ -491,7 +490,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   };
   {
     auto lower_bound = bl_points.lower_bound(i.start);
-    auto upper_bound = bl_points.lower_bound(i.end);
+    auto upper_bound = bl_points.upper_bound(i.end);
     if (lower_bound != upper_bound) {
       // Cross-BL virtual register
       alloc_using_glob();
