@@ -193,7 +193,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     lva.build();
     var_replace::Var_Replace vp(func);
     env = std::make_shared<Env>(func, lva, vp);
-
+    auto& startblk = func.basic_blks.begin()->second;
     while (true) {
       bool modify = false;
       std::list<mir::types::LabelId> queue;
@@ -258,6 +258,18 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                                func.basic_blks.at(id).inst.size());
                 func.variables.at(inst->dest.id).is_temp_var = false;
                 func.basic_blks.at(id).inst.push_back(std::move(inst));
+                iter = block.inst.erase(iter);
+                modify = true;
+                continue;
+              }
+              case mir::inst::InstKind::Ref: {
+                auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
+                if (refinst->val.index() == 0 || blk.id == startblk.id) {
+                  break;
+                }
+                vp.setdefpoint(inst->dest, start, startblk.inst.size());
+                func.variables.at(inst->dest.id).is_temp_var = false;
+                startblk.inst.push_back(std::move(inst));
                 iter = block.inst.erase(iter);
                 modify = true;
                 continue;
