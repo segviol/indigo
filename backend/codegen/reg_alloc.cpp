@@ -112,16 +112,18 @@ class RegAllocator {
   // std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
   std::map<int, uint32_t> point_bb_map;
 
-  std::unordered_map<arm::Reg, Interval> live_intervals;
-  std::unordered_map<arm::Reg, Reg> reg_map;
+  std::unordered_map<Reg, Interval> live_intervals;
+  std::unordered_map<Reg, Reg> reg_map;
+  std::unordered_multimap<Reg, Reg> reg_reverse_map;
   // key: physical register; value: allocation interval
-  std::unordered_map<arm::Reg, Interval> active;
+  std::unordered_map<Reg, Interval> active;
   // key: virtual register; value: physical register
   std::list<std::pair<Reg, Reg>> active_reg_map;
-  std::unordered_map<arm::Reg, Interval> spilled_regs;
-  std::unordered_map<arm::Reg, int> spill_positions;
+  std::unordered_map<Reg, Interval> spilled_regs;
+  std::unordered_map<Reg, int> spill_positions;
   std::unordered_set<Reg> spilled_cross_block_reg;
 
+  std::unordered_map<Reg, int> reg_assign_count;
   std::unordered_map<Reg, Reg> reg_affine;
   std::unordered_map<Reg, Reg> reg_collapse;
 
@@ -169,6 +171,10 @@ class RegAllocator {
     } else {
       live_intervals.insert({reg, Interval(point)});
     }
+    auto r_use_insert = reg_assign_count.insert({reg, 1});
+    if (!r_use_insert.second) {
+      r_use_insert.first->second++;
+    };
     // add_reg_use_in_bb_at_point(reg, point);
   }
 
@@ -412,6 +418,7 @@ void RegAllocator::construct_reg_map() {
         // Global register id starts with r4;
         auto reg = GLOB_REGS[color->second];
         reg_map.insert({vreg_id, reg});
+        reg_reverse_map.insert({reg, vreg_id});
         used_regs.insert(reg);
         {
           auto &trace = LOG(TRACE);
@@ -807,10 +814,21 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 
 void RegAllocator::calc_reg_affinity() {
   for (auto [reg_dst, reg_src] : reg_affine) {
-    if (auto it = reg_map.find(reg_src); it != reg_map.end()) {
+    if (auto it = reg_map.find(reg_src);
+        it != reg_map.end() && reg_assign_count.at(reg_dst) == 1) {
       auto li_dst = live_intervals.at(reg_dst);
-      auto li_src = live_intervals.at(reg_src);
-      if (!li_dst.overlaps(li_src)) {
+      bool overlaps = false;
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
+      for (; rev_it != rev_it_end; rev_it++) {
+        auto vr = rev_it->second;
+        if (vr == reg_src) continue;
+        auto interval = live_intervals.at(vr);
+        if (interval.overlaps(li_dst)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
         reg_collapse.insert({reg_dst, reg_src});
       }
     }
