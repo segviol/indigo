@@ -19,6 +19,7 @@ set(backend_files
     backend/optimization/excess_reg_delete.cpp
     backend/optimization/const_propagation.hpp
     backend/optimization/memvar_propagation.hpp
+    backend/optimization/value_shift_collapse.cpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp

@@ -163,12 +163,18 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
   }
   bool has_shift() const { return !is_immediate() && shift_amount != 0; }
   bool is_immediate() const { return std::holds_alternative<int32_t>(*this); }
+  template <typename T>
+  void map_if_varid(T action) {
+    if (auto varid = std::get_if<VarId>(this)) {
+      action(*this, *varid);
+    }
+  }
 };
 
 class JumpInstruction;
 class Inst;
 
-// TODO: Constructors for all these types
+// TODO: Constructors for all thholese types
 /// Base class for instruction
 class Inst : public prelude::Displayable {
  public:
