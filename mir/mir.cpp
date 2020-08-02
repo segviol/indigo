@@ -77,6 +77,7 @@ void Variable::display(std::ostream& o) const {
   if (is_temp_var) {
     o << " temp";
   }
+  o << ", priority: " << priority;
 }
 
 // void VarId::display(std::ostream& o) const { o << "$" << id; }
