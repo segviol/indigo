@@ -498,12 +498,21 @@ class BlockNodes {
       auto& node = nodes[idx];
       if (node->live_vars.size()) {
         std::optional<mir::inst::VarId> not_phi_var;
-        for (auto var : node->live_vars) {
+        if (!node->mainVar.is_immediate()) {
+          auto var = std::get<mir::inst::VarId>(node->mainVar);
           if (!env->func.variables.at(var.id).is_phi_var) {
             not_phi_var = var;
-            break;
+            env->func.variables.at(var.id).is_temp_var = false;
+          }
+        } else {
+          for (auto var : node->live_vars) {
+            if (!env->func.variables.at(var.id).is_phi_var) {
+              not_phi_var = var;
+              break;
+            }
           }
         }
+
         if (not_phi_var.has_value()) {
           for (auto var : node->live_vars) {
             if (!env->func.variables.at(var.id).is_phi_var &&
