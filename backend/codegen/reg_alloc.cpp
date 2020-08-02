@@ -122,6 +122,9 @@ class RegAllocator {
   std::unordered_map<arm::Reg, int> spill_positions;
   std::unordered_set<Reg> spilled_cross_block_reg;
 
+  std::unordered_map<Reg, Reg> reg_affine;
+  std::unordered_map<Reg, Reg> reg_collapse;
+
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
 
@@ -200,6 +203,8 @@ class RegAllocator {
   void calc_live_intervals();
   void alloc_regs();
   void construct_reg_map();
+  void calc_reg_affinity();
+
   std::vector<std::pair<Reg, Interval>> sort_intervals();
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
@@ -238,6 +243,13 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
+  Reg get_collapse_reg(Reg r) {
+    auto rd = reg_collapse.find(r);
+    if (rd == reg_collapse.end())
+      return r;
+    else
+      return get_collapse_reg(rd->second);
+  }
   void force_free(Reg r, bool also_erase_map = true, bool write_back = true);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
@@ -280,6 +292,7 @@ void RegAllocator::alloc_regs() {
   //   }
   //   LOG(TRACE, "bb_reg_use") << std::endl;
   // }
+  calc_reg_affinity();
 
   perform_load_stores();
   f.inst = std::move(inst_sink);
@@ -338,6 +351,10 @@ void RegAllocator::calc_live_intervals() {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
           x->op == arm::OpCode::Mvn) {
         add_reg_write(x->r1, i);
+        if (auto r2 = std::get_if<RegisterOperand>(&x->r2);
+            r2 && r2->shift_amount == 0) {
+          reg_affine.insert({x->r1, x->r2.get_reg()});
+        }
       } else {
         add_reg_read(x->r1, i);
       }
@@ -558,6 +575,7 @@ void RegAllocator::replace_read(Reg &r, int i,
     display_reg_name(LOG(TRACE), r);
     LOG(TRACE) << " at: " << i << " ";
   };
+  r = get_collapse_reg(r);
   if (!is_virtual_register(r)) {
     disp_reg();
     LOG(TRACE) << "phys" << std::endl;
@@ -619,6 +637,7 @@ void RegAllocator::replace_read(Reg &r, int i,
 
 ReplaceWriteAction RegAllocator::pre_replace_write(
     Reg &r, int i, std::optional<Reg> pre_alloc_transient) {
+  r = get_collapse_reg(r);
   auto r_ = r;
   if (!is_virtual_register(r)) {
     // is physical register; mark as occupied
@@ -635,7 +654,7 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
     } else {
       auto it = active_reg_map.begin();
       while (it != active_reg_map.end()) {
-        if (it->first == r)
+        if (it->first == r_)
           break;
         else
           it++;
@@ -784,6 +803,18 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
   });
 
   return std::move(intervals);
+}
+
+void RegAllocator::calc_reg_affinity() {
+  for (auto [reg_dst, reg_src] : reg_affine) {
+    if (auto it = reg_map.find(reg_src); it != reg_map.end()) {
+      auto li_dst = live_intervals.at(reg_dst);
+      auto li_src = live_intervals.at(reg_src);
+      if (!li_dst.overlaps(li_src)) {
+        reg_collapse.insert({reg_dst, reg_src});
+      }
+    }
+  }
 }
 
 void RegAllocator::perform_load_stores() {
