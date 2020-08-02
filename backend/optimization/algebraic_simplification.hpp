@@ -81,104 +81,14 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                                        mir::inst::Op::Sub));
                       }
                     } else {
-                      int32_t offIndex;
-
-                      uint32_t numAbs;
-                      int32_t l;
-                      uint64_t m;
-                      int32_t m1;
-                      int32_t dSign;
-                      int32_t shPost;
-
-                      uint32_t tmp1;
-                      uint32_t tmp2;
-
-                      numAbs = std::abs(num);
-                      if ((l = upLog2(numAbs)) < 1) {
-                        l = 1;
-                      }
-                      m = 1 + ((uint64_t)1 << (32 + l - 1)) / numAbs;
-                      m1 = m - ((uint64_t)1 << 32);
-                      dSign = (num >= 0 ? 0 : -1);
-                      shPost = l - 1;
+                      uint32_t offIndex;
 
                       offIndex = 0;
-                      if (m < ((uint64_t)1 << 31)) {
-                        tmp1 = getNewVar(mirFunction);
-                        insertInst(
-                            blksIter->second.inst, i + ++offIndex,
-                            std::unique_ptr<mir::inst::Inst>(
-                                new mir::inst::OpInst(
-                                    mir::inst::VarId(tmp1), mir::inst::Value(m),
-                                    opPtr->lhs, mir::inst::Op::MulSh)));
-                        tmp2 = getNewVar(mirFunction);
-                        insertInst(
-                            blksIter->second.inst, i + ++offIndex,
-                            std::unique_ptr<mir::inst::Inst>(
-                                new mir::inst::OpInst(
-                                    mir::inst::VarId(tmp2),
-                                    mir::inst::VarId(tmp1),
-                                    mir::inst::Value(shPost),
-                                    mir::inst::Op::ShrA)));
-                        tmp1 = getNewVar(mirFunction);
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           mir::inst::VarId(tmp1), opPtr->lhs,
-                                           mir::inst::Value(31),
-                                           mir::inst::Op::ShrA)));
-                        insertInst(
-                            blksIter->second.inst, i + ++offIndex,
-                            std::unique_ptr<mir::inst::Inst>(
-                                new mir::inst::OpInst(
-                                    opPtr->dest,
-                                    mir::inst::VarId(tmp2),
-                                    mir::inst::VarId(tmp1),
-                                    mir::inst::Op::Sub)));
-                      } else {
-                        tmp1 = getNewVar(mirFunction);
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           mir::inst::VarId(tmp1),
-                                           mir::inst::Value(m1), opPtr->lhs,
-                                           mir::inst::Op::MulSh)));
-                        tmp2 = getNewVar(mirFunction);
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           mir::inst::VarId(tmp2),
-                                           mir::inst::VarId(tmp1), opPtr->lhs,
-                                           mir::inst::Op::Add)));
-                        tmp1 = getNewVar(mirFunction);
-                        insertInst(
-                            blksIter->second.inst, i + ++offIndex,
-                            std::unique_ptr<mir::inst::Inst>(
-                                new mir::inst::OpInst(mir::inst::VarId(tmp1),
-                                                      mir::inst::VarId(tmp2),
-                                                      mir::inst::Value(shPost),
-                                                      mir::inst::Op::ShrA)));
-                        tmp2 = getNewVar(mirFunction);
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           mir::inst::VarId(tmp2), opPtr->lhs,
-                                           mir::inst::Value(31),
-                                           mir::inst::Op::ShrA)));
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           opPtr->dest, mir::inst::VarId(tmp1),
-                                           mir::inst::VarId(tmp2),
-                                           mir::inst::Op::Sub)));
-                      }
-                      if (num < 0) {
-                        insertInst(blksIter->second.inst, i + ++offIndex,
-                                   std::unique_ptr<mir::inst::Inst>(
-                                       new mir::inst::OpInst(
-                                           opPtr->dest, mir::inst::Value(0),
-                                           opPtr->dest, mir::inst::Op::Sub)));
-                      }
+
+                      insertDivideInstsFromPaper(
+                          num, opPtr->dest, opPtr->lhs, mirFunction,
+                          blksIter->second.inst, i, offIndex);
+
                       blksIter->second.inst.erase(
                           blksIter->second.inst.begin() + i);
                     }
@@ -189,16 +99,46 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
               case mir::inst::Op::Rem: {
                 if (!opPtr->lhs.is_immediate() && opPtr->rhs.is_immediate()) {
                   int32_t num = *(opPtr->rhs.get_if<int32_t>());
-                  if (num != 0 && (std::abs(num) & (std::abs(num) - 1)) == 0) {
-                    uint32_t index;
-                    uint32_t rem;
+                  if (num != 0) {
+                    if ((std::abs(num) & (std::abs(num) - 1)) == 0) {
+                      uint32_t index;
+                      uint32_t rem;
 
-                    rem = std::abs(num);
-                    for (index = 0; (rem & 1) == 0; rem >>= 1, index++)
-                      ;
-                    opPtr->op = mir::inst::Op::And;
-                    opPtr->rhs = mir::inst::Value(((uint32_t)1 << index) - 1);
-                    // TODO: deal the problem of negative lhs
+                      rem = std::abs(num);
+                      for (index = 0; (rem & 1) == 0; rem >>= 1, index++)
+                        ;
+                      opPtr->op = mir::inst::Op::And;
+                      opPtr->rhs = mir::inst::Value(((uint32_t)1 << index) - 1);
+                      // TODO: deal the problem of negative lhs
+                    } else {
+                      uint32_t offIndex;
+
+                      uint32_t tmp1;
+                      uint32_t tmp2;
+
+                      offIndex = 0;
+
+                      tmp1 = getNewVar(mirFunction);
+                      insertDivideInstsFromPaper(
+                          num, mir::inst::VarId(tmp1), opPtr->lhs, mirFunction,
+                          blksIter->second.inst, i, offIndex);
+                      tmp2 = getNewVar(mirFunction);
+                      insertInst(
+                          blksIter->second.inst, i + ++offIndex,
+                          std::unique_ptr<mir::inst::Inst>(
+                              new mir::inst::OpInst(mir::inst::VarId(tmp2),
+                                                    mir::inst::VarId(tmp1),
+                                                    mir::inst::Value(num),
+                                                    mir::inst::Op::Mul)));
+                      insertInst(
+                          blksIter->second.inst, i + ++offIndex,
+                          std::unique_ptr<mir::inst::Inst>(
+                              new mir::inst::OpInst(opPtr->dest, opPtr->lhs,
+                                                    mir::inst::VarId(tmp2),
+                                                    mir::inst::Op::Sub)));
+                      blksIter->second.inst.erase(
+                          blksIter->second.inst.begin() + i);
+                    }
                   }
                 }
                 break;
@@ -263,6 +203,91 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
     } else {
       insts.push_back(std::move(inst));
     }
+  }
+
+  void insertDivideInstsFromPaper(
+      int32_t num, mir::inst::VarId dest, mir::inst::Value lhs,
+      mir::inst::MirFunction& mirFunction,
+      std::vector<std::unique_ptr<mir::inst::Inst>>& insts, size_t i,
+      uint32_t& offIndex) {
+    uint32_t numAbs;
+    int32_t l;
+    uint64_t m;
+    int32_t m1;
+    int32_t dSign;
+    int32_t shPost;
+
+    uint32_t tmp1;
+    uint32_t tmp2;
+
+    numAbs = std::abs(num);
+    if ((l = upLog2(numAbs)) < 1) {
+      l = 1;
+    }
+    m = 1 + ((uint64_t)1 << (32 + l - 1)) / numAbs;
+    m1 = m - ((uint64_t)1 << 32);
+    dSign = (num >= 0 ? 0 : -1);
+    shPost = l - 1;
+
+    if (m < ((uint64_t)1 << 31)) {
+      tmp1 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp1), mir::inst::Value(m), lhs,
+                     mir::inst::Op::MulSh)));
+      tmp2 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp2), mir::inst::VarId(tmp1),
+                     mir::inst::Value(shPost), mir::inst::Op::ShrA)));
+      tmp1 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp1), lhs, mir::inst::Value(31),
+                     mir::inst::Op::ShrA)));
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     dest, mir::inst::VarId(tmp2), mir::inst::VarId(tmp1),
+                     mir::inst::Op::Sub)));
+    } else {
+      tmp1 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp1), mir::inst::Value(m1), lhs,
+                     mir::inst::Op::MulSh)));
+      tmp2 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp2), mir::inst::VarId(tmp1), lhs,
+                     mir::inst::Op::Add)));
+      tmp1 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp1), mir::inst::VarId(tmp2),
+                     mir::inst::Value(shPost), mir::inst::Op::ShrA)));
+      tmp2 = getNewVar(mirFunction);
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     mir::inst::VarId(tmp2), lhs, mir::inst::Value(31),
+                     mir::inst::Op::ShrA)));
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     dest, mir::inst::VarId(tmp1), mir::inst::VarId(tmp2),
+                     mir::inst::Op::Sub)));
+    }
+    if (num < 0) {
+      insertInst(insts, i + ++offIndex,
+                 std::unique_ptr<mir::inst::Inst>(new mir::inst::OpInst(
+                     dest, mir::inst::Value(0), dest, mir::inst::Op::Sub)));
+    }
+  }
+
+  void insertDivideInstsFromGCC(
+      int32_t num, mir::inst::VarId dest, mir::inst::Value lhs,
+      mir::inst::MirFunction& mirFunction,
+      std::vector<std::unique_ptr<mir::inst::Inst>>& insts, size_t i,
+      uint32_t& offIndex) {
+    // TODO
   }
 };
 
