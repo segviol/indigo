@@ -84,7 +84,15 @@ void Variable::display(std::ostream& o) const {
 
 void Value::display(std::ostream& o) const {
   if (auto x = std::get_if<VarId>(this)) {
+    if (has_shift()) {
+      o << "(";
+    }
     o << *x;
+    if (has_shift()) {
+      o << ", ";
+      arm::display_shift(o, shift);
+      o << " " << (unsigned int)shift_amount << ")";
+    }
   } else if (auto x = std::get_if<int32_t>(this)) {
     o << *x;
   }

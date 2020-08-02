@@ -22,6 +22,7 @@
 #include "backend/optimization/memvar_propagation.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "backend/optimization/remove_temp_var.hpp"
+#include "backend/optimization/value_shift_collapse.hpp"
 #include "backend/optimization/var_mir_fold.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
@@ -73,10 +74,12 @@ void add_passes(backend::Backend& backend) {
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
   backend.add_pass(
-      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());
+  backend.add_pass(std::make_unique<
+                   optimization::value_shift_collapse::ValueShiftCollapse>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
