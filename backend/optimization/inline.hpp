@@ -33,7 +33,7 @@ class Rewriter {
   int labelId;
   int cur_blkId;
   int sub_endId;
-  const int Inline_Var_Priority = -5;
+  const int Inline_Var_Priority = 0;
   Rewriter(mir::inst::MirFunction& func, mir::inst::MirFunction& subfunc,
            mir::inst::CallInst& callInst, bool is_first_block, int cur_blkId)
       : func(func), subfunc(subfunc), cur_blkId(cur_blkId) {
