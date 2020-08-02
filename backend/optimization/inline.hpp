@@ -238,6 +238,11 @@ class Inline_Func : public backend::MirOptimizePass {
          iter++) {
       bool flag = false;
       for (auto& blkpair : iter->second.basic_blks) {
+        if (blkpair.second.jump.jump_kind == mir::inst::JumpKind::Loop) {
+          flag = true;
+          uninlineable_funcs.insert(iter->first);
+          break;
+        }
         auto& insts = blkpair.second.inst;
         for (auto& inst : insts) {
           if (inst->inst_kind() != mir::inst::InstKind::Call) {
@@ -258,13 +263,16 @@ class Inline_Func : public backend::MirOptimizePass {
     }
   }
 
+  // bool is_inlineable(mir::inst::MirFunction& func) {
+  //   if (uninlineable_funcs.count(func.name)) {
+  //     return false;
+  //   }
+  // }
+
   void optimize_func(std::string funcId, mir::inst::MirFunction& func,
                      std::map<std::string, mir::inst::MirFunction>& funcTable) {
     if (func.name == "main" || func.type->is_extern) {
       return;
-    }
-    if (func.name == "$$5_heap_ajust" || func.name == "$$5_swap") {
-      std::cout << "as";
     }
     int cur_blkId = func.basic_blks.begin()->first;
     std::set<mir::types::LabelId> base_labels;
@@ -300,6 +308,8 @@ class Inline_Func : public backend::MirOptimizePass {
             continue;
           }
           //  Then this func is inlineable
+          LOG(TRACE) << "( inline_func ) " << func.name << " inlines "
+                     << subfunc.name << std::endl;
           Rewriter rwt(func, subfunc, *callInst,
                        iter == func.basic_blks.begin(), cur_blk.id);
           for (auto& pair : subfunc.basic_blks) {
