@@ -130,6 +130,7 @@ class RegAllocator {
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
   bool bb_reset = true;
+  bool is_leaf_func = true;
 
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
@@ -297,13 +298,26 @@ void RegAllocator::alloc_regs() {
 
     auto use_stack_param = f.ty.get()->params.size() > 4;
     auto offset_size = (first_->regs.size()) * 4;
+
+    if (is_leaf_func) {
+      // Leaf function does not use LR
+      first_->regs.erase(REG_LR);
+      last_->regs.erase(REG_PC);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Add, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
     }
 
-    if (stack_size < 1024) {
+    if (stack_size == 0) {
+      // sp does not change.
+      if (!use_stack_param) {
+        // no need to use fp
+        f.inst.erase(f.inst.begin() + 1);
+      }
+    } else if (stack_size < 1024) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                  Operand2(stack_size)));
@@ -316,10 +330,19 @@ void RegAllocator::alloc_regs() {
                                                  RegisterOperand(12)));
     }
 
+    if (stack_size == 0) {
+      // sp hasn't change throught function
+      f.inst.erase(f.inst.end() - 2);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.end() - 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
+    }
+    if (is_leaf_func) {
+      f.inst.push_back(
+          std::make_unique<Arith2Inst>(OpCode::Mov, REG_PC, REG_LR));
     }
   }
 }
@@ -872,6 +895,7 @@ void RegAllocator::perform_load_stores() {
       }
       invalidate_read(i);
       if (x->op == arm::OpCode::Bl) {
+        is_leaf_func = false;
         auto &label = x->l;
         int param_cnt = x->param_cnt;
         int reg_cnt = std::min(param_cnt, 4);
