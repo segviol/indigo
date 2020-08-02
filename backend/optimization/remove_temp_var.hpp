@@ -36,6 +36,9 @@ class Remove_Temp_Var : public backend::MirOptimizePass {
   std::string pass_name() const { return name; }
 
   void optimize_blk(mir::inst::BasicBlk& blk) {
+    if (blk.inst.size() <= 1) {
+      return;
+    }
     for (auto iter = blk.inst.begin() + 1; iter != blk.inst.end();) {
       auto& inst1 = *(iter - 1);
       auto& inst = *iter;
