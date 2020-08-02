@@ -125,6 +125,7 @@ class RegAllocator {
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
+  std::set<int> bl_points;
 
   int stack_size;
   int stack_offset = 0;
@@ -344,7 +345,9 @@ void RegAllocator::calc_live_intervals() {
       }
       add_reg_read(x->r2, i);
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
-      //   noop
+      if (x->op == arm::OpCode::Bl) {
+        bl_points.insert(i);
+      }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
       if (x->op == arm::OpCode::LdR) {
         add_reg_write(x->rd, i);
@@ -464,25 +467,39 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
       return r;
     }
   }
-  // if (i.start == i.end ||
-  //     point_bb_map.lower_bound(i.start) == point_bb_map.lower_bound(i.end)) {
-  //   auto bb_id = (--point_bb_map.lower_bound(i.start));
-  //   auto bb_regs = bb_used_regs.find(bb_id->second);
-  //   if (bb_regs != bb_used_regs.end()) {
-  if (r == -1) {
-    for (auto reg : TEMP_REGS) {
-      if (active.find(reg) == active.end()) {
-        r = reg;
-        break;
+  auto alloc_using_temp = [&]() {
+    if (r == -1) {
+      for (auto reg : TEMP_REGS) {
+        if (active.find(reg) == active.end()) {
+          r = reg;
+          break;
+        }
       }
     }
-  }
-  for (auto reg : GLOB_REGS) {
-    if (active.find(reg) == active.end() &&
-        used_regs.find(reg) == used_regs.end()) {
-      r = reg;
-      used_regs_temp.insert(reg);
-      break;
+  };
+  auto alloc_using_glob = [&]() {
+    if (r == -1) {
+      for (auto reg : GLOB_REGS) {
+        if (active.find(reg) == active.end() &&
+            used_regs.find(reg) == used_regs.end()) {
+          r = reg;
+          used_regs_temp.insert(reg);
+          break;
+        }
+      }
+    }
+  };
+  {
+    auto lower_bound = bl_points.lower_bound(i.start);
+    auto upper_bound = bl_points.lower_bound(i.end);
+    if (lower_bound != upper_bound) {
+      // Cross-BL virtual register
+      alloc_using_glob();
+      alloc_using_temp();
+    } else {
+      // non-cross-bl virtual register
+      alloc_using_temp();
+      alloc_using_glob();
     }
   }
   if (r == -1) {
