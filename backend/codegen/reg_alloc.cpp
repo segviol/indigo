@@ -456,7 +456,11 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     }
     if (it != active_reg_map.end()) {
       LOG(TRACE) << "r-> " << it->second << std::endl;
-      return it->second;
+      auto r = it->second;
+      auto x = *it;
+      active_reg_map.erase(it);
+      active_reg_map.push_back(x);
+      return r;
     }
   }
   // if (i.start == i.end ||
@@ -522,7 +526,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     display_reg_name(trace, spill_phys);
     trace << " -> ";
     display_reg_name(trace, spill_virt);
-    trace << " -> " << spill_pos << std::endl;
+    trace << " -> " << spill_pos << " ";
 
     r = spill_phys;
     spilled_regs.insert({spill_virt, interval});
@@ -542,8 +546,8 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   if (orig) {
     this->active_reg_map.push_back({orig.value(), r});
   }
-  display_active_regs();
   LOG(TRACE) << "-> " << r << std::endl;
+  display_active_regs();
   return r;
 }
 
@@ -638,6 +642,9 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
       }
       if (it != active_reg_map.end()) {
         rd = it->second;
+        auto x = *it;
+        active_reg_map.erase(it);
+        active_reg_map.push_back(x);
       } else {
         auto interval = live_intervals.at(r).with_starting_point(i);
         ;
