@@ -56,7 +56,7 @@ class Ref_Count : public backend::MirOptimizePass {
     int bb_false_pri = pri;
     if (startblk.jump.jump_kind == mir::inst::JumpKind::Loop) {
       bb_true_pri = std::min(pri * loop_weight, max_weight);
-      bb_false_pri = std::max(pri / loop_weight, max_weight);
+      bb_false_pri = std::max(pri / loop_weight, min_weight);
     }
     if (jump.bb_true != -1) {
       DFS(env->func.basic_blks.at(jump.bb_true), visited, bb_true_pri);
