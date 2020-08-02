@@ -16,10 +16,17 @@ void ExcessRegDelete::optimize_arm(
       auto inst_ = &*f->inst[i];
       bool del = false;
       if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
-        if (x->op == arm::OpCode::Mov &&
-            x->cond == arm::ConditionCode::Always && (x->r1 == x->r2)) {
+        if (x->op == arm::OpCode::Mov && (x->r1 == x->r2)) {
           // Delete `mov rA, rA`
           del = true;
+        } else if (x->op == arm::OpCode::Mov && new_inst.size() > 0) {
+          // Delete `mov rA, rB; mov rA, rB;`
+          if (auto x1 = dynamic_cast<Arith2Inst *>(&*new_inst.back())) {
+            if (x1->op == arm::OpCode::Mov && x->r1 == x1->r1 &&
+                x->r2 == x1->r2 && x->cond == x1->cond) {
+              del = true;
+            }
+          }
         }
       } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
         if (x->cond == arm::ConditionCode::Always && i < f->inst.size() - 1) {
