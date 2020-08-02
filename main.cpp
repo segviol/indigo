@@ -21,6 +21,7 @@
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
+#include "backend/optimization/remove_temp_var.hpp"
 #include "backend/optimization/var_mir_fold.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
@@ -44,6 +45,8 @@ string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
 void add_passes(backend::Backend& backend) {
+  backend.add_pass(
+      std::make_unique<optimization::remove_temp_var::Remove_Temp_Var>());
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::var_mir_fold::VarMirFold>());
