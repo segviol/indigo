@@ -322,8 +322,6 @@ class BlockNodes {
       }
     }
     inst.clear();
-    // cause var replace only works for other block's vars
-    var_replace::Var_Replace vp(env->func);
     // for (auto& varpair : var_map) {
     //   if (varpair.first > 10000) {
     //     break;
@@ -461,39 +459,15 @@ class BlockNodes {
     }
     // this must be in the end, or the livevar might overides the leaf var used
     // after this because they share the same reg
-    // export and replace
     for (auto idx : exportQueue) {
       auto& node = nodes[idx];
       if (node->live_vars.size()) {
-        std::optional<mir::inst::VarId> not_phi_var;
         for (auto var : node->live_vars) {
-          if (!env->func.variables.at(var.id).is_phi_var) {
-            not_phi_var = var;
-            break;
-          }
-        }
-        if (not_phi_var.has_value()) {
-          for (auto var : node->live_vars) {
-            if (!env->func.variables.at(var.id).is_phi_var &&
-                var != not_phi_var.value()) {
-              vp.replace(var, not_phi_var.value());
-            }
-          }
-        } else {
-          for (auto var : node->live_vars) {
-            auto assignInst =
-                std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
-            inst.push_back(std::move(assignInst));
-          }
+          auto assignInst =
+              std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
+          inst.push_back(std::move(assignInst));
         }
       }
-      // if (node->live_vars.size()) {
-      //   for (auto var : node->live_vars) {
-      //     auto assignInst =
-      //         std::make_unique<mir::inst::AssignInst>(var, node->mainVar);
-      //     inst.push_back(std::move(assignInst));
-      //   }
-      // }
     }
 
     auto& jump = block.jump;
@@ -519,9 +493,35 @@ class BlockNodes {
     }
 
     // replace
-
+    var_replace::Var_Replace vp(env->func);
     for (auto idx : exportQueue) {
       auto& node = nodes[idx];
+      if (node->live_vars.size()) {
+        std::optional<mir::inst::VarId> not_phi_var;
+        if (!node->mainVar.is_immediate()) {
+          auto var = std::get<mir::inst::VarId>(node->mainVar);
+          if (!env->func.variables.at(var.id).is_phi_var) {
+            not_phi_var = var;
+            env->func.variables.at(var.id).is_temp_var = false;
+          }
+        } else {
+          for (auto var : node->live_vars) {
+            if (!env->func.variables.at(var.id).is_phi_var) {
+              not_phi_var = var;
+              break;
+            }
+          }
+        }
+
+        if (not_phi_var.has_value()) {
+          for (auto var : node->live_vars) {
+            if (!env->func.variables.at(var.id).is_phi_var &&
+                var != not_phi_var.value()) {
+              vp.replace(var, not_phi_var.value());
+            }
+          }
+        }
+      }
     }
   }
 
