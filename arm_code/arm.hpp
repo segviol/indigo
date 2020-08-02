@@ -18,6 +18,7 @@ namespace arm {
 bool is_valid_immediate(uint32_t val);
 
 enum class RegisterShiftKind : uint8_t { Asr, Lsl, Lsr, Ror, Rrx };
+void display_shift(std::ostream& o, RegisterShiftKind shift);
 enum class MemoryAccessKind : uint8_t { None, PreIndex, PostIndex };
 enum class RegisterKind {
   GeneralPurpose,
