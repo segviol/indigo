@@ -70,6 +70,11 @@ class Conflict_Map {
           for (auto var : inst->useVars()) {
             merge(var, new_VarId);
           }
+          // LOG(TRACE) << new_VarId << " : ";
+          // for (auto var : inst->useVars()) {
+          //   LOG(TRACE) << var << ", ";
+          // }
+          // LOG(TRACE) << std::endl;
         }
       }
     }
@@ -224,7 +229,7 @@ class Conflict_Map {
     if (!edge_vars.size()) {
       return;
     }
-    int priority = 9999;
+    int priority = 9999999;
     // mir::inst::VarId var;
     // for (auto& pair : dynamic_Map) {
     //   if (get_priority(pair.first) < priority) {
@@ -348,6 +353,14 @@ class Graph_Color : public backend::MirOptimizePass {
         conflict_map->add_conflict(var, std::set<mir::inst::VarId>());
       }
     }
+    // LOG(TRACE) << "conflict map : " << std::endl;
+    // for (auto pair : conflict_map->dynamic_Map) {
+    //   LOG(TRACE) << pair.first << " : ";
+    //   for (auto var : pair.second) {
+    //     LOG(TRACE) << var << ", ";
+    //   }
+    //   LOG(TRACE) << std::endl;
+    // }
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {

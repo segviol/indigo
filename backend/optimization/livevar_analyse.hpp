@@ -43,6 +43,7 @@ class Block_Live_Var {
   sharedPtrVariableSet live_vars_out;
   sharedPtrVariableSet live_vars_in;
   std::set<sharedPtrVariableSet> subsequents;
+  sharedPtrVariableSet defvars;
   bool first_build = true;
   mir::inst::BasicBlk& block;
   std::map<uint32_t, mir::inst::Variable>& vartable;
@@ -52,6 +53,7 @@ class Block_Live_Var {
     auto size = block.inst.size();
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
+    defvars = std::make_shared<VariableSet>();
     live_vars_out_ignoring_jump = std::make_shared<VariableSet>();
     while (instLiveVars.size() < size) {
       instLiveVars.emplace_back(std::make_shared<VariableSet>());
@@ -100,9 +102,18 @@ class Block_Live_Var {
     //   useVars = filter_vars(useVars, vartable);
     // }
     VariableSet defvars;
-    if (vartable[defvar].ty->kind() != mir::types::TyKind::Void &&
+    if (vartable[defvar.id].ty->kind() != mir::types::TyKind::Void &&
         block.inst[idx]->inst_kind() != mir::inst::InstKind::Store) {
-      defvars.insert(defvar.id);
+      defvars.insert(defvar);
+      this->defvars->insert(defvar);
+    }
+    if (block.inst.at(idx)->inst_kind() == mir::inst::InstKind::Phi) {
+      for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
+        if (this->defvars->count(*iter)) {
+          useVars.erase(iter);
+          break;
+        }
+      }
     }
     VariableSet diff_result;
     instLiveVars[idx]->clear();
@@ -216,7 +227,21 @@ class Livevar_Analyse {
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
     while (bfs_build(end->second))
       ;
+    // for (auto& pair : livevars) {
+    //   LOG(TRACE) << pair.first << ": " << std::endl;
+    //   for (auto var : *pair.second->live_vars_in) {
+    //     LOG(TRACE) << var << ", ";
+    //   }
+    //   LOG(TRACE) << std::endl;
+    //   for (auto ilv : pair.second->instLiveVars) {
+    //     for (auto var : *ilv) {
+    //       LOG(TRACE) << var << ", ";
+    //     }
+    //     LOG(TRACE) << std::endl;
+    //   }
+    //   LOG(TRACE) << "******************" << std::endl;
+    // }
   }
-};
+};  // namespace optimization::livevar_analyse
 }  // namespace optimization::livevar_analyse
 // #endif
