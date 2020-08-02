@@ -341,8 +341,8 @@ void RegAllocator::alloc_regs() {
                                                  Operand2(offset_size)));
     }
     if (is_leaf_func) {
-      f.inst.push_back(
-          std::make_unique<Arith2Inst>(OpCode::Mov, REG_PC, REG_LR));
+      f.inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_PC,
+                                                    RegisterOperand(REG_LR)));
     }
   }
 }
