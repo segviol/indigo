@@ -21,7 +21,7 @@ namespace backend::codegen {
 using namespace arm;
 
 const std::set<Reg> GP_REGS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12};
+const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12, REG_LR};
 const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 8, 9, 10};
 
 /// An interval represented by this struct is a semi-open interval
@@ -132,6 +132,7 @@ class RegAllocator {
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
   bool bb_reset = true;
+  bool is_leaf_func = true;
 
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
@@ -299,13 +300,25 @@ void RegAllocator::alloc_regs() {
 
     auto use_stack_param = f.ty.get()->params.size() > 4;
     auto offset_size = (first_->regs.size()) * 4;
+
+    if (!use_stack_param && stack_size == 0) {
+      first_->regs.erase(REG_FP);
+      last_->regs.erase(REG_FP);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Add, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
     }
 
-    if (stack_size < 1024) {
+    if (stack_size == 0) {
+      // sp does not change.
+      if (!use_stack_param) {
+        // no need to use fp
+        f.inst.erase(f.inst.begin() + 1);
+      }
+    } else if (stack_size < 1024) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                  Operand2(stack_size)));
@@ -318,10 +331,23 @@ void RegAllocator::alloc_regs() {
                                                  RegisterOperand(12)));
     }
 
+    if (stack_size == 0) {
+      // sp hasn't change throught function
+      f.inst.erase(f.inst.end() - 2);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.end() - 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
+    }
+    {
+      auto &first = f.inst.front();
+      auto first_ = static_cast<PushPopInst *>(&*first);
+      auto &last = f.inst.back();
+      auto last_ = static_cast<PushPopInst *>(&*last);
+      if (first_->regs.empty()) f.inst.erase(f.inst.begin());
+      if (last_->regs.empty()) f.inst.erase(f.inst.end() - 1);
     }
   }
 }
@@ -879,6 +905,7 @@ void RegAllocator::perform_load_stores() {
       }
       invalidate_read(i);
       if (x->op == arm::OpCode::Bl) {
+        is_leaf_func = false;
         auto &label = x->l;
         int param_cnt = x->param_cnt;
         int reg_cnt = std::min(param_cnt, 4);
@@ -886,12 +913,14 @@ void RegAllocator::perform_load_stores() {
         for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
         // R12 should be freed whatever condition
         force_free(Reg(12));
+        force_free(Reg(REG_LR));
         inst_sink.push_back(std::move(f.inst[i]));
         active.erase(Reg(0));
         active.erase(Reg(1));
         active.erase(Reg(2));
         active.erase(Reg(3));
         active.erase(Reg(12));
+        active.erase(Reg(REG_LR));
       } else if (x->op == arm::OpCode::B) {
         if (bb_reset) {
           auto it = active_reg_map.begin();
