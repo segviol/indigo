@@ -1,0 +1,49 @@
+int main(){
+    int n = getint();
+    int nb = n;
+    int no = n;
+    int nh = n;
+    int binlen = 0;
+    int octlen = 0;
+    int hexlen = 0;
+    int bin[32]={};
+    int oct[32]={};
+    int hex[32]={};
+    while(nb > 0){
+        int bd = nb % 2;
+        bin[binlen] = bd;
+        binlen = binlen + 1;
+        nb = nb / 2;
+    }
+    while(binlen > 0){
+        putint(bin[binlen]);
+        binlen = binlen - 1;
+    }
+    putch(32);
+    while(no > 0){
+        int od = no % 8;
+        oct[octlen] = od;
+        octlen = octlen + 1;
+        no = no / 8;
+    }
+    while(octlen > 0){
+        putint(oct[octlen]);
+        octlen = octlen - 1;
+    }
+    putch(32);
+    while(nh > 0){
+        int hex = nh % 16;
+        hex[hexlen] = hex;
+        hexlen = hexlen + 1;
+        nb = nb / 16;
+    }
+    while(hexlen > 0){
+        int hd = hex[hexlen];
+        if(hd < 10){
+            putch(hd+48);
+        }else{
+            putch(hd-10+65);
+        }
+        hexlen = hexlen - 1;
+    }
+}
