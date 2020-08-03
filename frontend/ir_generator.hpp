@@ -1,5 +1,6 @@
-#include <algorithm>
 #include <stdint.h>
+
+#include <algorithm>
 #include <vector>
 
 #include "../arm_code/arm.hpp"
@@ -37,8 +38,11 @@ typedef ConstValue GlobalValue;
 typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
+enum class localArrayInitType { Var ,Small, BigNoInit, BigInit };
+int TopLocalSmallArrayLength = 100;
+
 class WhileLabels {
-public:
+ public:
   LabelId _beginLabel;
   LabelId _endLabel;
 
@@ -51,7 +55,7 @@ public:
 };
 
 class FunctionData {
-public:
+ public:
   std::map<string, LabelId> _localValueNameToId;
   std::vector<string> _freeList;
   std::uint32_t _nowTmpId;
@@ -59,7 +63,7 @@ public:
 };
 
 class JumpLabelId {
-public:
+ public:
   LabelId _jumpLabelId;
 
   JumpLabelId(LabelId id) : _jumpLabelId(id) {}
@@ -73,7 +77,7 @@ typedef std::variant<shared_ptr<mir::inst::Inst>,
 extern std::vector<string> externalFuncName;
 
 class irGenerator {
-public:
+ public:
   irGenerator();
 
   void outputInstructions(std::ostream &out);
@@ -84,7 +88,7 @@ public:
   string getNewTmpValueName(TyKind kind);
 
   void ir_declare_value(string name, symbol::SymbolKind kind, int id,
-                        std::vector<uint32_t> inits, bool init = false,
+                        std::vector<uint32_t> inits, localArrayInitType initType = localArrayInitType::Var,
                         int len = 0);
   string ir_declare_string(string str);
   void ir_declare_const(string name, std::uint32_t value, int id);
@@ -131,7 +135,7 @@ public:
 
   mir::inst::MirPackage &getPackage() { return _package; }
 
-private:
+ private:
   mir::inst::MirPackage _package;
   std::map<string, std::vector<Instruction>> _funcNameToInstructions;
 
@@ -174,6 +178,6 @@ private:
 
   string getGenSaveParamVarName(uint32_t id);
 };
-} // namespace front::irGenerator
+}  // namespace front::irGenerator
 
-#endif // !COMPILER_FRONT_IR_GENERATOR_H_
+#endif  // !COMPILER_FRONT_IR_GENERATOR_H_
