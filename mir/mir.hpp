@@ -147,6 +147,13 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
  public:
   Value(int32_t i) : std::variant<int32_t, VarId>(i) {}
   Value(VarId i) : std::variant<int32_t, VarId>(i) {}
+  Value(VarId i, arm::RegisterShiftKind shift, uint8_t shift_amount)
+      : std::variant<int32_t, VarId>(i),
+        shift(shift),
+        shift_amount(shift_amount) {}
+
+  arm::RegisterShiftKind shift = arm::RegisterShiftKind::Lsl;
+  uint8_t shift_amount = 0;
 
   virtual void display(std::ostream& o) const;
 
@@ -154,14 +161,20 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
   T* get_if() {
     return std::get_if<T>(this);
   }
-
-  bool is_immediate() { return std::holds_alternative<int32_t>(*this); }
+  bool has_shift() const { return !is_immediate() && shift_amount != 0; }
+  bool is_immediate() const { return std::holds_alternative<int32_t>(*this); }
+  template <typename T>
+  void map_if_varid(T action) {
+    if (auto varid = std::get_if<VarId>(this)) {
+      action(*this, *varid);
+    }
+  }
 };
 
 class JumpInstruction;
 class Inst;
 
-// TODO: Constructors for all these types
+// TODO: Constructors for all thholese types
 /// Base class for instruction
 class Inst : public prelude::Displayable {
  public:
