@@ -742,14 +742,17 @@ void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
   for (auto id : i) {
     auto collapsed = var_collapse.equal_range(id);
     if (collapsed.first == collapsed.second) {
-      LOG(DEBUG) << id << " skipped" << std::endl;
       continue;
     }
-    LOG(DEBUG) << id << std::endl;
+    auto src_reg = get_or_alloc_vgp(id);
+    display_reg_name(LOG(DEBUG), src_reg);
+    auto vis = std::set<mir::inst::VarId>();
     for (auto it = collapsed.first; it != collapsed.second; it++) {
+      if (vis.find(it->second) != vis.end()) continue;
+      vis.insert(it->second);
       auto dest_reg = get_or_alloc_vgp(it->second);
-      inst.push_back(std::make_unique<Arith2Inst>(
-          OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
+      inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
+                                                  RegisterOperand(src_reg)));
     }
   }
 }
