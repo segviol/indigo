@@ -205,6 +205,7 @@ void SyntaxAnalyze::gm_var_def() {
   vector<SharedExNdPtr> dimensions;
   vector<SharedExNdPtr> init_values;
   SharedSyPtr symbol;
+  irGenerator::localArrayInitType initType;
 
   match_one_word(Token::IDENFR);
   name = get_least_matched_word().get_self();
@@ -237,7 +238,6 @@ void SyntaxAnalyze::gm_var_def() {
     irGenerator.ir_declare_value(name, kind, symbol->getId(), {});
   } else {
     vector<uint32_t> inits;
-    bool init;
 
     symbol.reset(new ArraySymbol(name, IntSymbol::getHolderIntSymbol(),
                                  layer_num, false, false));
@@ -245,7 +245,17 @@ void SyntaxAnalyze::gm_var_def() {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
 
-    init = !init_values.empty();
+    if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
+        irGenerator::TopLocalSmallArrayLength) {
+      initType = irGenerator::localArrayInitType::Small;
+    } else {
+      if (!inits.empty()) {
+        initType = irGenerator::localArrayInitType::BigInit;
+      } else {
+        initType = irGenerator::localArrayInitType::BigNoInit;
+      }
+    }
+
     if (inGlobalLayer()) {
       if (init_values.empty()) {
         for (int i = 0;
@@ -264,7 +274,7 @@ void SyntaxAnalyze::gm_var_def() {
     }
 
     irGenerator.ir_declare_value(
-        name, kind, symbol->getId(), inits, init,
+        name, kind, symbol->getId(), inits, initType,
         std::static_pointer_cast<ArraySymbol>(symbol)->getLen());
   }
 
@@ -292,7 +302,9 @@ void SyntaxAnalyze::gm_var_def() {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CNS && var->_value != 0) {
+        if (var->_type == NodeType::CNS &&
+            (var->_value != 0 ||
+             initType == irGenerator::localArrayInitType::Small)) {
           rightVal.emplace<0>(var->_value);
           needAssgin = true;
         } else if (var->_type == NodeType::VAR) {
