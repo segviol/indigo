@@ -33,9 +33,10 @@ class Rewriter {
   int labelId;
   int cur_blkId;
   int sub_endId;
+  int sub_starttId;
   const int Inline_Var_Priority = 0;
   Rewriter(mir::inst::MirFunction& func, mir::inst::MirFunction& subfunc,
-           mir::inst::CallInst& callInst, bool is_first_block, int cur_blkId)
+           mir::inst::CallInst& callInst, int cur_blkId)
       : func(func), subfunc(subfunc), cur_blkId(cur_blkId) {
     auto var_end_iter = func.variables.end();
     var_end_iter--;
@@ -85,17 +86,15 @@ class Rewriter {
     for (auto iter = subfunc.basic_blks.begin();
          iter != subfunc.basic_blks.end(); ++iter) {
       int new_id;
-      if (is_first_block && iter == subfunc.basic_blks.begin()) {
-        new_id = func.basic_blks.begin()->first - 1;
-      } else {
-        new_id = get_new_labelId();
-      }
+
+      new_id = get_new_labelId();
       if (!label_cast_map.count(iter->first)) {
         label_cast_map[iter->first] = new_id;
       }
     }
     auto iter = subfunc.basic_blks.end();
     iter--;
+    sub_starttId = label_cast_map.at(subfunc.basic_blks.begin()->first);
     sub_endId = label_cast_map.at(iter->first);
   }
 
@@ -116,7 +115,11 @@ class Rewriter {
     func.basic_blks.insert(std::make_pair(new_id, mir::inst::BasicBlk(new_id)));
     auto& new_blk = func.basic_blks.at(new_id);
     for (auto pre : blk.preceding) {
-      new_blk.preceding.insert(label_cast_map.at(pre));
+      auto new_pre = label_cast_map.at(pre);
+      if (new_pre == sub_starttId) {
+        new_pre = cur_blkId;
+      }
+      new_blk.preceding.insert(new_pre);
     }
 
     for (auto& inst : blk.inst) {
@@ -200,16 +203,16 @@ class Rewriter {
     auto bb_false = blk.jump.bb_false;
     if (label_cast_map.count(bb_true)) {
       bb_true = label_cast_map.at(bb_true);
-      if (bb_true == sub_endId) {
-        bb_true = cur_blkId;
-      }
+      // if (bb_true == sub_endId) {
+      //   bb_true = cur_blkId;
+      // }
     }
 
     if (label_cast_map.count(bb_false)) {
       bb_false = label_cast_map.at(bb_false);
-      if (bb_false == sub_endId) {
-        bb_false = cur_blkId;
-      }
+      // if (bb_false == sub_endId) {
+      //   bb_false = cur_blkId;
+      // }
     }
 
     if (blk.jump.cond_or_ret.has_value()) {
@@ -310,8 +313,7 @@ class Inline_Func : public backend::MirOptimizePass {
           //  Then this func is inlineable
           LOG(TRACE) << "( inline_func ) " << func.name << " inlines "
                      << subfunc.name << std::endl;
-          Rewriter rwt(func, subfunc, *callInst,
-                       iter == func.basic_blks.begin(), cur_blk.id);
+          Rewriter rwt(func, subfunc, *callInst, cur_blk.id);
           for (auto& pair : subfunc.basic_blks) {
             rwt.cast_block(pair.second);
           }
@@ -321,21 +323,6 @@ class Inline_Func : public backend::MirOptimizePass {
           end_iter--;
           auto sub_end_id = rwt.label_cast_map.at(end_iter->first);
           auto& start_blk = func.basic_blks.at(sub_start_id);
-          std::vector<std::unique_ptr<mir::inst::Inst>> start_blk_insts;
-          for (int j = 0; j < i; j++) {
-            start_blk_insts.push_back(std::move(insts[j]));
-          }
-          for (auto& j : rwt.init_inst_before) {
-            start_blk_insts.push_back(std::move(j));
-          }
-          for (auto& j : start_blk.inst) {
-            start_blk_insts.push_back(std::move(j));
-          }
-          start_blk.inst.clear();
-          for (auto& j : start_blk_insts) {
-            start_blk.inst.push_back(std::move(j));
-          }
-          start_blk.preceding = cur_blk.preceding;
 
           std::vector<std::unique_ptr<mir::inst::Inst>> end_blk_insts;
           auto& end_blk = func.basic_blks.at(sub_end_id);
@@ -349,24 +336,47 @@ class Inline_Func : public backend::MirOptimizePass {
           for (int j = i + 1; j < insts.size(); j++) {
             end_blk_insts.push_back(std::move(insts[j]));
           }
-          cur_blk.inst.clear();
+          end_blk.inst.clear();
           for (auto& j : end_blk_insts) {
+            end_blk.inst.push_back(std::move(j));
+          }
+          end_blk.jump = mir::inst::JumpInstruction(
+              cur_blk.jump.kind, cur_blk.jump.bb_true, cur_blk.jump.bb_false,
+              cur_blk.jump.cond_or_ret, cur_blk.jump.jump_kind);
+          int bb_true = cur_blk.jump.bb_true;
+          if (bb_true != -1) {
+            auto& blk = func.basic_blks.at(bb_true);
+            blk.preceding.erase(cur_blk.id);
+            blk.preceding.insert(end_blk.id);
+          }
+          int bb_false = cur_blk.jump.bb_false;
+          if (bb_false != -1) {
+            auto& blk = func.basic_blks.at(bb_false);
+            blk.preceding.erase(cur_blk.id);
+            blk.preceding.insert(end_blk.id);
+          }
+
+          std::vector<std::unique_ptr<mir::inst::Inst>> start_blk_insts;
+          for (int j = 0; j < i; j++) {
+            start_blk_insts.push_back(std::move(insts[j]));
+          }
+          for (auto& j : rwt.init_inst_before) {
+            start_blk_insts.push_back(std::move(j));
+          }
+          for (auto& j : start_blk.inst) {
+            start_blk_insts.push_back(std::move(j));
+          }
+          cur_blk.inst.clear();
+          for (auto& j : start_blk_insts) {
             cur_blk.inst.push_back(std::move(j));
           }
-          cur_blk.preceding = end_blk.preceding;
+          cur_blk.jump = mir::inst::JumpInstruction(
+              start_blk.jump.kind, start_blk.jump.bb_true,
+              start_blk.jump.bb_false, start_blk.jump.cond_or_ret,
+              start_blk.jump.jump_kind);
 
-          for (auto blkId : start_blk.preceding) {
-            auto& blk = func.basic_blks.at(blkId);
-            auto& jump = blk.jump;
-            if (jump.bb_true == cur_blk.id) {
-              jump.bb_true = start_blk.id;
-            }
-            if (jump.bb_false == cur_blk.id) {
-              jump.bb_false = start_blk.id;
-            }
-          }
-          func.basic_blks.erase(sub_end_id);
           flag = true;
+          func.basic_blks.erase(sub_start_id);
           break;
         }
         if (flag) {
