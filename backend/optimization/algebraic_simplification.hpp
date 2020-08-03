@@ -91,6 +91,7 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
 
                       blksIter->second.inst.erase(
                           blksIter->second.inst.begin() + i);
+                      i--;
                     }
                   }
                 }
@@ -138,6 +139,7 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                                                     mir::inst::Op::Sub)));
                       blksIter->second.inst.erase(
                           blksIter->second.inst.begin() + i);
+                      i--;
                     }
                   }
                 }
