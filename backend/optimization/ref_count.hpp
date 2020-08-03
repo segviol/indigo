@@ -37,7 +37,7 @@ class Ref_Count : public backend::MirOptimizePass {
   std::string pass_name() const { return name; }
 
   void DFS(mir::inst::BasicBlk& startblk,
-           std::set<mir::types::LabelId>& visited, int pri) {
+           std::set<mir::types::LabelId>& visited, int pri, int next_pri = -1) {
     if (visited.count(startblk.id)) {
       return;
     }
@@ -54,9 +54,24 @@ class Ref_Count : public backend::MirOptimizePass {
     visited.insert(startblk.id);
     int bb_true_pri = pri;
     int bb_false_pri = pri;
+    int bb_true_next_pri = -1;
+    int bb_false_next_pri = -1;
     if (startblk.jump.jump_kind == mir::inst::JumpKind::Loop) {
       bb_true_pri = std::min(pri * loop_weight, max_weight);
       bb_false_pri = std::max(pri / loop_weight, min_weight);
+    } else if (jump.jump_kind == mir::inst::JumpKind::Branch) {
+      bb_true_pri = std::max(pri / 2, min_weight);
+      if (jump.bb_false != -1 &&
+          env->func.basic_blks.at(jump.bb_false).jump.jump_kind ==
+              mir::inst::JumpKind::Undefined) {
+        bb_false_pri = std::max(pri / 2, min_weight);
+        bb_true_next_pri = std::min(2 * pri, max_weight);
+        bb_false_next_pri = std::min(2 * pri, max_weight);
+      }
+    } else {
+      if (jump.kind == mir::inst::JumpInstructionKind::Br && next_pri != -1) {
+        bb_true_pri = next_pri;
+      }
     }
     if (jump.bb_true != -1) {
       DFS(env->func.basic_blks.at(jump.bb_true), visited, bb_true_pri);
@@ -70,9 +85,16 @@ class Ref_Count : public backend::MirOptimizePass {
     if (func.type->is_extern) {
       return;
     }
+    auto& startblk = func.basic_blks.begin()->second;
+    for (auto& inst : startblk.inst) {
+      if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+        auto& i = *inst;
+        auto assignInst = dynamic_cast<mir::inst::OpInst*>(&i);
+      }
+    }
     env = std::make_shared<Env>(func);
     std::set<mir::types::LabelId> visited;
-    DFS(func.basic_blks.begin()->second, visited, 1);
+    DFS(startblk, visited, 1);
   }
 
   void optimize_mir(mir::inst::MirPackage& package,
