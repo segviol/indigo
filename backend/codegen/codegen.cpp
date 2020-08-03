@@ -723,8 +723,6 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
 void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                            mir::inst::Value& rhs, arm::ConditionCode cond,
                            bool reversed) {
-  auto lhsv = translate_value_to_reg(lhs);
-  auto rhsv = translate_value_to_operand2(rhs);
   if (reversed) {
     cond = reverse_cond(cond);
   }
