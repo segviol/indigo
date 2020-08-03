@@ -32,10 +32,10 @@ int main(){
     }
     putch(32);
     while(nh > 0){
-        int hex = nh % 16;
-        hex[hexlen] = hex;
+        int hd = nh % 16;
+        hex[hexlen] = hd;
         hexlen = hexlen + 1;
-        nb = nb / 16;
+        nh = nh / 16;
     }
     while(hexlen > 0){
         int hd = hex[hexlen];
@@ -46,4 +46,5 @@ int main(){
         }
         hexlen = hexlen - 1;
     }
+    return 0;
 }
