@@ -16,8 +16,8 @@ int main(){
         nb = nb / 2;
     }
     while(binlen > 0){
-        putint(bin[binlen]);
         binlen = binlen - 1;
+        putint(bin[binlen]);
     }
     putch(32);
     while(no > 0){
@@ -27,8 +27,8 @@ int main(){
         no = no / 8;
     }
     while(octlen > 0){
-        putint(oct[octlen]);
         octlen = octlen - 1;
+        putint(oct[octlen]);
     }
     putch(32);
     while(nh > 0){
@@ -38,13 +38,13 @@ int main(){
         nh = nh / 16;
     }
     while(hexlen > 0){
+        hexlen = hexlen - 1;
         int hd = hex[hexlen];
         if(hd < 10){
             putch(hd+48);
         }else{
             putch(hd-10+65);
         }
-        hexlen = hexlen - 1;
     }
     return 0;
 }
