@@ -39,7 +39,7 @@ typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
 enum class localArrayInitType { Var ,Small, BigNoInit, BigInit };
-int TopLocalSmallArrayLength = 100;
+extern int TopLocalSmallArrayLength;
 
 class WhileLabels {
  public:

@@ -2,6 +2,7 @@
 
 using namespace front::irGenerator;
 
+int front::irGenerator::TopLocalSmallArrayLength = 100;
 std::vector<string> front::irGenerator::externalFuncName = {
     "getint", "getch",     "getarray", "putint", "putch",  "putarray",
     "putf",   "starttime", "stoptime", "malloc", "calloc", "free"};
