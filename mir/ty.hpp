@@ -43,6 +43,9 @@ class IntTy final : public Ty {
   virtual ~IntTy() {}
 };
 
+/// Create a new IntTy behind a shared pointer
+std::shared_ptr<IntTy> new_int_ty();
+
 /// Void or unit type.
 class VoidTy final : public Ty {
  public:
@@ -76,7 +79,7 @@ class ArrayTy final : public Ty {
   virtual ~ArrayTy() {}
 };
 
-/// Array type. `item[len]`
+/// SIMD Vector type. `<item x len>`
 class VectorTy final : public Ty {
  public:
   VectorTy(SharedTyPtr item, int len) : item(item), len(len) {
@@ -99,6 +102,9 @@ class VectorTy final : public Ty {
   };
   virtual void display(std::ostream& o) const;
   virtual ~VectorTy() {}
+  friend std::shared_ptr<VectorTy> default_vector() {
+    return std::make_shared<VectorTy>(new_int_ty(), 4);
+  }
 };
 
 /// Pointer type. `item*`
@@ -154,9 +160,6 @@ class RestParamTy final : public Ty {
   virtual void display(std::ostream& o) const;
   virtual ~RestParamTy() {}
 };
-
-/// Create a new IntTy behind a shared pointer
-std::shared_ptr<IntTy> new_int_ty();
 
 /// Create a new VoidTy behind shared pointer
 std::shared_ptr<VoidTy> new_void_ty();

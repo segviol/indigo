@@ -5,6 +5,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "ty.hpp"
+
 namespace mir::inst {
 
 void display_op(std::ostream& o, Op val) {
@@ -267,6 +269,10 @@ void ArrayTy::display(std::ostream& o) const {
   o << "[";
   item->display(o);
   o << " x " << len << "]";
+}
+
+void VectorTy::display(std::ostream& o) const {
+  o << "<" << *item << " x " << len << ">";
 }
 
 void FunctionTy::display(std::ostream& o) const {
