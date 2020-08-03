@@ -285,8 +285,8 @@ void irGenerator::ir_declare_const(string name,
 }
 
 void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
-                                   std::vector<uint32_t> inits, bool init,
-                                   int len) {
+                                   std::vector<uint32_t> inits,
+                                   localArrayInitType initType, int len) {
   if (_funcStack.back() == _GlobalInitFuncName) {
     GlobalValue globalValue;
     if (len == 0) {
@@ -306,8 +306,13 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
         is_memory = false;
         break;
       case front::symbol::SymbolKind::Array:
-        ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
-        is_memory = false;
+        if (initType == localArrayInitType::Small) {
+          ty = SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy()), len));
+          is_memory = true;
+        } else {
+          ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
+          is_memory = false;
+        }
         break;
       case front::symbol::SymbolKind::Ptr:
         ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
@@ -325,21 +330,33 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
 
     if (kind == symbol::SymbolKind::Array) {
-      if (init) {
-        RightVal nitems;
-        RightVal size;
+      switch (initType) {
+        case localArrayInitType::Small: {
+          break;
+        }
+        case localArrayInitType::BigInit: {
+          RightVal nitems;
+          RightVal size;
 
-        nitems.emplace<0>(len);
-        size.emplace<0>(ty->size().value());
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc",
-                         {nitems, size}, true);
-      } else {
-        RightVal right;
-        right.emplace<0>(len * ty->size().value());
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
-                         true);
+          nitems.emplace<0>(len);
+          size.emplace<0>(ty->size().value());
+          ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc",
+                           {nitems, size}, true);
+          _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
+
+          break;
+        }
+        case localArrayInitType::BigNoInit: {
+          RightVal right;
+          right.emplace<0>(len * ty->size().value());
+          ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
+                           true);
+          _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
+          break;
+        }
+        default:
+          break;
       }
-      _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
     }
   }
 }
@@ -397,14 +414,14 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
   _funcNameToFuncData[_name] = functionData;
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT:
-    ret = SharedTyPtr(new IntTy());
-    break;
-  case front::symbol::SymbolKind::VID:
-    ret = SharedTyPtr(new VoidTy());
-    break;
-  default:
-    break;
+    case front::symbol::SymbolKind::INT:
+      ret = SharedTyPtr(new IntTy());
+      break;
+    case front::symbol::SymbolKind::VID:
+      ret = SharedTyPtr(new VoidTy());
+      break;
+    default:
+      break;
   }
   name = _name;
   type = shared_ptr<FunctionTy>(new FunctionTy(ret, params, false));
@@ -568,12 +585,12 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
       break;
     }
 
-  case front::symbol::SymbolKind::VID: {
-    destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
-    break;
-  }
-  default:
-    break;
+    case front::symbol::SymbolKind::VID: {
+      destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
+      break;
+    }
+    default:
+      break;
   }
 
   for (auto var : params) {
