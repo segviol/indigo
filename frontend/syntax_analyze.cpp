@@ -279,12 +279,11 @@ void SyntaxAnalyze::gm_var_def() {
       RightVal rightvalue1;
       RightVal rightvalue2;
 
-      initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
-
       if (inGlobalLayer()) {
+        initPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
         irGenerator.ir_ref(initPtr, valueName);
       } else {
-        irGenerator.ir_assign(initPtr, valueName);
+        initPtr = valueName;
       }
 
       for (auto var : init_values) {
@@ -601,13 +600,6 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   SharedExNdPtr index = node->_children.front();
   size_t i;
 
-  tmpPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
-  if (node->_operation == OperationType::ARR) {
-    irGenerator.ir_ref(tmpPtr, node->_name);
-  } else {
-    irGenerator.ir_assign(tmpPtr, node->_name);
-  }
-
   // in function, there should be a virtual d in dimensions.at(0)
   for (i = 1; i < dimesions.size(); i++) {
     SharedExNdPtr d = dimesions.at(i);
@@ -701,6 +693,7 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   index = byteIndex;
 
   SharedExNdPtr addr = SharedExNdPtr(new ExpressNode());
+  tmpPtr = irGenerator.getNewTmpValueName(TyKind::Ptr);
 
   addr->_type = NodeType::VAR;
   addr->_operation = OperationType::PTR;
@@ -708,12 +701,18 @@ SharedExNdPtr SyntaxAnalyze::computeIndex(SharedSyPtr arr, SharedExNdPtr node) {
   addr->addChild(node);
   addr->addChild(index);
 
-  if (index->_type == NodeType::CNS) {
-    rightvalue1.emplace<0>(index->_value);
+  if (node->_operation == OperationType::ARR) {
+    irGenerator.ir_ref(tmpPtr, node->_name);
+    rightvalue1 = tmpPtr;
   } else {
-    rightvalue1 = index->_name;
+    rightvalue1 = node->_name;
   }
-  irGenerator.ir_op(tmpPtr, tmpPtr, rightvalue1, Op::Add);
+  if (index->_type == NodeType::CNS) {
+    rightvalue2.emplace<0>(index->_value);
+  } else {
+    rightvalue2 = index->_name;
+  }
+  irGenerator.ir_op(tmpPtr, rightvalue1, rightvalue2, Op::Add);
 
   return addr;
 }

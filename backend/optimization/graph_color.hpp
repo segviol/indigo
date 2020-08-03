@@ -70,6 +70,11 @@ class Conflict_Map {
           for (auto var : inst->useVars()) {
             merge(var, new_VarId);
           }
+          // LOG(TRACE) << new_VarId << " : ";
+          // for (auto var : inst->useVars()) {
+          //   LOG(TRACE) << var << ", ";
+          // }
+          // LOG(TRACE) << std::endl;
         }
       }
     }
@@ -99,7 +104,7 @@ class Conflict_Map {
       for (auto& var : merged_Map.at(old_merged_var)) {
         merged_var_Map[var] = var2;
         merged_Map[var2].insert(var);
-        priority = std::max(priority, func.variables.at(var.id).priority);
+        priority += func.variables.at(var.id).priority;
       }
       priority_map.insert({var2, priority});
       merged_Map.erase(old_merged_var);
@@ -224,7 +229,7 @@ class Conflict_Map {
     if (!edge_vars.size()) {
       return;
     }
-    int priority = 9999;
+    int priority = 9999999;
     // mir::inst::VarId var;
     // for (auto& pair : dynamic_Map) {
     //   if (get_priority(pair.first) < priority) {
@@ -348,6 +353,14 @@ class Graph_Color : public backend::MirOptimizePass {
         conflict_map->add_conflict(var, std::set<mir::inst::VarId>());
       }
     }
+    // LOG(TRACE) << "conflict map : " << std::endl;
+    // for (auto pair : conflict_map->dynamic_Map) {
+    //   LOG(TRACE) << pair.first << " : ";
+    //   for (auto var : pair.second) {
+    //     LOG(TRACE) << var << ", ";
+    //   }
+    //   LOG(TRACE) << std::endl;
+    // }
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
@@ -361,7 +374,7 @@ class Graph_Color : public backend::MirOptimizePass {
         Conflict_Map(func_color_map[funcId], func, color_num));
     auto conflict_map = func_conflict_map[funcId];
     func_unused_colors.insert({funcId, conflict_map->unused_colors});
-    livevar_analyse::Livevar_Analyse lva(func);
+    livevar_analyse::Livevar_Analyse lva(func, true);
     lva.build();
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
       init_cross_blk_vars(iter->second, cross_blk_vars);
