@@ -287,7 +287,7 @@ arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
       return Operand2(RegisterOperand(reg));
     }
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
-    return RegisterOperand(Reg(get_or_alloc_vgp(*x)));
+    return RegisterOperand(Reg(get_or_alloc_vgp(*x)), v.shift, v.shift_amount);
   } else {
     throw new prelude::UnreachableException();
   }
@@ -301,7 +301,15 @@ arm::Reg Codegen::translate_value_to_reg(mir::inst::Value& v) {
     make_number(reg, imm_u);
     return reg;
   } else if (auto x = v.get_if<mir::inst::VarId>()) {
-    return get_or_alloc_vgp(*x);
+    auto reg = get_or_alloc_vgp(*x);
+    if (v.has_shift()) {
+      auto rd = alloc_vgp();
+      inst.push_back(std::make_unique<Arith2Inst>(
+          OpCode::Mov, rd, RegisterOperand(reg, v.shift, v.shift_amount)));
+      return rd;
+    } else {
+      return reg;
+    }
   } else {
     throw new prelude::UnreachableException();
   }
@@ -389,7 +397,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
         return MemoryOperand(reg, *o);
       } else {
         auto o_ = offset.get_if<mir::inst::VarId>();
-        return MemoryOperand(reg, RegisterOperand(get_or_alloc_vgp(*o_)));
+        return MemoryOperand(reg, std::get<RegisterOperand>(
+                                      translate_value_to_operand2(offset)));
       }
     }
   }
@@ -591,8 +600,13 @@ inline bool can_reverse_param(mir::inst::Op op) {
 }
 
 void Codegen::translate_inst(mir::inst::OpInst& i) {
-  bool reverse_params =
-      i.lhs.is_immediate() && !i.rhs.is_immediate() && can_reverse_param(i.op);
+  // Reverse when:
+  //  - lhs is immediate
+  //  - lhs is variable with shift and rhs is regular variable
+  bool reverse_params = ((i.lhs.is_immediate() && !i.rhs.is_immediate()) ||
+                         (!i.lhs.is_immediate() && !i.rhs.is_immediate() &&
+                          i.lhs.has_shift() && !i.rhs.has_shift())) &&
+                        can_reverse_param(i.op);
 
   mir::inst::Value& lhs = reverse_params ? i.rhs : i.lhs;
   mir::inst::Value& rhs = reverse_params ? i.lhs : i.rhs;
@@ -709,8 +723,6 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
 void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
                            mir::inst::Value& rhs, arm::ConditionCode cond,
                            bool reversed) {
-  auto lhsv = translate_value_to_reg(lhs);
-  auto rhsv = translate_value_to_operand2(rhs);
   if (reversed) {
     cond = reverse_cond(cond);
   }
@@ -728,14 +740,17 @@ void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
   for (auto id : i) {
     auto collapsed = var_collapse.equal_range(id);
     if (collapsed.first == collapsed.second) {
-      LOG(DEBUG) << id << " skipped" << std::endl;
       continue;
     }
-    LOG(DEBUG) << id << std::endl;
+    auto src_reg = get_or_alloc_vgp(id);
+    display_reg_name(LOG(DEBUG), src_reg);
+    auto vis = std::set<mir::inst::VarId>();
     for (auto it = collapsed.first; it != collapsed.second; it++) {
+      if (vis.find(it->second) != vis.end()) continue;
+      vis.insert(it->second);
       auto dest_reg = get_or_alloc_vgp(it->second);
-      inst.push_back(std::make_unique<Arith2Inst>(
-          OpCode::Mov, dest_reg, RegisterOperand(translate_var_reg(id))));
+      inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
+                                                  RegisterOperand(src_reg)));
     }
   }
 }

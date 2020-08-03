@@ -124,6 +124,8 @@ class RegAllocator {
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
+  std::set<int> bl_points;
+  std::unordered_set<Reg> wrote_to = {};
 
   int stack_size;
   int stack_offset = 0;
@@ -366,7 +368,9 @@ void RegAllocator::calc_live_intervals() {
       }
       add_reg_read(x->r2, i);
     } else if (auto x = dynamic_cast<BrInst *>(inst_)) {
-      //   noop
+      if (x->op == arm::OpCode::Bl) {
+        bl_points.insert(i);
+      }
     } else if (auto x = dynamic_cast<LoadStoreInst *>(inst_)) {
       if (x->op == arm::OpCode::LdR) {
         add_reg_write(x->rd, i);
@@ -486,35 +490,39 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
       return r;
     }
   }
-  // if (i.start == i.end ||
-  //     point_bb_map.lower_bound(i.start) == point_bb_map.lower_bound(i.end)) {
-  //   auto bb_id = (--point_bb_map.lower_bound(i.start));
-  //   auto bb_regs = bb_used_regs.find(bb_id->second);
-  //   if (bb_regs != bb_used_regs.end()) {
-  for (auto reg : GLOB_REGS) {
-    if (active.find(reg) == active.end() &&
-        used_regs.find(reg) == used_regs.end()) {
-      r = reg;
-      used_regs_temp.insert(reg);
-      break;
-    }
-  }
-  //   } else {
-  //     // not using any global registers!
-  //     for (auto reg : GLOB_REGS) {
-  //       if (active.find(reg) == active.end()) {
-  //         r = reg;
-  //         break;
-  //       }
-  //     }
-  //   }
-  // }
-  if (r == -1) {
-    for (auto reg : TEMP_REGS) {
-      if (active.find(reg) == active.end()) {
-        r = reg;
-        break;
+  auto alloc_using_temp = [&]() {
+    if (r == -1) {
+      for (auto reg : TEMP_REGS) {
+        if (active.find(reg) == active.end()) {
+          r = reg;
+          break;
+        }
       }
+    }
+  };
+  auto alloc_using_glob = [&]() {
+    if (r == -1) {
+      for (auto reg : GLOB_REGS) {
+        if (active.find(reg) == active.end() &&
+            used_regs.find(reg) == used_regs.end()) {
+          r = reg;
+          used_regs_temp.insert(reg);
+          break;
+        }
+      }
+    }
+  };
+  {
+    auto lower_bound = bl_points.lower_bound(i.start);
+    auto upper_bound = bl_points.upper_bound(i.end);
+    if (lower_bound != upper_bound) {
+      // Cross-BL virtual register
+      alloc_using_glob();
+      alloc_using_temp();
+    } else {
+      // non-cross-bl virtual register
+      alloc_using_temp();
+      alloc_using_glob();
     }
   }
   if (r == -1) {
@@ -743,7 +751,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
-
+    wrote_to.erase(r.from);
     disp_reg();
     LOG(TRACE) << "spill " << pos << " " << del << std::endl;
   } else {
@@ -810,7 +818,6 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 }
 
 void RegAllocator::perform_load_stores() {
-  std::unordered_set<Reg> wrote_to = {};
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
     LOG(TRACE) << " " << std::endl << *inst_ << std::endl;
@@ -818,24 +825,24 @@ void RegAllocator::perform_load_stores() {
       replace_read(x->r1, i);
       replace_read(x->r2, i);
       invalidate_read(i);
+      wrote_to.insert(x->rd);
       auto prw = pre_replace_write(x->rd, i);
-      wrote_to.insert(prw.from);
       inst_sink.push_back(std::move(f.inst[i]));
       replace_write(prw, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         replace_read(x->r2, i);
         invalidate_read(i);
+        wrote_to.insert(x->r1);
         auto prw = pre_replace_write(x->r1, i);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else if (x->op == arm::OpCode::MovT) {
         auto r = x->r1;
         replace_read(x->r1, i);
         invalidate_read(i);
+        wrote_to.insert(x->r1);
         auto prw = pre_replace_write(r, i, x->r1);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
@@ -850,8 +857,8 @@ void RegAllocator::perform_load_stores() {
       }
       if (x->op == arm::OpCode::LdR) {
         invalidate_read(i);
+        wrote_to.insert(x->rd);
         auto prw = pre_replace_write(x->rd, i);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
