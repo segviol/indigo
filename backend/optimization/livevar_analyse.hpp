@@ -46,10 +46,12 @@ class Block_Live_Var {
   sharedPtrVariableSet defvars;
   bool first_build = true;
   mir::inst::BasicBlk& block;
+  bool strict;
   std::map<uint32_t, mir::inst::Variable>& vartable;
   Block_Live_Var(mir::inst::BasicBlk& block,
-                 std::map<uint32_t, mir::inst::Variable>& vartable)
-      : block(block), vartable(vartable) {
+                 std::map<uint32_t, mir::inst::Variable>& vartable,
+                 bool strict = false)
+      : block(block), vartable(vartable), strict(strict) {
     auto size = block.inst.size();
     live_vars_out = std::make_shared<VariableSet>();
     live_vars_in = std::make_shared<VariableSet>();
@@ -107,14 +109,17 @@ class Block_Live_Var {
       defvars.insert(defvar);
       this->defvars->insert(defvar);
     }
-    if (block.inst.at(idx)->inst_kind() == mir::inst::InstKind::Phi) {
-      for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
-        if (this->defvars->count(*iter)) {
-          useVars.erase(iter);
-          break;
+    if (strict) {
+      if (block.inst.at(idx)->inst_kind() == mir::inst::InstKind::Phi) {
+        for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
+          if (this->defvars->count(*iter)) {
+            useVars.erase(iter);
+            break;
+          }
         }
       }
     }
+
     VariableSet diff_result;
     instLiveVars[idx]->clear();
     std::set_difference(tmp->begin(), tmp->end(), defvars.begin(),
@@ -177,8 +182,10 @@ class Block_Live_Var {
 class Livevar_Analyse {
  public:
   std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
+  bool strict;
   mir::inst::MirFunction& func;
-  Livevar_Analyse(mir::inst::MirFunction& func) : func(func) {
+  Livevar_Analyse(mir::inst::MirFunction& func, bool strcit = false)
+      : func(func), strict(strcit) {
     auto& vartable = func.variables;
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {

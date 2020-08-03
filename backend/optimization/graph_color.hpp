@@ -374,7 +374,7 @@ class Graph_Color : public backend::MirOptimizePass {
         Conflict_Map(func_color_map[funcId], func, color_num));
     auto conflict_map = func_conflict_map[funcId];
     func_unused_colors.insert({funcId, conflict_map->unused_colors});
-    livevar_analyse::Livevar_Analyse lva(func);
+    livevar_analyse::Livevar_Analyse lva(func, true);
     lva.build();
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
       init_cross_blk_vars(iter->second, cross_blk_vars);
