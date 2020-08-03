@@ -125,6 +125,7 @@ class RegAllocator {
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
   std::set<int> bl_points;
+  std::unordered_set<Reg> wrote_to = {};
 
   int stack_size;
   int stack_offset = 0;
@@ -727,7 +728,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
           OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
     }
-
+    wrote_to.erase(r.from);
     disp_reg();
     LOG(TRACE) << "spill " << pos << " " << del << std::endl;
   } else {
@@ -794,7 +795,6 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
 }
 
 void RegAllocator::perform_load_stores() {
-  std::unordered_set<Reg> wrote_to = {};
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
     LOG(TRACE) << " " << std::endl << *inst_ << std::endl;
@@ -802,24 +802,24 @@ void RegAllocator::perform_load_stores() {
       replace_read(x->r1, i);
       replace_read(x->r2, i);
       invalidate_read(i);
+      wrote_to.insert(x->rd);
       auto prw = pre_replace_write(x->rd, i);
-      wrote_to.insert(prw.from);
       inst_sink.push_back(std::move(f.inst[i]));
       replace_write(prw, i);
     } else if (auto x = dynamic_cast<Arith2Inst *>(inst_)) {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::Mvn) {
         replace_read(x->r2, i);
         invalidate_read(i);
+        wrote_to.insert(x->r1);
         auto prw = pre_replace_write(x->r1, i);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else if (x->op == arm::OpCode::MovT) {
         auto r = x->r1;
         replace_read(x->r1, i);
         invalidate_read(i);
+        wrote_to.insert(x->r1);
         auto prw = pre_replace_write(r, i, x->r1);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
@@ -834,8 +834,8 @@ void RegAllocator::perform_load_stores() {
       }
       if (x->op == arm::OpCode::LdR) {
         invalidate_read(i);
+        wrote_to.insert(x->rd);
         auto prw = pre_replace_write(x->rd, i);
-        wrote_to.insert(prw.from);
         inst_sink.push_back(std::move(f.inst[i]));
         replace_write(prw, i);
       } else {
