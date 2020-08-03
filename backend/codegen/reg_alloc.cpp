@@ -21,7 +21,7 @@ namespace backend::codegen {
 using namespace arm;
 
 const std::set<Reg> GP_REGS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12};
+const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12, REG_LR};
 const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 8, 9, 10};
 
 /// An interval represented by this struct is a semi-open interval
@@ -301,10 +301,9 @@ void RegAllocator::alloc_regs() {
     auto use_stack_param = f.ty.get()->params.size() > 4;
     auto offset_size = (first_->regs.size()) * 4;
 
-    if (is_leaf_func) {
-      // Leaf function does not use LR
-      first_->regs.erase(REG_LR);
-      last_->regs.erase(REG_PC);
+    if (!use_stack_param && stack_size == 0) {
+      first_->regs.erase(REG_FP);
+      last_->regs.erase(REG_FP);
     }
 
     if (use_stack_param) {
@@ -342,9 +341,13 @@ void RegAllocator::alloc_regs() {
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
     }
-    if (is_leaf_func) {
-      f.inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, REG_PC,
-                                                    RegisterOperand(REG_LR)));
+    {
+      auto &first = f.inst.front();
+      auto first_ = static_cast<PushPopInst *>(&*first);
+      auto &last = f.inst.back();
+      auto last_ = static_cast<PushPopInst *>(&*last);
+      if (first_->regs.empty()) f.inst.erase(f.inst.begin());
+      if (last_->regs.empty()) f.inst.erase(f.inst.end() - 1);
     }
   }
 }
@@ -910,12 +913,14 @@ void RegAllocator::perform_load_stores() {
         for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
         // R12 should be freed whatever condition
         force_free(Reg(12));
+        force_free(Reg(REG_LR));
         inst_sink.push_back(std::move(f.inst[i]));
         active.erase(Reg(0));
         active.erase(Reg(1));
         active.erase(Reg(2));
         active.erase(Reg(3));
         active.erase(Reg(12));
+        active.erase(Reg(REG_LR));
       } else if (x->op == arm::OpCode::B) {
         if (bb_reset) {
           auto it = active_reg_map.begin();
