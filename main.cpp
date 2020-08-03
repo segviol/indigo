@@ -20,6 +20,7 @@
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
+#include "backend/optimization/ref_count.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "backend/optimization/remove_temp_var.hpp"
 #include "backend/optimization/value_shift_collapse.hpp"
@@ -73,6 +74,9 @@ void add_passes(backend::Backend& backend) {
   // backend.add_pass(
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  // backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());
