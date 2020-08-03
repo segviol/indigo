@@ -68,6 +68,9 @@ void ValueShiftCollapse::optimize_function(mir::inst::MirFunction &func) {
       if (auto x = dynamic_cast<mir::inst::AssignInst *>(&i)) {
         x->src.map_if_varid(map_shift);
       } else if (auto x = dynamic_cast<mir::inst::CallInst *>(&i)) {
+        for (auto &val : x->params) {
+          val.map_if_varid(map_shift);
+        }
       } else if (auto x = dynamic_cast<mir::inst::OpInst *>(&i)) {
         x->lhs.map_if_varid(map_shift);
         x->rhs.map_if_varid(map_shift);
