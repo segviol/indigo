@@ -441,7 +441,7 @@ void Codegen::translate_inst(mir::inst::CallInst& i) {
   auto fn_id = i.func;
   auto f_ = package.functions.find(fn_id);
   if (f_ == package.functions.end()) {
-    throw new FunctionNotFoundError{fn_id};
+    throw FunctionNotFoundError(fn_id);
   }
   auto& f = *f_;
   auto params = f.second.type->params;
