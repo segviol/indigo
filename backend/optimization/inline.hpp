@@ -71,16 +71,7 @@ class Rewriter {
       func.variables[destId.id] = func.variables.at(callInst.dest.id);
     }
     auto exits = subfunc.get_exits();
-    if (subfunc.type->ret->kind() != mir::types::TyKind::Void) {
-      if (exits.size() > 1) {
-        std::vector<mir::inst::VarId> vars(exits.begin(), exits.end());
-        init_inst_after.push_back(
-            std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
-      } else {
-        init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
-            callInst.dest, *exits.begin()));
-      }
-    }
+
     for (auto iter = subfunc.variables.begin(); iter != subfunc.variables.end();
          ++iter) {
       if (!var_cast_map.count(iter->first)) {
@@ -100,7 +91,21 @@ class Rewriter {
         label_cast_map[iter->first] = new_id;
       }
     }
-
+    if (subfunc.type->ret->kind() != mir::types::TyKind::Void) {
+      if (exits.size() > 1) {
+        std::vector<mir::inst::VarId> vars;
+        for (auto exit : exits) {
+          vars.push_back(mir::inst::VarId(var_cast_map.at(
+              subfunc.basic_blks.at(exit).jump.cond_or_ret.value().id)));
+        }
+        init_inst_after.push_back(
+            std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
+      } else {
+        init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
+            callInst.dest, var_cast_map.at(subfunc.basic_blks.at(*exits.begin())
+                                               .jump.cond_or_ret.value())));
+      }
+    }
     int new_id = get_new_labelId();
     label_cast_map[1000000] = new_id;
     sub_endId = new_id;
