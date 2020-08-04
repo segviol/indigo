@@ -1180,6 +1180,12 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
         mir::inst::VarId s(i);
         notRename.push_back(s);
       }
+      // do not rename arrays
+      for (auto& var : it->second.variables) {
+        if (var.second.ty->kind() == mir::types::TyKind::Array) {
+          notRename.push_back(var.first);
+        }
+      }
       map<mir::inst::VarId, mir::inst::VarId> redundantphi;
       map<int, BasicBlock*> nodes = generate_CFG(iter->second, irgenerator);
       map<mir::inst::VarId, set<int>> blocks = active_var(nodes);
@@ -1575,15 +1581,13 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       }
       int si = it->second.variables.size();
       bool flag = true;
-      while (flag) {
-        flag = false;
-        for (itt = it->second.variables.begin();
-             itt != it->second.variables.end(); itt++) {
-          if (itt->first > n && itt->first < 65535 || itt->first == 1048576) {
-            it->second.variables.erase(itt);
-            flag = true;
-            break;
-          }
+      itt = it->second.variables.begin();
+      while (itt != it->second.variables.end()) {
+        if ((itt->first > n && itt->first < 65535 || itt->first == 1048576) &&
+            !(itt->second.ty->kind() == mir::types::TyKind::Array)) {
+          itt = it->second.variables.erase(itt);
+        } else {
+          itt++;
         }
       }
 
