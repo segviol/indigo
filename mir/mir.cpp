@@ -5,6 +5,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "ty.hpp"
+
 namespace mir::inst {
 
 void display_op(std::ostream& o, Op val) {
@@ -234,6 +236,16 @@ void MirFunction::display(std::ostream& o) const {
     }
     o << "}" << std::endl;
   }
+}
+
+std::set<types::LabelId> MirFunction::get_exits() {
+  std::set<types::LabelId> res;
+  for (auto& pair : basic_blks) {
+    if (pair.second.jump.kind == JumpInstructionKind::Return) {
+      res.insert(pair.first);
+    }
+  }
+  return res;
 }
 
 void MirPackage::display(std::ostream& o) const {

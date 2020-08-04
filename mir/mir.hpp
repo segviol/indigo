@@ -521,7 +521,7 @@ class MirFunction : public prelude::Displayable {
   MirFunction(std::string _name, std::shared_ptr<types::FunctionTy> _type)
       : name(_name), type(_type), basic_blks(), variables() {}
   virtual void display(std::ostream& o) const;
-
+  std::set<types::LabelId> get_exits();
   MirFunction(const MirFunction& other) = delete;
   MirFunction(MirFunction&& other) = default;
   MirFunction& operator=(MirFunction&& other) = default;

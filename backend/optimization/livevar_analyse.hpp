@@ -229,11 +229,17 @@ class Livevar_Analyse {
     if (!func.basic_blks.size()) {
       return;
     }
-    auto end = func.basic_blks.end();
-    end--;
+
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
-    while (bfs_build(end->second))
-      ;
+    while (true) {
+      bool modify = false;
+      for (auto blk : func.get_exits()) {
+        modify |= bfs_build(func.basic_blks.at(blk));
+      }
+      if (!modify) {
+        break;
+      }
+    }
     // for (auto& pair : livevars) {
     //   LOG(TRACE) << pair.first << ": " << std::endl;
     //   for (auto var : *pair.second->live_vars_in) {
