@@ -433,45 +433,35 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
           _VoidVarId, Variable(SharedTyPtr(new VoidTy()), false, false)));
   _funcNameToFuncData[_funcStack.back()]._localValueNameToId[_VoidVarName] =
       _VoidVarId;
-  if (kind == front::symbol::SymbolKind::INT) {
-    _package.functions.find(_funcStack.back())
-        ->second.variables.insert(std::pair(
-            _ReturnVarId, Variable(SharedTyPtr(new IntTy()), false, false)));
-    _funcNameToFuncData[_funcStack.back()]._localValueNameToId[_ReturnVarName] =
-        _ReturnVarId;
-  }
   _funcNameToInstructions[_funcStack.back()].push_back(
       shared_ptr<JumpLabelId>(new JumpLabelId(getNewLabelId())));
 }
 
 void irGenerator::ir_leave_function() {
-  shared_ptr<mir::inst::JumpInstruction> jumpInst;
-
-  ir_label(_ReturnBlockLabelId);
-
-  for (string var : _funcNameToFuncData[_funcStack.back()]._freeList) {
-    ir_function_call("void", symbol::SymbolKind::VID, "free", {var});
+  std::vector<Instruction> &instructions =
+      _funcNameToInstructions[_funcStack.back()];
+  std::vector<std::string> &freeList =
+      _funcNameToFuncData[_funcStack.back()]._freeList;
+  for (size_t instIndex = 0; instIndex < instructions.size(); instIndex++) {
+    if (std::holds_alternative<std::shared_ptr<mir::inst::JumpInstruction>>(
+            instructions.at(instIndex))) {
+      std::shared_ptr<mir::inst::JumpInstruction> jumpInst =
+          std::get<std::shared_ptr<mir::inst::JumpInstruction>>(
+              instructions.at(instIndex));
+      if (jumpInst->kind == mir::inst::JumpInstructionKind::Return) {
+        size_t freeIndex;
+        for (freeIndex = 0; freeIndex < freeList.size(); freeIndex++) {
+          instructions.insert(
+              instructions.begin() + instIndex + freeIndex,
+              std::shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(
+                  mir::inst::VarId(_VoidVarId), (std::string) "free",
+                  {*rightValueToValue(RightVal(freeList.at(freeIndex)))})));
+        }
+        instIndex += freeIndex;
+      }
+    }
   }
 
-  switch (_package.functions.at(_funcStack.back()).type->ret->kind()) {
-    case mir::types::TyKind::Int: {
-      jumpInst =
-          shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
-              mir::inst::JumpInstructionKind::Return, -1, -1,
-              VarId(_ReturnVarId), mir::inst::JumpKind::Undefined));
-      break;
-    }
-    case mir::types::TyKind::Void: {
-      jumpInst =
-          shared_ptr<mir::inst::JumpInstruction>(new mir::inst::JumpInstruction(
-              mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
-              mir::inst::JumpKind::Undefined));
-      break;
-    }
-    default:
-      break;
-  }
-  _funcNameToInstructions[_funcStack.back()].push_back(jumpInst);
   _funcStack.pop_back();
 }
 
@@ -633,17 +623,6 @@ void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue,
     crn = VarId(LeftValueToLabelId(condRetName.value()));
   } else {
     crn = std::nullopt;
-  }
-
-  if (kind == mir::inst::JumpInstructionKind::Return) {
-    kind = mir::inst::JumpInstructionKind::Br;
-    bbTrue = _ReturnBlockLabelId;
-    bbFalse = -1;
-    if (crn.has_value()) {
-      ir_assign(_ReturnVarName, condRetName.value());
-      crn.reset();
-    }
-    jumpKind = mir::inst::JumpKind::Undefined;
   }
 
   jumpInst = shared_ptr<mir::inst::JumpInstruction>(
