@@ -1,13 +1,17 @@
+from array import ArrayType, array
+from copyreg import constructor
 import os
-from os import link, path
+from os import link, path, read
 import subprocess
 import argparse
 import re
 import sys
+from sys import path_hooks
 from tqdm import tqdm
 import logging
 import colorlog
 import json
+from typing import List, Any
 import signal
 
 log_colors_config = {
@@ -81,6 +85,51 @@ output_folder_name = "output"
 max_stdout = 512
 
 
+class SuccessTest:
+    def __init__(self, path: str, time: float) -> None:
+        self.path = path
+        self.time = time
+
+
+class FailedTest:
+    def __init__(self, path: str, error: str, desc: any) -> None:
+        self.path = path
+        self.error = error
+        self.desc = desc
+
+
+class TestResult:
+    def __init__(self, num_tested: int, num_success: int,
+                 success: List[SuccessTest], failed: List[FailedTest]) -> None:
+        self.num_tested = num_tested
+        self.num_passed = num_success
+        self.passed = success
+        self.failed = failed
+
+    def combine(self, other):
+        self.num_tested += other.num_tested
+        self.num_passed += other.num_passed
+        self.passed.extend(other.passed)
+        self.failed.extend(other.failed)
+
+
+class TestEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, SuccessTest):
+            return {"path": o.path, "time": o.time}
+        elif isinstance(o, FailedTest):
+            return {"path": o.path, "error": o.error, "desc": o.desc}
+        elif isinstance(o, TestResult):
+            return {
+                "num_tested": o.num_tested,
+                "num_passed": o.num_passed,
+                "passed": o.passed,
+                "failed": o.failed
+            }
+        else:
+            return json.JSONEncoder.default(self, o)
+
+
 def format_compiler_output_file_name(name: str, ty: str):
     name = name.replace('/', '_')
     return f"{output_folder_name}/compiler-{ty}-{name}.txt"
@@ -114,23 +163,17 @@ def decode_stderr_timer(stderr: str) -> float:
         return hrs * 3600 + mins * 60 + secs + us / 1000000
 
 
-def test_dir(dir, test_performance: bool, is_root: bool = True):
-    num_tested = 0
-    num_passed = 0
-    fail_list = []
-    pass_list = []
+def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
+    result = TestResult(0, 0, [], [])
 
     files = os.listdir(dir)
     for file in tqdm(files):
         new_path = os.path.join(dir, file)
         if os.path.isdir(new_path) and args.recursively:
-            result = test_dir(new_path, test_performance, False)
-            num_tested += result["num_tested"]
-            num_passed += result["num_passed"]
-            fail_list.extend(result["failed"])
-            pass_list.extend(result["passed"])
+            child = test_dir(new_path, test_performance, False)
+            result.combine(child)
         elif file.split('.')[-1] == 'sy':
-            num_tested += 1
+            result.num_tested += 1
             prefix = file.split('.')[0]
 
             try:
@@ -148,11 +191,10 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                                 new_path, 'stdout'), "w") as f:
                         f.write(compiler_output.stdout.decode('utf-8'))
 
-                    fail_list.append({
-                        "file": new_path,
-                        "reason": "compile_error",
-                        "return_code": compiler_output.returncode
-                    })
+                    result.failed.append(
+                        FailedTest(
+                            new_path, "compile_error",
+                            {"return_code": compiler_output.returncode}))
                     continue
 
                 link_output = subprocess.run([
@@ -178,11 +220,9 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                             "w") as f:
                         f.write(link_output.stderr.decode('utf-8'))
 
-                    fail_list.append({
-                        "file": file,
-                        "reason": "link_error",
-                        "return_code": link_output.returncode
-                    })
+                    result.failed.append(
+                        FailedTest(new_path, "link_error",
+                                   {"return_code": link_output.returncode}))
                     continue
 
             except subprocess.TimeoutExpired as t:
@@ -199,10 +239,8 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                           "wb") as f:
                     f.write(stdout)
 
-                fail_list.append({
-                    "file": new_path,
-                    "reason": "compiler_timeout",
-                })
+                result.failed.append(
+                    FailedTest(new_path, "compiler_timeout", None))
 
                 continue
 
@@ -238,13 +276,11 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                         f.write(compiler_output.stdout.decode('utf-8'))
 
                     dump_stdout(new_path, process.stdout)
-
-                    fail_list.append({
-                        "file": new_path,
-                        "reason": "runtime_error",
-                        "got": limited_output,
-                        "error": sig_def
-                    })
+                    result.failed.append(
+                        FailedTest(new_path, "runtime_error", {
+                            "got": limited_output,
+                            "error": sig_def
+                        }))
 
                 else:
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
@@ -272,12 +308,11 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                                     new_path, 'stdout'), "w") as f:
                             f.write(compiler_output.stdout.decode('utf-8'))
 
-                        fail_list.append({
-                            "file": file,
-                            "reason": "wrong_output",
-                            "expected": real_std_output,
-                            "got": limited_output
-                        })
+                        result.failed.append(
+                            FailedTest(new_path, "output_mismatch", {
+                                "got": limited_output,
+                                "expected": real_std_output
+                            }))
                     elif return_code != std_ret:
                         logger.error(
                             f"mismatched return code for {new_path}: \nexpected: {std_ret}\ngot {return_code}"
@@ -288,26 +323,26 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                             f.write(compiler_output.stdout.decode('utf-8'))
 
                         dump_stdout(new_path, process.stdout)
-                        fail_list.append({
-                            "file": file,
-                            "reason": "wrong_return_code",
-                            "expected": std_ret,
-                            "got": return_code
-                        })
+                        result.failed.append(
+                            FailedTest(
+                                new_path, "wrong_return_code", {
+                                    "got_return_code": return_code,
+                                    "expected_return_code": std_ret,
+                                }))
 
                     else:
                         logger.info(f"Successfully passed {prefix}")
                         if not test_performance:
-                            pass_list.append(new_path)
+                            result.passed.append(SuccessTest(new_path, None))
                         else:
                             stderr = process.stderr.decode("utf-8")
                             t = decode_stderr_timer(stderr)
                             if t != None:
-                                pass_list.append({'path': new_path, 'time': t})
+                                result.passed.append(SuccessTest(new_path, t))
                             else:
                                 logger.error(f"Cannot find timer in {stderr}")
 
-                        num_passed += 1
+                        result.num_passed += 1
                     f.close()
 
             except subprocess.TimeoutExpired as t:
@@ -321,29 +356,47 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                 else:
                     str_stdout = ""
 
-                fail_list.append({
-                    "file": new_path,
-                    "reason": "timeout",
-                    "got": str_stdout
-                })
+                result.failed.append(
+                    FailedTest(new_path, "timeout", {
+                        "got": str_stdout,
+                    }))
 
-    logger.info(f"passed {num_passed} of {num_tested} tests")
-
-    if len(fail_list) > 0:
-        logger.error(f"Failed tests: {fail_list}")
-
-    return {
-        "num_tested": num_tested,
-        "num_passed": num_passed,
-        "num_failed": num_tested - num_passed,
-        "passed": pass_list,
-        "failed": fail_list
-    }
+    return result
 
 
 result = test_dir(root_path, args.performance_test)
-logger.info(result)
-if result["num_failed"] != 0:
+logger.info(json.dumps(result, indent=2, cls=TestEncoder))
+logger.info(f"Passed {result.num_passed} of {result.num_tested} tests")
+
+if args.performance_test:
+    print("PERFORMANCE: ")
+    if os.path.isfile("time.log"):
+        with open("time.log", 'r', encoding="utf-8") as f:
+            last_performance: dict = json.loads(f.read())
+    else:
+        last_performance = {}
+
+    d = {}
+    for test in result.passed:
+        d[test.path] = test.time
+
+    for key_ in list(d):
+        key = str(key_)
+        last = last_performance.get(key)
+        this = d[key]
+        if len(key) > 30:
+            key = ".." + key[-30:]
+        if last is not None:
+            difference = (this / last) - 1
+            print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+6.3%}".format(
+                key, this, last, difference))
+        else:
+            print("{:<32}: {:>10.6f}s".format(key, this))
+
+    with open('time.log', 'w', encoding="utf-8") as f:
+        f.write(json.dumps(d))
+
+if result.num_passed != result.num_tested:
     exit(1)
 else:
     exit(0)
