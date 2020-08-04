@@ -386,7 +386,7 @@ void RegAllocator::calc_live_intervals() {
           x->op == arm::OpCode::Mvn) {
         add_reg_write(x->r1, i);
         if (auto r2 = std::get_if<RegisterOperand>(&x->r2);
-            r2 && r2->shift_amount == 0) {
+            x->op == arm::OpCode::Mov && r2 && r2->shift_amount == 0) {
           if (!is_virtual_register(x->r1) &&
               !is_virtual_register(x->r2.get_reg()))
             reg_affine.insert({x->r1, x->r2.get_reg()});
@@ -853,10 +853,14 @@ void RegAllocator::calc_reg_affinity() {
     auto reg_dst = reg_dst_;
     auto reg_src = reg_src_;
 
-    auto try_collapse = [&](Reg reg_src, Reg reg_dst, Reg src_map) -> bool {
+    if (auto it = reg_map.find(reg_src);
+        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
+        spilled_cross_block_reg.find(reg_dst) ==
+            spilled_cross_block_reg.end() &&
+        reg_assign_count.at(reg_dst) == 1) {
       auto li_dst = live_intervals.at(reg_dst);
       bool overlaps = false;
-      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(src_map);
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
       for (; rev_it != rev_it_end; rev_it++) {
         auto vr = rev_it->second;
         if (vr == reg_src) continue;
@@ -868,23 +872,26 @@ void RegAllocator::calc_reg_affinity() {
       }
       if (!overlaps) {
         reg_collapse.insert({reg_dst, reg_src});
-        return true;
-      } else {
-        return false;
       }
-    };
-
-    if (auto it = reg_map.find(reg_src);
-        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
-        spilled_cross_block_reg.find(reg_dst) ==
-            spilled_cross_block_reg.end() &&
-        reg_assign_count.at(reg_dst) == 1) {
-      try_collapse(reg_src, reg_dst, it->second);
     } else if (auto it = reg_map.find(reg_dst);
                it != reg_map.end() && reg_map.find(reg_src) == reg_map.end() &&
                spilled_cross_block_reg.find(reg_src) ==
                    spilled_cross_block_reg.end()) {
-      try_collapse(reg_dst, reg_src, it->second);
+      auto li_src = live_intervals.at(reg_src);
+      bool overlaps = false;
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
+      for (; rev_it != rev_it_end; rev_it++) {
+        auto vr = rev_it->second;
+        if (vr == reg_src) continue;
+        auto interval = live_intervals.at(vr);
+        if (interval.overlaps(li_src)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        reg_collapse.insert({reg_src_, reg_dst_});
+      }
     } else if (reg_map.find(reg_src) == reg_map.end() &&
                spilled_cross_block_reg.find(reg_src) ==
                    spilled_cross_block_reg.end() &&
@@ -892,10 +899,14 @@ void RegAllocator::calc_reg_affinity() {
                spilled_cross_block_reg.find(reg_dst) ==
                    spilled_cross_block_reg.end()) {
       //  Both are local variables
-      auto li_src = live_intervals.at(reg_src);
-      auto li_dst = live_intervals.at(reg_dst);
+      auto reg_src_ = get_collapse_reg(reg_src);
+      auto reg_dst_ = get_collapse_reg(reg_dst);
+      auto &li_src = live_intervals.at(reg_src_);
+      auto &li_dst = live_intervals.at(reg_dst_);
       if (!li_src.overlaps(li_dst)) {
-        reg_collapse.insert({reg_dst, reg_src});
+        li_src.add_starting_point(li_dst.start);
+        li_src.add_ending_point(li_dst.end);
+        reg_collapse.insert({reg_dst_, reg_src_});
       }
     }
   }
