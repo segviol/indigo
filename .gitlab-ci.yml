@@ -59,5 +59,9 @@ performance_test:
         paths:
             - test.log
             - output/
+            - time.log
         expire_in: 1 month
+    cache:
+        paths:
+            - time.log
     timeout: 15m
