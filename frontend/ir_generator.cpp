@@ -442,6 +442,8 @@ void irGenerator::ir_leave_function() {
       _funcNameToInstructions[_funcStack.back()];
   std::vector<std::string> &freeList =
       _funcNameToFuncData[_funcStack.back()]._freeList;
+  RightVal rightVal;
+
   for (size_t instIndex = 0; instIndex < instructions.size(); instIndex++) {
     if (std::holds_alternative<std::shared_ptr<mir::inst::JumpInstruction>>(
             instructions.at(instIndex))) {
@@ -450,12 +452,13 @@ void irGenerator::ir_leave_function() {
               instructions.at(instIndex));
       if (jumpInst->kind == mir::inst::JumpInstructionKind::Return) {
         size_t freeIndex;
+        rightVal = freeList.at(freeIndex);
         for (freeIndex = 0; freeIndex < freeList.size(); freeIndex++) {
           instructions.insert(
               instructions.begin() + instIndex + freeIndex,
               std::shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(
                   mir::inst::VarId(_VoidVarId), (std::string) "free",
-                  {*rightValueToValue(RightVal(freeList.at(freeIndex)))})));
+                  {*rightValueToValue(rightVal)})));
         }
         instIndex += freeIndex;
       }
