@@ -38,7 +38,7 @@ typedef ConstValue GlobalValue;
 typedef variant<int, LabelId, string> RightVal;
 typedef variant<LabelId, string> LeftVal;
 
-enum class localArrayInitType { Var ,Small, BigNoInit, BigInit };
+enum class localArrayInitType { Var, Small, SmallInit, BigNoInit, BigInit };
 extern int TopLocalSmallArrayLength;
 
 class WhileLabels {
@@ -89,7 +89,8 @@ class irGenerator {
   string getNewTmpValueName(TyKind kind);
 
   void ir_declare_value(string name, symbol::SymbolKind kind, int id,
-                        std::vector<uint32_t> inits, localArrayInitType initType = localArrayInitType::Var,
+                        std::vector<uint32_t> inits,
+                        localArrayInitType initType = localArrayInitType::Var,
                         int len = 0);
   string ir_declare_string(string str);
   void ir_declare_const(string name, std::uint32_t value, int id);

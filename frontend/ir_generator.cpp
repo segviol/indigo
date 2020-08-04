@@ -319,12 +319,19 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
         break;
       case front::symbol::SymbolKind::Array:
         if (initType == localArrayInitType::Small) {
-          ty = SharedTyPtr(new ArrayTy(SharedTyPtr(new IntTy()), len));
-          is_memory = true;
-        } else {
-          ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
-          is_memory = false;
+          auto varNameRef = getVarName(name, id) + "_$array";
+
+          Variable variable(
+              mir::types::new_array_ty(mir::types::new_int_ty(), len), true,
+              false, false);
+          insertLocalValue(
+              varNameRef,
+              _funcNameToFuncData[_funcStack.back()]._nowLocalValueId,
+              variable);
+          _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
         }
+        ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
+        is_memory = false;
         break;
       case front::symbol::SymbolKind::Ptr:
         ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
@@ -335,10 +342,6 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     }
     Variable variable(ty, is_memory, false);
     varName = getVarName(name, id);
-    if (kind == symbol::SymbolKind::Array &&
-        initType == localArrayInitType::Small) {
-      varName += "_$array";
-    }
 
     insertLocalValue(varName,
                      _funcNameToFuncData[_funcStack.back()]._nowLocalValueId,
@@ -348,16 +351,17 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     if (kind == symbol::SymbolKind::Array) {
       switch (initType) {
         case localArrayInitType::Small: {
-          auto varNameRef = getVarName(name, id);
-
-          Variable variable(mir::types::new_ptr_ty(mir::types::new_int_ty()),
-                            false, false);
-          insertLocalValue(
-              varNameRef,
-              _funcNameToFuncData[_funcStack.back()]._nowLocalValueId,
-              variable);
-          _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
-          ir_ref(varNameRef, varName);
+          ir_ref(varName, varName + "_$array");
+          break;
+        }
+        case localArrayInitType::SmallInit: {
+          ir_ref(varName, varName + "_$array");
+          RightVal value;
+          RightVal size;
+          size.emplace<0>(len * ty->size().value());
+          value.emplace<0>(0);
+          ir_function_call("", symbol::SymbolKind::VID, "memset",
+                           {varName, value, size}, true);
           break;
         }
         case localArrayInitType::BigInit: {
