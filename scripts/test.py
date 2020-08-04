@@ -343,7 +343,7 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
     }
 
 
-result = test_dir(root_path)
+result = test_dir(root_path, args.performance_test)
 logger.info(result)
 if result["num_failed"] != 0:
     exit(1)
