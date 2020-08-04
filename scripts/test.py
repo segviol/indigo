@@ -370,7 +370,7 @@ logger.info(f"Passed {result.num_passed} of {result.num_tested} tests")
 
 if args.performance_test:
     print("PERFORMANCE: ")
-    if os.path.isfile("time.log"):
+    if os.path.exists("time.log"):
         with open("time.log", 'r', encoding="utf-8") as f:
             last_performance: dict = json.loads(f.read())
     else:
@@ -386,7 +386,7 @@ if args.performance_test:
         this = d[key]
         if len(key) > 30:
             key = ".." + key[-30:]
-        if last is not None:
+        if not last is None:
             difference = (this / last) - 1
             print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+6.3%}".format(
                 key, this, last, difference))
