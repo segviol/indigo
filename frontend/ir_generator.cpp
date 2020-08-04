@@ -454,11 +454,18 @@ void irGenerator::ir_leave_function() {
         size_t freeIndex;
         rightVal = freeList.at(freeIndex);
         for (freeIndex = 0; freeIndex < freeList.size(); freeIndex++) {
-          instructions.insert(
-              instructions.begin() + instIndex + freeIndex,
-              std::shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(
-                  mir::inst::VarId(_VoidVarId), (std::string) "free",
-                  {*rightValueToValue(rightVal)})));
+          if (instIndex + freeIndex < instructions.size()) {
+            instructions.insert(
+                instructions.begin() + instIndex + freeIndex,
+                std::shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(
+                    mir::inst::VarId(_VoidVarId), (std::string) "free",
+                    {*rightValueToValue(rightVal)})));
+          } else {
+            instructions.push_back(
+                std::shared_ptr<mir::inst::CallInst>(new mir::inst::CallInst(
+                    mir::inst::VarId(_VoidVarId), (std::string) "free",
+                    {*rightValueToValue(rightVal)})));
+          }
         }
         instIndex += freeIndex;
       }
