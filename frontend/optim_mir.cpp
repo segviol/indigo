@@ -1182,9 +1182,8 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       }
       // do not rename arrays
       for (auto& var : it->second.variables) {
-        if (var.second.ty &&
-            var.second.ty->kind() == mir::types::TyKind::Array) {
-          notRename.push_back(var.first);
+        if (var.second.ty->kind() == mir::types::TyKind::Array) {
+          notRename.push_back(mir::inst::VarId(var.first));
         }
       }
       map<mir::inst::VarId, mir::inst::VarId> redundantphi;
