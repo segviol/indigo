@@ -371,6 +371,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
           value.emplace<0>(0);
           ir_function_call("", symbol::SymbolKind::VID, "memset",
                            {varName, value, size}, true);
+          _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
           break;
         }
         case localArrayInitType::BigNoInit: {
