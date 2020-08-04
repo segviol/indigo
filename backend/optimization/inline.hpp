@@ -46,7 +46,6 @@ class Rewriter {
     varId = var_end_iter->first;
     auto label_end_iter = func.basic_blks.end();
     label_end_iter--;
-    label_end_iter--;
     labelId = label_end_iter->first;
     for (int i = 0; i < callInst.params.size(); i++) {
       int para = i + 1;
@@ -71,8 +70,17 @@ class Rewriter {
     } else {
       func.variables[destId.id] = func.variables.at(callInst.dest.id);
     }
-    init_inst_after.push_back(
-        std::make_unique<mir::inst::AssignInst>(callInst.dest, destId));
+    auto exits = subfunc.get_exits();
+    if (subfunc.type->ret->kind() != mir::types::TyKind::Void) {
+      if (exits.size() > 1) {
+        std::vector<mir::inst::VarId> vars(exits.begin(), exits.end());
+        init_inst_after.push_back(
+            std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
+      } else {
+        init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
+            callInst.dest, *exits.begin()));
+      }
+    }
     for (auto iter = subfunc.variables.begin(); iter != subfunc.variables.end();
          ++iter) {
       if (!var_cast_map.count(iter->first)) {
@@ -92,10 +100,12 @@ class Rewriter {
         label_cast_map[iter->first] = new_id;
       }
     }
-    auto iter = subfunc.basic_blks.end();
-    iter--;
+
+    int new_id = get_new_labelId();
+    label_cast_map[1000000] = new_id;
+    sub_endId = new_id;
+    func.basic_blks.insert({sub_endId, mir::inst::BasicBlk(sub_endId)});
     sub_starttId = label_cast_map.at(subfunc.basic_blks.begin()->first);
-    sub_endId = label_cast_map.at(iter->first);
   }
 
   mir::inst::Value cast_value(mir::inst::Value val) {
@@ -201,6 +211,9 @@ class Rewriter {
     std::optional<mir::inst::VarId> cond_or_ret = {};
     auto bb_true = blk.jump.bb_true;
     auto bb_false = blk.jump.bb_false;
+    auto kind = blk.jump.kind;
+    auto jump_kind = blk.jump.jump_kind;
+
     if (label_cast_map.count(bb_true)) {
       bb_true = label_cast_map.at(bb_true);
       // if (bb_true == sub_endId) {
@@ -214,13 +227,19 @@ class Rewriter {
       //   bb_false = cur_blkId;
       // }
     }
-
+    if (kind == mir::inst::JumpInstructionKind::Return) {
+      kind = mir::inst::JumpInstructionKind::Br;
+      jump_kind = mir::inst::JumpKind::Undefined;
+      bb_true = sub_endId;
+      func.basic_blks.at(sub_endId).preceding.insert(new_id);
+    }
     if (blk.jump.cond_or_ret.has_value()) {
       cond_or_ret = blk.jump.cond_or_ret.value();
       cond_or_ret = mir::inst::VarId(var_cast_map.at(cond_or_ret.value().id));
     }
-    new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
-                                              cond_or_ret, blk.jump.jump_kind);
+
+    new_blk.jump = mir::inst::JumpInstruction(kind, bb_true, bb_false,
+                                              cond_or_ret, jump_kind);
   }
 
   mir::inst::VarId get_new_varId() { return mir::inst::VarId(++varId); }
@@ -319,9 +338,7 @@ class Inline_Func : public backend::MirOptimizePass {
           }
           auto sub_start_id =
               rwt.label_cast_map.at(subfunc.basic_blks.begin()->first);
-          auto end_iter = subfunc.basic_blks.end();
-          end_iter--;
-          auto sub_end_id = rwt.label_cast_map.at(end_iter->first);
+          auto sub_end_id = rwt.sub_endId;
           auto& start_blk = func.basic_blks.at(sub_start_id);
 
           std::vector<std::unique_ptr<mir::inst::Inst>> end_blk_insts;

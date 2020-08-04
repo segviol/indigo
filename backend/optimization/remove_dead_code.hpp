@@ -42,6 +42,7 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
         tmp = *(blv->instLiveVars.begin() + idx + 1);
       }
       if (!tmp->count(defvar)) {
+        assert(defvar.id != 65621);
         riter = std::vector<std::unique_ptr<mir::inst::Inst>>::reverse_iterator(
             block.inst.erase((++riter).base()));
         blv->instLiveVars.erase(blv->instLiveVars.begin() + idx);
