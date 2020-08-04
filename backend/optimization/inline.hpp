@@ -83,19 +83,20 @@ class Rewriter {
       }
     }
     auto exits = subfunc.get_exits();
-    if (exits.size() == 1) {
-      init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
-          callInst.dest,
-          var_cast_map.at(
-              func.basic_blks.at(*exits.begin()).jump.cond_or_ret.value())));
-    } else {
-      std::vector<mir::inst::VarId> vars;
-      for (auto exit : exits) {
-        vars.push_back(
-            var_cast_map.at(func.basic_blks.at(exit).jump.cond_or_ret.value()));
+    if (subfunc.type->ret->kind() != mir::types::TyKind::Void) {
+      if (exits.size() == 1) {
+        init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
+            callInst.dest, var_cast_map.at(subfunc.basic_blks.at(*exits.begin())
+                                               .jump.cond_or_ret.value())));
+      } else {
+        std::vector<mir::inst::VarId> vars;
+        for (auto exit : exits) {
+          vars.push_back(var_cast_map.at(
+              subfunc.basic_blks.at(exit).jump.cond_or_ret.value()));
+        }
+        init_inst_after.push_back(
+            std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
       }
-      init_inst_after.push_back(
-          std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
     }
 
     for (auto iter = subfunc.basic_blks.begin();
