@@ -482,9 +482,10 @@ void irGenerator::ir_leave_function() {
 
   if (_package.functions.find(_funcStack.back())->second.type->ret->kind() ==
       mir::types::TyKind::Void) {
-    ir_jump(mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
-            mir::inst::JumpKind::Undefined);
+    ir_jump(mir::inst::JumpInstructionKind::Return, _LeaveFuncLabelId, -1,
+            std::nullopt, mir::inst::JumpKind::Undefined);
   }
+  ir_label(_LeaveFuncLabelId);
 
   for (size_t instIndex = 0; instIndex < instructions.size(); instIndex++) {
     if (std::holds_alternative<std::shared_ptr<mir::inst::JumpInstruction>>(
@@ -660,8 +661,8 @@ void irGenerator::ir_end_of_program() {
   string returnTmp = getNewTmpValueName(mir::types::TyKind::Int);
   ir_function_call(returnTmp, front::symbol::SymbolKind::INT,
                    getFunctionName(_GlobalInitFuncName), {});
-  ir_jump(mir::inst::JumpInstructionKind::Return, -1, -1, returnTmp,
-          mir::inst::JumpKind::Undefined);
+  ir_jump(mir::inst::JumpInstructionKind::Return, _LeaveFuncLabelId, -1,
+          returnTmp, mir::inst::JumpKind::Undefined);
   ir_leave_function();
 }
 
@@ -675,6 +676,10 @@ void irGenerator::ir_jump(mir::inst::JumpInstructionKind kind, LabelId bbTrue,
     crn = VarId(LeftValueToLabelId(condRetName.value()));
   } else {
     crn = std::nullopt;
+  }
+
+  if (kind == mir::inst::JumpInstructionKind::Return) {
+    bbTrue = _LeaveFuncLabelId;
   }
 
   jumpInst = shared_ptr<mir::inst::JumpInstruction>(

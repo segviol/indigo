@@ -146,7 +146,8 @@ class irGenerator {
   const LabelId _InitLocalVarId = 1;
   const LabelId _InitTmpVarId = (1 << 15);
   const LabelId _VoidVarId = (1 << 20);
-  
+  const LabelId _LeaveFuncLabelId = (1 << 20);
+
   const string _GlobalInitFuncName = "main";
   const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
   const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
