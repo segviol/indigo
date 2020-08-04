@@ -388,10 +388,10 @@ if args.performance_test:
             key = ".." + key[-30:]
         if last is not None:
             difference = (this / last) - 1
-            print("{<32} {>10.6f}s; Prev: {>10.6f}s, {>+5.3%}".format(
+            print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+6.3%}".format(
                 key, this, last, difference))
         else:
-            print("{<32} {>10.6f}s".format(key, this))
+            print("{:<32}: {:>10.6f}s".format(key, this))
 
     with open('time.log', 'w', encoding="utf-8") as f:
         f.write(json.dumps(d))
