@@ -477,7 +477,9 @@ void Arith2Inst::display(std::ostream &o) const {
   display_cond(cond, o);
   o << " ";
   display_reg_name(o, r1);
-  o << ", " << r2;
+  if (op != OpCode::Bx) {
+    o << ", " << r2;
+  }
 }
 
 void Arith3Inst::display(std::ostream &o) const {
