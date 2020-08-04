@@ -200,7 +200,6 @@ class Livevar_Analyse {
         // if (!livevars.count(prec)) {
         //   continue;
         // }
-        std::cout << prec << std::endl;
         livevars.at(prec)->add_subsequent(blv->live_vars_in);
       }
     }

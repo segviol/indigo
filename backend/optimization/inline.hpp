@@ -347,6 +347,10 @@ class Inline_Func : public backend::MirOptimizePass {
             end_blk_insts.push_back(std::move(j));
           }
 
+          if (end_blk.preceding.count(sub_start_id)) {
+            end_blk.preceding.erase(sub_start_id);
+            end_blk.preceding.insert(cur_blkId);
+          }
           for (auto& j : rwt.init_inst_after) {
             end_blk_insts.push_back(std::move(j));
           }
