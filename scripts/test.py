@@ -381,7 +381,7 @@ if args.performance_test:
         d[test.path] = test.time
 
     for key_ in list(d):
-        key = key_
+        key = str(key_)
         last = last_performance.get(key)
         this = d[key]
         if len(key) > 30:
