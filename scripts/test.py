@@ -11,6 +11,7 @@ from tqdm import tqdm
 import logging
 import colorlog
 import json
+from typing import List
 import signal
 
 log_colors_config = {
@@ -99,7 +100,7 @@ class FailedTest:
 
 class TestResult:
     def __init__(self, num_tested: int, num_success: int,
-                 success: list[SuccessTest], failed: list[FailedTest]) -> None:
+                 success: List[SuccessTest], failed: List[FailedTest]) -> None:
         self.num_tested = num_tested
         self.num_passed = num_success
         self.passed = success
