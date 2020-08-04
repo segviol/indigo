@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <map>
+#include <memory>
+#include <vector>
 
 #include "../../arm_code/arm.hpp"
 #include "../../mir/mir.hpp"
@@ -20,7 +21,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     store val to s_dest
     l_dest = load src
     if src is the same as s_dest
-    l_dest can be repalced by val to 
+    l_dest can be repalced by val to
       1. the next store has same s_dest
       2. call
       3. end of the block
@@ -29,7 +30,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     std::map<mir::inst::VarId, mir::inst::VarId> reg_load;
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
-      //calculate call num
+      // calculate call num
       int index = 0;
       std::vector<int> call_index;
       call_index.push_back(0);
@@ -48,8 +49,8 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
             store;
         std::map<mir::inst::VarId, std::variant<int32_t, mir::inst::VarId>>
             load;
-        std::map<mir::inst::VarId, std::variant<int32_t, mir::inst::VarId>>
-            ::iterator it;
+        std::map<mir::inst::VarId,
+                 std::variant<int32_t, mir::inst::VarId>>::iterator it;
         index = 0;
         for (auto& inst : bb.inst) {
           if (index >= call_index[j] && index < upper_bound) {
@@ -103,8 +104,29 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
           std::map<mir::inst::VarId,
                    std::variant<int32_t, mir::inst::VarId>>::iterator iet;
           for (iet = load.begin(); iet != load.end(); iet++) {
-            if (iet->second.index() == 1 && it->first == std::get<1>(iet->second)) {
+            if (iet->second.index() == 1 &&
+                it->first == std::get<1>(iet->second)) {
               load[iet->first] = it->second;
+            }
+          }
+        }
+        if (bb.jump.cond_or_ret.has_value()) {
+          std::map<mir::inst::VarId,
+                   std::variant<int32_t, mir::inst::VarId>>::iterator lit =
+              load.find(bb.jump.cond_or_ret.value().id);
+          if (lit != load.end()) {
+            if (lit->second.index() == 0) {
+              auto end_iter = func.variables.end();
+              end_iter--;
+              auto var = end_iter->first + 1;
+              func.variables.insert(
+                  {var, mir::inst::Variable(mir::types::new_int_ty())});
+              auto varId = mir::inst::VarId(var);
+              bb.inst.push_back(std::make_unique<mir::inst::AssignInst>(
+                  varId, std::get<0>(lit->second)));
+              bb.jump.cond_or_ret = varId;
+            } else {
+              bb.jump.cond_or_ret = std::get<1>(lit->second);
             }
           }
         }
@@ -117,8 +139,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
               if (x->src.index() == 1) {
                 std::map<mir::inst::VarId,
                          std::variant<int32_t, mir::inst::VarId>>::iterator
-                    lit =
-                    load.find(std::get<1>(x->src));
+                    lit = load.find(std::get<1>(x->src));
                 if (lit != load.end()) {
                   if (lit->second.index() == 0) {
                     x->src.emplace<0>(std::get<0>(lit->second));
@@ -211,7 +232,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
           index++;
         }
       }
-      //delete load
+      // delete load
       for (int i = del_index.size() - 1; i >= 0; i--) {
         auto iter = bit->second.inst.begin() + del_index[i];
         bit->second.inst.erase(iter);
