@@ -139,6 +139,12 @@ void irGenerator::ir_begin_of_program() {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
           {SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())}, true));
+    } else if (funcName == "memset") {
+      type = shared_ptr<FunctionTy>(
+          new FunctionTy(SharedTyPtr(new VoidTy()),
+                         {SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))),
+                          SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())},
+                         true));
     } else if (funcName == "free") {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new VoidTy()),
@@ -175,6 +181,11 @@ void irGenerator::ir_begin_of_program() {
     } else if (funcName == "calloc") {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
       func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "memset") {
+      func->variables[1] = Variable(
+          SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
+      func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
+      func->variables[3] = Variable(SharedTyPtr(new IntTy()), true, false);
     } else if (funcName == "free") {
       func->variables[1] =
           Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
