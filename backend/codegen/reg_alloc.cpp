@@ -853,14 +853,10 @@ void RegAllocator::calc_reg_affinity() {
     auto reg_dst = reg_dst_;
     auto reg_src = reg_src_;
 
-    if (auto it = reg_map.find(reg_src);
-        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
-        spilled_cross_block_reg.find(reg_dst) ==
-            spilled_cross_block_reg.end() &&
-        reg_assign_count.at(reg_dst) == 1) {
+    auto try_collapse = [&](Reg reg_src, Reg reg_dst, Reg src_map) -> bool {
       auto li_dst = live_intervals.at(reg_dst);
       bool overlaps = false;
-      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(src_map);
       for (; rev_it != rev_it_end; rev_it++) {
         auto vr = rev_it->second;
         if (vr == reg_src) continue;
@@ -871,6 +867,34 @@ void RegAllocator::calc_reg_affinity() {
         }
       }
       if (!overlaps) {
+        reg_collapse.insert({reg_dst, reg_src});
+        return true;
+      } else {
+        return false;
+      }
+    };
+
+    if (auto it = reg_map.find(reg_src);
+        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
+        spilled_cross_block_reg.find(reg_dst) ==
+            spilled_cross_block_reg.end() &&
+        reg_assign_count.at(reg_dst) == 1) {
+      try_collapse(reg_src, reg_dst, it->second);
+    } else if (auto it = reg_map.find(reg_dst);
+               it != reg_map.end() && reg_map.find(reg_src) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_src) ==
+                   spilled_cross_block_reg.end()) {
+      try_collapse(reg_dst, reg_src, it->second);
+    } else if (reg_map.find(reg_src) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_src) ==
+                   spilled_cross_block_reg.end() &&
+               reg_map.find(reg_dst) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_dst) ==
+                   spilled_cross_block_reg.end()) {
+      //  Both are local variables
+      auto li_src = live_intervals.at(reg_src);
+      auto li_dst = live_intervals.at(reg_dst);
+      if (!li_src.overlaps(li_dst)) {
         reg_collapse.insert({reg_dst, reg_src});
       }
     }
