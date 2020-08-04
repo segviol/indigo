@@ -53,11 +53,14 @@ performance_test:
     image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-test:0.1.0
     script:
         - mkdir -p output
-        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 60 -z
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 60
     artifacts:
         when: always
         paths:
             - test.log
             - output/
         expire_in: 1 month
+    cache:
+        paths:
+            - time.log
     timeout: 15m
