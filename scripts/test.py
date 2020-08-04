@@ -11,7 +11,7 @@ from tqdm import tqdm
 import logging
 import colorlog
 import json
-from typing import List
+from typing import List, Any
 import signal
 
 log_colors_config = {
@@ -111,6 +111,23 @@ class TestResult:
         self.num_passed += other.num_success
         self.passed.extend(other.success)
         self.failed.extend(other.failed)
+
+
+class TestEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, SuccessTest):
+            return {"path": o.path, "time": o.time}
+        elif isinstance(o, FailedTest):
+            return {"path": o.path, "error": o.error, "desc": o.desc}
+        elif isinstance(o, TestResult):
+            return {
+                "num_tested": o.num_tested,
+                "num_passed": o.num_passed,
+                "passed": o.passed,
+                "failed": o.failed
+            }
+        else:
+            return json.JSONEncoder.default(self, o)
 
 
 def format_compiler_output_file_name(name: str, ty: str):
@@ -348,7 +365,7 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
 
 
 result = test_dir(root_path, args.performance_test)
-logger.info(json.dumps(result, indent=2))
+logger.info(json.dumps(result, indent=2, cls=TestEncoder))
 logger.info(f"Passed {result.num_passed} of {result.num_tested} tests")
 
 if args.performance_test:
