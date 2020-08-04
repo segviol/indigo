@@ -60,6 +60,7 @@ class FunctionData {
   std::vector<string> _freeList;
   std::uint32_t _nowTmpId;
   std::uint32_t _nowLocalValueId;
+  std::uint32_t _frontInstsNum;
 };
 
 class JumpLabelId {
