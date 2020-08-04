@@ -99,10 +99,6 @@ class Node {
   void add_local_var(mir::inst::VarId var) { local_vars.push_back(var); }
 
   void init_main_var() {
-    if (op.index() == 1 && std::get<ExtraNormOp>(op) == ExtraNormOp::Ref &&
-        operands.front().index() == 1) {
-      return;
-    }
     if (value.has_value()
         // && value->index() == 0 ||
         //     value.has_value() && value->index() == 1 &&
@@ -363,10 +359,9 @@ class BlockNodes {
 
                 } else {
                   val = std::get<std::string>(node->operands[0]);
-                  inst.push_back(std::make_unique<mir::inst::RefInst>(
-                      std::get<mir::inst::VarId>(node->mainVar), val));
                 }
-
+                inst.push_back(std::make_unique<mir::inst::RefInst>(
+                    std::get<mir::inst::VarId>(node->mainVar), val));
                 break;
               }
               case ExtraNormOp::Ptroffset: {
@@ -583,12 +578,10 @@ class Common_Expr_Del : public backend::MirOptimizePass {
             auto str = std::get<std::string>(val);
             operands.push_back(std::get<std ::string>(val));
           }
+          assert(operands.size() == 1);
           auto op = ExtraNormOp::Ref;
           if (!blnd.query_node(op, operands)) {
-            auto nodeId = blnd.add_node(op, operands, refInst->dest);
-            if (val.index() == 0) {
-              blnd.nodes[nodeId.id]->mainVar = std::get<mir::inst::VarId>(val);
-            }
+            blnd.add_node(op, operands, refInst->dest);
           } else {
             auto nodeId = blnd.query_nodeId(op, operands);
             blnd.add_var(refInst->dest, nodeId.id);
