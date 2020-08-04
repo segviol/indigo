@@ -5,8 +5,12 @@
 #include <string>
 
 namespace backend::codegen {
-class FunctionNotFoundError {
+class FunctionNotFoundError : public std::exception {
  public:
-  std::string fn_id;
+  FunctionNotFoundError(std::string fn_id) : std::exception() {
+    what_ = "Function not found: " + fn_id;
+  }
+  std::string what_;
+  virtual const char* what() const noexcept override { return what_.c_str(); }
 };
 }  // namespace backend::codegen

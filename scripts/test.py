@@ -1,6 +1,5 @@
 import os
 from os import link, path
-from re import fullmatch
 import subprocess
 import argparse
 import re
@@ -70,6 +69,10 @@ parser.add_argument('-t',
                     default=8,
                     help="Kill tests after specified time",
                     type=float)
+parser.add_argument('-z',
+                    "--performance-test",
+                    help="Test and log performance",
+                    action="store_true")
 args = parser.parse_args()
 root_path = args.test_path
 
@@ -99,7 +102,19 @@ def dump_stdout(name: str, stdout: bytes):
         f.write(stdout)
 
 
-def test_dir(dir):
+def decode_stderr_timer(stderr: str) -> float:
+    time_match = re.search('TOTAL:\s*(\d+)H-(\d+)M-(\d+)S-(\d+)us\s*$', stderr)
+    if time_match == None:
+        return None
+    else:
+        hrs = float(time_match.group(1))
+        mins = float(time_match.group(2))
+        secs = float(time_match.group(3))
+        us = float(time_match.group(4))
+        return hrs * 3600 + mins * 60 + secs + us / 1000000
+
+
+def test_dir(dir, test_performance: bool, is_root: bool = True):
     num_tested = 0
     num_passed = 0
     fail_list = []
@@ -109,7 +124,7 @@ def test_dir(dir):
     for file in tqdm(files):
         new_path = os.path.join(dir, file)
         if os.path.isdir(new_path) and args.recursively:
-            result = test_dir(new_path)
+            result = test_dir(new_path, test_performance, False)
             num_tested += result["num_tested"]
             num_passed += result["num_passed"]
             fail_list.extend(result["failed"])
@@ -282,7 +297,16 @@ def test_dir(dir):
 
                     else:
                         logger.info(f"Successfully passed {prefix}")
-                        pass_list.append(new_path)
+                        if not test_performance:
+                            pass_list.append(new_path)
+                        else:
+                            stderr = process.stderr.decode("utf-8")
+                            t = decode_stderr_timer(stderr)
+                            if t != None:
+                                pass_list.append({'path': new_path, 'time': t})
+                            else:
+                                logger.error(f"Cannot find timer in {stderr}")
+
                         num_passed += 1
                     f.close()
 
@@ -317,7 +341,7 @@ def test_dir(dir):
     }
 
 
-result = test_dir(root_path)
+result = test_dir(root_path, args.performance_test)
 logger.info(result)
 if result["num_failed"] != 0:
     exit(1)
