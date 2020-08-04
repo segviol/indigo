@@ -108,7 +108,7 @@ class TestResult:
 
     def combine(self, other):
         self.num_tested += other.num_tested
-        self.num_passed += other.num_success
+        self.num_passed += other.num_passed
         self.passed.extend(other.success)
         self.failed.extend(other.failed)
 
