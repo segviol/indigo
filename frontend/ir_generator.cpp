@@ -452,8 +452,8 @@ void irGenerator::ir_leave_function() {
               instructions.at(instIndex));
       if (jumpInst->kind == mir::inst::JumpInstructionKind::Return) {
         size_t freeIndex;
-        rightVal = freeList.at(freeIndex);
         for (freeIndex = 0; freeIndex < freeList.size(); freeIndex++) {
+          rightVal = freeList.at(freeIndex);
           if (instIndex + freeIndex < instructions.size()) {
             instructions.insert(
                 instructions.begin() + instIndex + freeIndex,
