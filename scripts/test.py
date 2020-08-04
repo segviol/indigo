@@ -391,9 +391,9 @@ if args.performance_test:
             key = ".." + key[-30:]
         if last != None:
             difference = (this / last) - 1
-            if difference > 0.01:
+            if difference < -0.02:
                 note = "FASTER!"
-            elif difference < -0.01:
+            elif difference > 0.02:
                 note = "SLOWER!"
             else:
                 note = ""
