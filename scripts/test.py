@@ -12,7 +12,6 @@ import logging
 import colorlog
 import json
 import signal
-from types import Union
 
 log_colors_config = {
     'DEBUG': 'white',  # cyan white
@@ -86,7 +85,7 @@ max_stdout = 512
 
 
 class SuccessTest:
-    def __init__(self, path: str, time: Union[float, None]) -> None:
+    def __init__(self, path: str, time: float) -> None:
         self.path = path
         self.time = time
 
