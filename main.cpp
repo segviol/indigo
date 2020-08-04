@@ -18,6 +18,7 @@
 #include "backend/optimization/excess_reg_delete.hpp"
 #include "backend/optimization/global_expression_move.hpp"
 #include "backend/optimization/graph_color.hpp"
+#include "backend/optimization/init_end_block.hpp"
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
 #include "backend/optimization/ref_count.hpp"
@@ -47,6 +48,8 @@ string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
 void add_passes(backend::Backend& backend) {
+  backend.add_pass(
+      std::make_unique<optimization::init_end_block::InitEndBlock>());
   backend.add_pass(
       std::make_unique<optimization::remove_temp_var::Remove_Temp_Var>());
   backend.add_pass(

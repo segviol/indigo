@@ -71,8 +71,7 @@ class Rewriter {
     } else {
       func.variables[destId.id] = func.variables.at(callInst.dest.id);
     }
-    init_inst_after.push_back(
-        std::make_unique<mir::inst::AssignInst>(callInst.dest, destId));
+
     for (auto iter = subfunc.variables.begin(); iter != subfunc.variables.end();
          ++iter) {
       if (!var_cast_map.count(iter->first)) {
@@ -83,6 +82,22 @@ class Rewriter {
         func.variables[new_id].priority = Inline_Var_Priority;
       }
     }
+    auto exits = subfunc.get_exits();
+    if (exits.size() == 1) {
+      init_inst_after.push_back(std::make_unique<mir::inst::AssignInst>(
+          callInst.dest,
+          var_cast_map.at(
+              func.basic_blks.at(*exits.begin()).jump.cond_or_ret.value())));
+    } else {
+      std::vector<mir::inst::VarId> vars;
+      for (auto exit : exits) {
+        vars.push_back(
+            var_cast_map.at(func.basic_blks.at(exit).jump.cond_or_ret.value()));
+      }
+      init_inst_after.push_back(
+          std::make_unique<mir::inst::PhiInst>(callInst.dest, vars));
+    }
+
     for (auto iter = subfunc.basic_blks.begin();
          iter != subfunc.basic_blks.end(); ++iter) {
       int new_id;
@@ -201,6 +216,11 @@ class Rewriter {
     std::optional<mir::inst::VarId> cond_or_ret = {};
     auto bb_true = blk.jump.bb_true;
     auto bb_false = blk.jump.bb_false;
+    auto kind = blk.jump.kind;
+    auto jump_kind = blk.jump.jump_kind;
+    if (blk.jump.kind == mir::inst::JumpInstructionKind::Return) {
+      kind = mir::inst::JumpInstructionKind::Br;
+    }
     if (label_cast_map.count(bb_true)) {
       bb_true = label_cast_map.at(bb_true);
       // if (bb_true == sub_endId) {
@@ -219,8 +239,8 @@ class Rewriter {
       cond_or_ret = blk.jump.cond_or_ret.value();
       cond_or_ret = mir::inst::VarId(var_cast_map.at(cond_or_ret.value().id));
     }
-    new_blk.jump = mir::inst::JumpInstruction(blk.jump.kind, bb_true, bb_false,
-                                              cond_or_ret, blk.jump.jump_kind);
+    new_blk.jump = mir::inst::JumpInstruction(kind, bb_true, bb_false,
+                                              cond_or_ret, jump_kind);
   }
 
   mir::inst::VarId get_new_varId() { return mir::inst::VarId(++varId); }

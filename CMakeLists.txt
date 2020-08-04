@@ -20,6 +20,8 @@ set(backend_files
     backend/optimization/const_propagation.hpp
     backend/optimization/memvar_propagation.hpp
     backend/optimization/value_shift_collapse.cpp
+    backend/optimization/init_end_block.hpp
+    backend/optimization/init_end_block.cpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
