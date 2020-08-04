@@ -16,6 +16,7 @@
 #include "backend/optimization/const_merge.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
+#include "backend/optimization/exit_ahead.hpp"
 #include "backend/optimization/global_expression_move.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
@@ -87,7 +88,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
-
+  backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());

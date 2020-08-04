@@ -59,6 +59,11 @@ class Conflict_Map {
               break;
             }
           }
+          // if (blkiter.first >= 1000000) {  // exit
+          //   for (auto var : inst->useVars()) {
+          //     func.variables.at(var.id).priority = -1;
+          //   }
+          // }
           if (new_VarId.id == 0) {
             if (merged_var_Map.count(inst->dest)) {
               new_VarId = merged_var_Map.at(inst->dest);
