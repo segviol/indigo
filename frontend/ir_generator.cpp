@@ -3,8 +3,8 @@
 using namespace front::irGenerator;
 
 std::vector<string> front::irGenerator::externalFuncName = {
-    "getint", "getch",     "getarray", "putint", "putch",  "putarray",
-    "putf",   "starttime", "stoptime", "malloc", "calloc", "free"};
+    "getint",    "getch",    "getarray", "putint", "putch",  "putarray", "putf",
+    "starttime", "stoptime", "malloc",   "calloc", "memset", "free"};
 
 void irGenerator::outputInstructions(std::ostream &out) {
   out << (string) ">====== global_var ======<" << std::endl;
