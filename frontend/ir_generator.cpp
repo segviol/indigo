@@ -2,6 +2,7 @@
 
 using namespace front::irGenerator;
 
+int front::irGenerator::TopLocalSmallArrayLength = 100;
 std::vector<string> front::irGenerator::externalFuncName = {
     "getint",    "getch",    "getarray", "putint", "putch",  "putarray", "putf",
     "starttime", "stoptime", "malloc",   "calloc", "memset", "free"};
@@ -296,8 +297,8 @@ void irGenerator::ir_declare_const(string name,
 }
 
 void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
-                                   std::vector<uint32_t> inits, bool init,
-                                   int len) {
+                                   std::vector<uint32_t> inits,
+                                   localArrayInitType initType, int len) {
   if (_funcStack.back() == _GlobalInitFuncName) {
     GlobalValue globalValue;
     if (len == 0) {
@@ -317,6 +318,18 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
         is_memory = false;
         break;
       case front::symbol::SymbolKind::Array:
+        if (initType == localArrayInitType::Small) {
+          auto varNameRef = getVarName(name, id) + "_$array";
+
+          Variable variable(
+              mir::types::new_array_ty(mir::types::new_int_ty(), len), true,
+              false, false);
+          insertLocalValue(
+              varNameRef,
+              _funcNameToFuncData[_funcStack.back()]._nowLocalValueId,
+              variable);
+          _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
+        }
         ty = SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy())));
         is_memory = false;
         break;
@@ -336,23 +349,46 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     _funcNameToFuncData[_funcStack.back()]._nowLocalValueId++;
 
     if (kind == symbol::SymbolKind::Array) {
-      if (init) {
-        RightVal size;
-        RightVal value;
+      switch (initType) {
+        case localArrayInitType::Small: {
+          ir_ref(varName, varName + "_$array");
+          break;
+        }
+        case localArrayInitType::SmallInit: {
+          ir_ref(varName, varName + "_$array");
+          RightVal value;
+          RightVal size;
+          size.emplace<0>(len * ty->size().value());
+          value.emplace<0>(0);
+          ir_function_call("", symbol::SymbolKind::VID, "memset",
+                           {varName, value, size}, true);
+          break;
+        }
+        case localArrayInitType::BigInit: {
+          RightVal nitems;
+          RightVal size;
+          RightVal value;
 
-        size.emplace<0>(len * ty->size().value());
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {size},
-                         true);
-        value.emplace<0>(0);
-        ir_function_call("", symbol::SymbolKind::VID, "memset",
-                         {varName, value, size}, true);
-      } else {
-        RightVal right;
-        right.emplace<0>(len * ty->size().value());
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
-                         true);
+          size.emplace<0>(len * ty->size().value());
+          ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {size},
+                           true);
+          value.emplace<0>(0);
+          ir_function_call("", symbol::SymbolKind::VID, "memset",
+                           {varName, value, size}, true);
+          _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
+          break;
+        }
+        case localArrayInitType::BigNoInit: {
+          RightVal right;
+          right.emplace<0>(len * ty->size().value());
+          ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {right},
+                           true);
+          _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
+          break;
+        }
+        default:
+          break;
       }
-      _funcNameToFuncData[_funcStack.back()]._freeList.push_back(varName);
     }
   }
 }
