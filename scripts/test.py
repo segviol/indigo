@@ -369,10 +369,12 @@ logger.info(json.dumps(result, indent=2, cls=TestEncoder))
 logger.info(f"Passed {result.num_passed} of {result.num_tested} tests")
 
 if args.performance_test:
-    print("PERFORMANCE: ")
     if os.path.exists("time.log"):
         with open("time.log", 'r', encoding="utf-8") as f:
             last_performance: dict = json.loads(f.read())
+            print(
+                f"Found log from last run with {len(last_performance)} entries."
+            )
     else:
         last_performance = {}
 
@@ -380,6 +382,7 @@ if args.performance_test:
     for test in result.passed:
         d[test.path] = test.time
 
+    print("PERFORMANCE: ")
     for key_ in list(d):
         key = str(key_)
         last = last_performance.get(key_)
@@ -388,8 +391,14 @@ if args.performance_test:
             key = ".." + key[-30:]
         if last != None:
             difference = (this / last) - 1
-            print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+6.3%}".format(
-                key, this, last, difference))
+            if difference > 0.01:
+                note = "FASTER!"
+            elif difference < -0.01:
+                note = "SLOWER!"
+            else:
+                note = ""
+            print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+9.3%} {}".format(
+                key, this, last, difference, note))
         else:
             print("{:<32}: {:>10.6f}s".format(key, this))
 
