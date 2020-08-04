@@ -444,6 +444,12 @@ void irGenerator::ir_leave_function() {
       _funcNameToFuncData[_funcStack.back()]._freeList;
   RightVal rightVal;
 
+  if (_package.functions.find(_funcStack.back())->second.type->ret->kind() ==
+      mir::types::TyKind::Void) {
+    ir_jump(mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
+            mir::inst::JumpKind::Undefined);
+  }
+
   for (size_t instIndex = 0; instIndex < instructions.size(); instIndex++) {
     if (std::holds_alternative<std::shared_ptr<mir::inst::JumpInstruction>>(
             instructions.at(instIndex))) {
