@@ -264,7 +264,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
               }
               case mir::inst::InstKind::Ref: {
                 auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
-                if (refinst->val.index() == 0 || blk.id == startblk.id) {
+                if (blk.id == startblk.id) {
                   break;
                 }
                 vp.setdefpoint(inst->dest, start, startblk.inst.size());
