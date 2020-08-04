@@ -382,11 +382,11 @@ if args.performance_test:
 
     for key_ in list(d):
         key = str(key_)
-        last = last_performance.get(key)
+        last = last_performance.get(key_)
         this = d[key]
         if len(key) > 30:
             key = ".." + key[-30:]
-        if not last is None:
+        if last != None:
             difference = (this / last) - 1
             print("{:<32}: {:>10.6f}s; Prev: {:>10.6f}s, {:>+6.3%}".format(
                 key, this, last, difference))
