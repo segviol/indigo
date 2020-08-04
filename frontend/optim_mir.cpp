@@ -764,7 +764,8 @@ shared_ptr<mir::inst::PhiInst> ir_phi(mir::inst::VarId var, int n) {
 int global_id = 65535;
 map<mir::inst::VarId, vector<mir::inst::VarId>> name_map;  // pair(oldid,
                                                            // newids)
-mir::inst::VarId rename(mir::inst::VarId oldid) {
+mir::inst::VarId rename(mir::inst::VarId oldid, int line) {
+  //cout << "call rename at : " << line << endl;
   mir::inst::VarId newid(global_id);
   global_id++;
   map<mir::inst::VarId, vector<mir::inst::VarId>>::iterator it =
@@ -795,6 +796,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
                 map<int, vector<int>> dom_tree) {
   mir::inst::VarId ve = top();
   for (int i = 0; i < b->inst.size(); i++) {
+
     if (b->inst[i].index() == 0) {
       shared_ptr<mir::inst::Inst> ins = get<0>(b->inst[i]);
       if (ins->inst_kind() == mir::inst::InstKind::Assign) {
@@ -807,7 +809,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           }
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 813);
           in->dest = xv;
           push(xv);
         }
@@ -823,7 +825,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           }
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 829);
           in->dest = xv;
           push(xv);
         }
@@ -843,7 +845,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           }
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 849);
           in->dest = xv;
           push(xv);
         }
@@ -857,7 +859,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           }
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 863);
           in->dest = xv;
           push(xv);
         }
@@ -886,7 +888,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           in->ptr = top();
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 892);
           in->dest = xv;
           push(xv);
         }
@@ -900,7 +902,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
           }
         }
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 906);
           in->dest = xv;
           push(xv);
         }
@@ -908,7 +910,7 @@ void rename_var(mir::inst::VarId id, BasicBlock* b, map<int, BasicBlock*> nodes,
         shared_ptr<mir::inst::PhiInst> in =
             static_pointer_cast<mir::inst::PhiInst>(ins);
         if (in->dest == id) {
-          mir::inst::VarId xv = rename(id);
+          mir::inst::VarId xv = rename(id, 914);
           in->dest = xv;
           push(xv);
         }
@@ -1148,10 +1150,10 @@ void generate_SSA(map<int, BasicBlock*> nodes,
   vars = vectors_difference(vars, notRename);
   map<int, vector<int>> dom_tree = build_dom_tree(dom);
   for (int i = 0; i < vars.size(); i++) {
-    V.clear();
-    push(rename(vars[i]));
-    rename_var(vars[i], find_entry(nodes), nodes, dom_tree);
-  }
+      V.clear();
+      push(rename(vars[i], 1157));
+      rename_var(vars[i], find_entry(nodes), nodes, dom_tree);
+    }
 }
 
 mir::inst::VarId refill(map<mir::inst::VarId, mir::inst::VarId> redundantphi,
@@ -1186,6 +1188,9 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
       map<int, int> dom = find_idom(nodes);
       map<int, vector<int>> df = dominac_frontier(dom, nodes);
       vector<mir::inst::VarId> vars = get_vars(iter->second);
+      for (int k = 0; k < vars.size(); k++) {
+        //cout << vars[k] << endl;
+      }
       generate_SSA(nodes, blocks, df, vars, dom);
       map<int, BasicBlock*>::iterator iit = nodes.find(1048576);
       if (iit != nodes.end()) {
@@ -1350,6 +1355,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
             }
           }
         }
+        shared_ptr<mir::inst::JumpInstruction> jump =
+            get<1>(iit->second->inst[iit->second->inst.size() - 1]);
+        if (jump->cond_or_ret) {
+          jump->cond_or_ret = refill(redundantphi, *jump->cond_or_ret);
+        }
       }
       bool change = true;
       while (change) {
@@ -1476,6 +1486,11 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
               }
             }
           }
+          shared_ptr<mir::inst::JumpInstruction> jump =
+              get<1>(iit->second->inst[iit->second->inst.size() - 1]);
+          if (jump->cond_or_ret) {
+            jump->cond_or_ret = refill(redundantphi, *jump->cond_or_ret);
+          }
         }
       }
       for (int i = 0; i < order.size(); i++) {
@@ -1597,10 +1612,10 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
         }
       }
 
-      cout << endl << "phi" << endl;
+      /*cout << endl << "phi" << endl;
       for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
         cout << iet->first << " " << iet->second << endl;
-      }
+      }*/
     }
   }
 }
