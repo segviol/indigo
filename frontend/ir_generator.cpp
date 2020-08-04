@@ -396,6 +396,7 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
 
   functionData._nowLocalValueId = _InitLocalVarId;
   functionData._nowTmpId = _InitTmpVarId;
+  functionData._frontInstsNum = 0;
   _funcNameToFuncData[_name] = functionData;
 
   switch (kind) {
@@ -594,7 +595,9 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
     }
     insertPosition +=
         _package.functions.at(_funcStack.back()).type->params.size();
+    insertPosition += _funcNameToFuncData[_funcStack.back()]._frontInstsNum;
     instructions.insert(insertPosition, callInst);
+    _funcNameToFuncData[_funcStack.back()]._frontInstsNum++;
   } else {
     instructions.push_back(callInst);
   }
