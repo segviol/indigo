@@ -334,7 +334,7 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
                          true);
         value.emplace<0>(0);
         ir_function_call("", symbol::SymbolKind::VID, "memset",
-                         {varName, value, size});
+                         {varName, value, size}, true);
       } else {
         RightVal right;
         right.emplace<0>(len * ty->size().value());
