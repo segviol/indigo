@@ -128,6 +128,16 @@ class Block_Live_Var {
     std::set_union(
         useVars.begin(), useVars.end(), diff_result.begin(), diff_result.end(),
         std::inserter(*instLiveVars[idx], instLiveVars[idx]->begin()));
+    std::cout << idx << " :" << std::endl;
+    std::cout << defvar << std::endl;
+    for (auto var : useVars) {
+      std::cout << var << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << "inst live vars:";
+    for (auto var : *instLiveVars[idx]) {
+      std::cout << var << ", " << std::endl;
+    }
   }
 
   bool build() {

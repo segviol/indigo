@@ -70,6 +70,9 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
     func_livevar_analyse[funcId] =
         std::make_shared<livevar_analyse::Livevar_Analyse>(func);
+    if (funcId == "$$5_main") {
+      std::cout << "a" << std::endl;
+    }
     func_livevar_analyse[funcId]->build();
     while (true) {  // delete death code for each block and build again util no
                     // death code to remove
@@ -90,6 +93,9 @@ class Remove_Dead_Code : public backend::MirOptimizePass {
                     std::map<std::string, std::any>& extra_data_repo) {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          ++iter) {
+      if (iter->second.type->is_extern) {
+        continue;
+      }
       optimize_func(iter->first, iter->second);
     }
   }
