@@ -486,6 +486,7 @@ void irGenerator::ir_leave_function() {
             std::nullopt, mir::inst::JumpKind::Undefined);
   }
   ir_label(_LeaveFuncLabelId);
+  ir_assign(_VoidVarName, _VoidVarName);
   ir_jump(mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
           mir::inst::JumpKind::Undefined);
 
