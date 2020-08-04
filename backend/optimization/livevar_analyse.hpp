@@ -128,16 +128,6 @@ class Block_Live_Var {
     std::set_union(
         useVars.begin(), useVars.end(), diff_result.begin(), diff_result.end(),
         std::inserter(*instLiveVars[idx], instLiveVars[idx]->begin()));
-    std::cout << idx << " :" << std::endl;
-    std::cout << defvar << std::endl;
-    for (auto var : useVars) {
-      std::cout << var << ", ";
-    }
-    std::cout << std::endl;
-    std::cout << "inst live vars:";
-    for (auto var : *instLiveVars[idx]) {
-      std::cout << var << ", " << std::endl;
-    }
   }
 
   bool build() {
@@ -210,7 +200,7 @@ class Livevar_Analyse {
         // if (!livevars.count(prec)) {
         //   continue;
         // }
-        livevars.at(prec)->add_subsequent(blv->live_vars_in);
+        livevars[prec]->add_subsequent(blv->live_vars_in);
       }
     }
   }
@@ -239,17 +229,11 @@ class Livevar_Analyse {
     if (!func.basic_blks.size()) {
       return;
     }
-
+    auto end = func.basic_blks.end();
+    end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
-    while (true) {
-      bool modify = false;
-      for (auto blk : func.get_exits()) {
-        modify |= bfs_build(func.basic_blks.at(blk));
-      }
-      if (!modify) {
-        break;
-      }
-    }
+    while (bfs_build(end->second))
+      ;
     // for (auto& pair : livevars) {
     //   LOG(TRACE) << pair.first << ": " << std::endl;
     //   for (auto var : *pair.second->live_vars_in) {
