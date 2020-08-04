@@ -20,10 +20,10 @@ void ExcessRegDelete::optimize_arm(
           // Delete `mov rA, rA`
           del = true;
         } else if (x->op == arm::OpCode::Mov && new_inst.size() > 0) {
-          // Delete `mov rA, rB; mov rA, rB`
+          // Delete `mov rA, rB; mov rA, rB;`
           if (auto x1 = dynamic_cast<Arith2Inst *>(&*new_inst.back())) {
-            if (x1->op == arm::OpCode::Mov && x1->r1 == x->r1 &&
-                x1->r2 == x->r2 && x1->cond == x->cond) {
+            if (x1->op == arm::OpCode::Mov && x->r1 == x1->r1 &&
+                x->r2 == x1->r2 && x->cond == x1->cond) {
               del = true;
             }
           }
