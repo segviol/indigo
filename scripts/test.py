@@ -212,12 +212,10 @@ def test_dir(dir, test_performance: bool, is_root: bool = True):
                     process = subprocess.run(["./tmp"],
                                              stdin=f,
                                              capture_output=True,
-                                             capture_stderr=True,
                                              timeout=args.timeout)
                 else:
                     process = subprocess.run(["./tmp"],
                                              capture_output=True,
-                                             capture_stderr=True,
                                              timeout=args.timeout)
 
                 return_code = process.returncode % 256
