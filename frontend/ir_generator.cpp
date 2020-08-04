@@ -3,8 +3,8 @@
 using namespace front::irGenerator;
 
 std::vector<string> front::irGenerator::externalFuncName = {
-    "getint", "getch",     "getarray", "putint", "putch",  "putarray",
-    "putf",   "starttime", "stoptime", "malloc", "calloc", "free"};
+    "getint",    "getch",    "getarray", "putint", "putch",  "putarray", "putf",
+    "starttime", "stoptime", "malloc",   "calloc", "memset", "free"};
 
 void irGenerator::outputInstructions(std::ostream &out) {
   out << (string) ">====== global_var ======<" << std::endl;
@@ -139,6 +139,12 @@ void irGenerator::ir_begin_of_program() {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))),
           {SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())}, true));
+    } else if (funcName == "memset") {
+      type = shared_ptr<FunctionTy>(
+          new FunctionTy(SharedTyPtr(new VoidTy()),
+                         {SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))),
+                          SharedTyPtr(new IntTy()), SharedTyPtr(new IntTy())},
+                         true));
     } else if (funcName == "free") {
       type = shared_ptr<FunctionTy>(new FunctionTy(
           SharedTyPtr(new VoidTy()),
@@ -175,6 +181,11 @@ void irGenerator::ir_begin_of_program() {
     } else if (funcName == "calloc") {
       func->variables[1] = Variable(SharedTyPtr(new IntTy()), true, false);
       func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
+    } else if (funcName == "memset") {
+      func->variables[1] = Variable(
+          SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy()))), true, false);
+      func->variables[2] = Variable(SharedTyPtr(new IntTy()), true, false);
+      func->variables[3] = Variable(SharedTyPtr(new IntTy()), true, false);
     } else if (funcName == "free") {
       func->variables[1] =
           Variable(SharedTyPtr(new PtrTy(SharedTyPtr(new IntTy))), true, false);
@@ -326,13 +337,15 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
 
     if (kind == symbol::SymbolKind::Array) {
       if (init) {
-        RightVal nitems;
         RightVal size;
+        RightVal value;
 
-        nitems.emplace<0>(len);
-        size.emplace<0>(ty->size().value());
-        ir_function_call(varName, symbol::SymbolKind::Ptr, "calloc",
-                         {nitems, size}, true);
+        size.emplace<0>(len * ty->size().value());
+        ir_function_call(varName, symbol::SymbolKind::Ptr, "malloc", {size},
+                         true);
+        value.emplace<0>(0);
+        ir_function_call("", symbol::SymbolKind::VID, "memset",
+                         {varName, value, size}, true);
       } else {
         RightVal right;
         right.emplace<0>(len * ty->size().value());
@@ -394,17 +407,18 @@ void irGenerator::ir_declare_function(string _name, symbol::SymbolKind kind) {
 
   functionData._nowLocalValueId = _InitLocalVarId;
   functionData._nowTmpId = _InitTmpVarId;
+  functionData._frontInstsNum = 0;
   _funcNameToFuncData[_name] = functionData;
 
   switch (kind) {
-  case front::symbol::SymbolKind::INT:
-    ret = SharedTyPtr(new IntTy());
-    break;
-  case front::symbol::SymbolKind::VID:
-    ret = SharedTyPtr(new VoidTy());
-    break;
-  default:
-    break;
+    case front::symbol::SymbolKind::INT:
+      ret = SharedTyPtr(new IntTy());
+      break;
+    case front::symbol::SymbolKind::VID:
+      ret = SharedTyPtr(new VoidTy());
+      break;
+    default:
+      break;
   }
   name = _name;
   type = shared_ptr<FunctionTy>(new FunctionTy(ret, params, false));
@@ -567,13 +581,12 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
       destVarId = shared_ptr<VarId>(new VarId(LeftValueToLabelId(retName)));
       break;
     }
-
-  case front::symbol::SymbolKind::VID: {
-    destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
-    break;
-  }
-  default:
-    break;
+    case front::symbol::SymbolKind::VID: {
+      destVarId = shared_ptr<VarId>(new VarId(_VoidVarId));
+      break;
+    }
+    default:
+      break;
   }
 
   for (auto var : params) {
@@ -593,7 +606,9 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
     }
     insertPosition +=
         _package.functions.at(_funcStack.back()).type->params.size();
+    insertPosition += _funcNameToFuncData[_funcStack.back()]._frontInstsNum;
     instructions.insert(insertPosition, callInst);
+    _funcNameToFuncData[_funcStack.back()]._frontInstsNum++;
   } else {
     instructions.push_back(callInst);
   }
