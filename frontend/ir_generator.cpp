@@ -485,9 +485,6 @@ void irGenerator::ir_leave_function() {
     ir_jump(mir::inst::JumpInstructionKind::Return, _LeaveFuncLabelId, -1,
             std::nullopt, mir::inst::JumpKind::Undefined);
   }
-  ir_label(_LeaveFuncLabelId);
-  ir_jump(mir::inst::JumpInstructionKind::Return, -1, -1, std::nullopt,
-          mir::inst::JumpKind::Undefined);
 
   for (size_t instIndex = 0; instIndex < instructions.size(); instIndex++) {
     if (std::holds_alternative<std::shared_ptr<mir::inst::JumpInstruction>>(
