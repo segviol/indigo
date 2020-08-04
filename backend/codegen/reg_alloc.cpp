@@ -21,7 +21,7 @@ namespace backend::codegen {
 using namespace arm;
 
 const std::set<Reg> GP_REGS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12};
+const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12, REG_LR};
 const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 8, 9, 10};
 
 /// An interval represented by this struct is a semi-open interval
@@ -112,15 +112,20 @@ class RegAllocator {
   // std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
   std::map<int, uint32_t> point_bb_map;
 
-  std::unordered_map<arm::Reg, Interval> live_intervals;
-  std::unordered_map<arm::Reg, Reg> reg_map;
+  std::unordered_map<Reg, Interval> live_intervals;
+  std::unordered_map<Reg, Reg> reg_map;
+  std::unordered_multimap<Reg, Reg> reg_reverse_map;
   // key: physical register; value: allocation interval
-  std::unordered_map<arm::Reg, Interval> active;
+  std::unordered_map<Reg, Interval> active;
   // key: virtual register; value: physical register
   std::list<std::pair<Reg, Reg>> active_reg_map;
-  std::unordered_map<arm::Reg, Interval> spilled_regs;
-  std::unordered_map<arm::Reg, int> spill_positions;
+  std::unordered_map<Reg, Interval> spilled_regs;
+  std::unordered_map<Reg, int> spill_positions;
   std::unordered_set<Reg> spilled_cross_block_reg;
+
+  std::unordered_map<Reg, int> reg_assign_count;
+  std::unordered_map<Reg, Reg> reg_affine;
+  std::unordered_map<Reg, Reg> reg_collapse;
 
   //   std::multimap<int, SpillOperation> spill_operatons;
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
@@ -132,6 +137,7 @@ class RegAllocator {
   std::optional<std::pair<Reg, Reg>> delayed_store;
 
   bool bb_reset = true;
+  bool is_leaf_func = true;
 
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
@@ -168,6 +174,10 @@ class RegAllocator {
     } else {
       live_intervals.insert({reg, Interval(point)});
     }
+    auto r_use_insert = reg_assign_count.insert({reg, 1});
+    if (!r_use_insert.second) {
+      r_use_insert.first->second++;
+    };
     // add_reg_use_in_bb_at_point(reg, point);
   }
 
@@ -202,6 +212,8 @@ class RegAllocator {
   void calc_live_intervals();
   void alloc_regs();
   void construct_reg_map();
+  void calc_reg_affinity();
+
   std::vector<std::pair<Reg, Interval>> sort_intervals();
   //   void generate_load_store_positions(std::vector<std::pair<Reg,
   //   Interval>>);
@@ -240,6 +252,13 @@ class RegAllocator {
   Reg make_space(Reg r, Interval i);
   Reg alloc_read(Reg r);
   Reg alloc_write(Reg r);
+  Reg get_collapse_reg(Reg r) {
+    auto rd = reg_collapse.find(r);
+    if (rd == reg_collapse.end())
+      return r;
+    else
+      return get_collapse_reg(rd->second);
+  }
   void force_free(Reg r, bool also_erase_map = true, bool write_back = true);
   int get_or_alloc_spill_pos(Reg r) {
     int pos;
@@ -282,6 +301,7 @@ void RegAllocator::alloc_regs() {
   //   }
   //   LOG(TRACE, "bb_reg_use") << std::endl;
   // }
+  calc_reg_affinity();
 
   perform_load_stores();
   f.inst = std::move(inst_sink);
@@ -299,13 +319,25 @@ void RegAllocator::alloc_regs() {
 
     auto use_stack_param = f.ty.get()->params.size() > 4;
     auto offset_size = (first_->regs.size()) * 4;
+
+    if (!use_stack_param && stack_size == 0) {
+      first_->regs.erase(REG_FP);
+      last_->regs.erase(REG_FP);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Add, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
     }
 
-    if (stack_size < 1024) {
+    if (stack_size == 0) {
+      // sp does not change.
+      if (!use_stack_param) {
+        // no need to use fp
+        f.inst.erase(f.inst.begin() + 1);
+      }
+    } else if (stack_size < 1024) {
       f.inst.insert(f.inst.begin() + 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_SP, REG_SP,
                                                  Operand2(stack_size)));
@@ -318,10 +350,23 @@ void RegAllocator::alloc_regs() {
                                                  RegisterOperand(12)));
     }
 
+    if (stack_size == 0) {
+      // sp hasn't change throught function
+      f.inst.erase(f.inst.end() - 2);
+    }
+
     if (use_stack_param) {
       f.inst.insert(f.inst.end() - 2,
                     std::make_unique<Arith3Inst>(OpCode::Sub, REG_FP, REG_FP,
                                                  Operand2(offset_size)));
+    }
+    {
+      auto &first = f.inst.front();
+      auto first_ = static_cast<PushPopInst *>(&*first);
+      auto &last = f.inst.back();
+      auto last_ = static_cast<PushPopInst *>(&*last);
+      if (first_->regs.empty()) f.inst.erase(f.inst.begin());
+      if (last_->regs.empty()) f.inst.erase(f.inst.end() - 1);
     }
   }
 }
@@ -340,6 +385,12 @@ void RegAllocator::calc_live_intervals() {
       if (x->op == arm::OpCode::Mov || x->op == arm::OpCode::MovT ||
           x->op == arm::OpCode::Mvn) {
         add_reg_write(x->r1, i);
+        if (auto r2 = std::get_if<RegisterOperand>(&x->r2);
+            x->op == arm::OpCode::Mov && r2 && r2->shift_amount == 0) {
+          if (!is_virtual_register(x->r1) &&
+              !is_virtual_register(x->r2.get_reg()))
+            reg_affine.insert({x->r1, x->r2.get_reg()});
+        }
       } else {
         add_reg_read(x->r1, i);
       }
@@ -399,6 +450,7 @@ void RegAllocator::construct_reg_map() {
         // Global register id starts with r4;
         auto reg = GLOB_REGS[color->second];
         reg_map.insert({vreg_id, reg});
+        reg_reverse_map.insert({reg, vreg_id});
         used_regs.insert(reg);
         {
           auto &trace = LOG(TRACE);
@@ -566,6 +618,7 @@ void RegAllocator::replace_read(Reg &r, int i,
     display_reg_name(LOG(TRACE), r);
     LOG(TRACE) << " at: " << i << " ";
   };
+  r = get_collapse_reg(r);
   if (!is_virtual_register(r)) {
     disp_reg();
     LOG(TRACE) << "phys" << std::endl;
@@ -627,6 +680,7 @@ void RegAllocator::replace_read(Reg &r, int i,
 
 ReplaceWriteAction RegAllocator::pre_replace_write(
     Reg &r, int i, std::optional<Reg> pre_alloc_transient) {
+  r = get_collapse_reg(r);
   auto r_ = r;
   if (!is_virtual_register(r)) {
     // is physical register; mark as occupied
@@ -643,7 +697,7 @@ ReplaceWriteAction RegAllocator::pre_replace_write(
     } else {
       auto it = active_reg_map.begin();
       while (it != active_reg_map.end()) {
-        if (it->first == r)
+        if (it->first == r_)
           break;
         else
           it++;
@@ -794,6 +848,70 @@ std::vector<std::pair<Reg, Interval>> RegAllocator::sort_intervals() {
   return std::move(intervals);
 }
 
+void RegAllocator::calc_reg_affinity() {
+  for (auto [reg_dst_, reg_src_] : reg_affine) {
+    auto reg_dst = reg_dst_;
+    auto reg_src = reg_src_;
+
+    if (auto it = reg_map.find(reg_src);
+        it != reg_map.end() && reg_map.find(reg_dst) == reg_map.end() &&
+        spilled_cross_block_reg.find(reg_dst) ==
+            spilled_cross_block_reg.end() &&
+        reg_assign_count.at(reg_dst) == 1) {
+      auto li_dst = live_intervals.at(reg_dst);
+      bool overlaps = false;
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
+      for (; rev_it != rev_it_end; rev_it++) {
+        auto vr = rev_it->second;
+        if (vr == reg_src) continue;
+        auto interval = live_intervals.at(vr);
+        if (interval.overlaps(li_dst)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        reg_collapse.insert({reg_dst, reg_src});
+      }
+    } else if (auto it = reg_map.find(reg_dst);
+               it != reg_map.end() && reg_map.find(reg_src) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_src) ==
+                   spilled_cross_block_reg.end()) {
+      auto li_src = live_intervals.at(reg_src);
+      bool overlaps = false;
+      auto [rev_it, rev_it_end] = reg_reverse_map.equal_range(it->second);
+      for (; rev_it != rev_it_end; rev_it++) {
+        auto vr = rev_it->second;
+        if (vr == reg_src) continue;
+        auto interval = live_intervals.at(vr);
+        if (interval.overlaps(li_src)) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        reg_collapse.insert({reg_src_, reg_dst_});
+      }
+    } else if (reg_map.find(reg_src) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_src) ==
+                   spilled_cross_block_reg.end() &&
+               reg_map.find(reg_dst) == reg_map.end() &&
+               spilled_cross_block_reg.find(reg_dst) ==
+                   spilled_cross_block_reg.end()) {
+      //  Both are local variables
+      auto reg_src_ = get_collapse_reg(reg_src);
+      auto reg_dst_ = get_collapse_reg(reg_dst);
+      auto &li_src = live_intervals.at(reg_src_);
+      auto &li_dst = live_intervals.at(reg_dst_);
+      if (!li_src.overlaps(li_dst)) {
+        li_src.add_starting_point(li_dst.start);
+        li_src.add_ending_point(li_dst.end);
+        reg_collapse.insert({reg_dst_, reg_src_});
+      }
+    }
+  }
+}
+
 void RegAllocator::perform_load_stores() {
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
@@ -879,6 +997,7 @@ void RegAllocator::perform_load_stores() {
       }
       invalidate_read(i);
       if (x->op == arm::OpCode::Bl) {
+        is_leaf_func = false;
         auto &label = x->l;
         int param_cnt = x->param_cnt;
         int reg_cnt = std::min(param_cnt, 4);
@@ -886,12 +1005,14 @@ void RegAllocator::perform_load_stores() {
         for (int i = reg_cnt; i < 4; i++) force_free(Reg(i));
         // R12 should be freed whatever condition
         force_free(Reg(12));
+        force_free(Reg(REG_LR));
         inst_sink.push_back(std::move(f.inst[i]));
         active.erase(Reg(0));
         active.erase(Reg(1));
         active.erase(Reg(2));
         active.erase(Reg(3));
         active.erase(Reg(12));
+        active.erase(Reg(REG_LR));
       } else if (x->op == arm::OpCode::B) {
         if (bb_reset) {
           auto it = active_reg_map.begin();
