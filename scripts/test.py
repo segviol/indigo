@@ -396,7 +396,7 @@ if args.performance_test:
     with open('time.log', 'w', encoding="utf-8") as f:
         f.write(json.dumps(d))
 
-if result["num_failed"] != 0:
+if result.num_passed != result.num_tested:
     exit(1)
 else:
     exit(0)
