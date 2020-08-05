@@ -33,6 +33,14 @@ class Merge_Block : public backend::MirOptimizePass {
         auto& blk = blkiter.second;
         if (blk.preceding.size() == 1) {
           auto& preBlk = func.basic_blks.at(*blk.preceding.begin());
+          auto end_iter = func.basic_blks.end();
+          end_iter--;
+          end_iter--;
+          if (preBlk.jump.kind ==
+              mir::inst::JumpInstructionKind::Return) {  // meaningless
+            // end block's id is not the largest
+            continue;
+          }
 
           if (preBlk.jump.kind == mir::inst::JumpInstructionKind::Br &&
               preBlk.jump.bb_true == blk.id) {
