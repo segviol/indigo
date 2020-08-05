@@ -69,8 +69,14 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
         break;
       }
     }
-    pre_blk.jump = mir::inst::JumpInstruction(
-        mir::inst::JumpInstructionKind::Return, end_iter->first, -1, phi_var);
+    if (func.type->ret->kind() != mir::types::TyKind::Void) {
+      pre_blk.jump = mir::inst::JumpInstruction(
+          mir::inst::JumpInstructionKind::Return, end_iter->first, -1, phi_var);
+    } else {
+      pre_blk.jump = mir::inst::JumpInstruction(
+          mir::inst::JumpInstructionKind::Return, end_iter->first, -1);
+    }
+
     if (pre_blk.inst.size()) {
       auto iter = pre_blk.inst.end() - 1;
       if (iter->get()->dest == phi_var) {
