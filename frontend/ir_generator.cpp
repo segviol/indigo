@@ -318,7 +318,8 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
         is_memory = false;
         break;
       case front::symbol::SymbolKind::Array:
-        if (initType == localArrayInitType::Small) {
+        if (initType == localArrayInitType::Small ||
+            initType == localArrayInitType::SmallInit) {
           auto varNameRef = getVarName(name, id) + "_$array";
 
           Variable variable(
