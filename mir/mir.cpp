@@ -236,6 +236,15 @@ void MirFunction::display(std::ostream& o) const {
   }
 }
 
+size_t MirFunction::variable_table_size() const {
+  size_t size = 0;
+  for (auto& v : variables) {
+    auto s = v.second.ty->size();
+    if (s) size += s.value();
+  }
+  return size;
+}
+
 void MirPackage::display(std::ostream& o) const {
   for (auto& f : functions) {
     o << f.second << std::endl;
