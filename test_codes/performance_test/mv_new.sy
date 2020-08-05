@@ -3,7 +3,7 @@ int A[1024][1024];
 int B[1024];
 int C[1024];
 
-void mv(int n, int A[][1024], int B[1024], int C[1024])
+void mv(int n, int A[][1024], int B[], int C[])
 {
     int i, k;
 
