@@ -307,7 +307,8 @@ class Inline_Func : public backend::MirOptimizePass {
           if (subfunc.type->is_extern) {
             continue;
           }
-          if (subfunc.variables.size() + func.variables.size() >= 256) {
+          if (subfunc.variable_table_size() + func.variable_table_size() >=
+              256) {
             continue;
           }
           //  Then this func is inlineable
