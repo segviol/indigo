@@ -16,6 +16,7 @@
 #include "backend/optimization/const_merge.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
+#include "backend/optimization/exit_ahead.hpp"
 #include "backend/optimization/global_expression_move.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
@@ -84,6 +85,8 @@ void add_passes(backend::Backend& backend) {
                    optimization::value_shift_collapse::ValueShiftCollapse>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
+
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
