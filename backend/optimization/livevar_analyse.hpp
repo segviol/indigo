@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <iterator>
 
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
