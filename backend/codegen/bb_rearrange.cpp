@@ -3,7 +3,7 @@
 #include <deque>
 #include <vector>
 
-#include "../include/aixlog.hpp"
+#include "../../include/aixlog.hpp"
 #include "../optimization/optimization.hpp"
 
 namespace backend::codegen {
