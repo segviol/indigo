@@ -28,7 +28,7 @@ class ScalizeFakeVarArray final
          instructionIter++) {
       if (instructionIter->index() == 0) {
         std::shared_ptr<mir::inst::Inst> mirInst =
-            std::get<mir::inst::Inst>(*instructionIter);
+            std::get<std::shared_ptr<mir::inst::Inst>>(*instructionIter);
         switch (mirInst->inst_kind()) {
           case mir::inst::InstKind::Ref: {
             mir::inst::RefInst* refInst = (mir::inst::RefInst*)mirInst.get();
