@@ -38,6 +38,9 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
         if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
           call_index.push_back(index + 1);
         }
+        if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
+          call_index.push_back(index);
+        }
         index++;
       }
       std::vector<int> del_index;
