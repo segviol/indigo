@@ -81,7 +81,9 @@ class irGenerator {
  public:
   irGenerator();
 
-  void outputInstructions(std::ostream &out);
+  static void outputInstructions(
+      std::ostream &out, mir::inst::MirPackage &package,
+      std::map<std::string, std::vector<Instruction>> funcInsts);
 
   LabelId getNewLabelId();
   // as of now, the tmp for global scope is inserted into global init

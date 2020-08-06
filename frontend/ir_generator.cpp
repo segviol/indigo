@@ -7,18 +7,20 @@ std::vector<string> front::irGenerator::externalFuncName = {
     "getint",    "getch",    "getarray", "putint", "putch",  "putarray", "putf",
     "starttime", "stoptime", "malloc",   "calloc", "memset", "free"};
 
-void irGenerator::outputInstructions(std::ostream &out) {
+void irGenerator::outputInstructions(
+    std::ostream &out, mir::inst::MirPackage &package,
+    std::map<std::string, std::vector<Instruction>> funcInsts) {
   out << (string) ">====== global_var ======<" << std::endl;
-  for (auto i : _package.global_values) {
+  for (auto i : package.global_values) {
     out << i.first << (string) " : ";
     i.second.display(out);
     out << std::endl;
   }
 
-  for (auto i : _funcNameToInstructions) {
+  for (auto i : funcInsts) {
     out << ">====== function name : " + i.first + "======<" << std::endl;
     out << ">====== vars : ======<" << std::endl;
-    for (auto j : _package.functions.at(i.first).variables) {
+    for (auto j : package.functions.at(i.first).variables) {
       out << j.first << (string) " : ";
       j.second.display(out);
       out << std::endl;
