@@ -123,8 +123,6 @@ int main(int argc, const char** argv) {
     front::syntax::SyntaxAnalyze syntax_analyze(word_arr);
     syntax_analyze.gm_comp_unit();
 
-    if (options.verbose) syntax_analyze.outputInstructions(std::cout);
-
     front::irGenerator::irGenerator& irgenerator =
         syntax_analyze.getIrGenerator();
     std::map<string, std::vector<front::irGenerator::Instruction>>& inst =
@@ -133,12 +131,20 @@ int main(int argc, const char** argv) {
     front::optimization::bmir_variable_table::BmirVariableTable&
         bmirVariableTable = syntax_analyze.getBmirVariableTable();
 
+    LOG(INFO) << ("origin bmir") << std::endl;
+    if (options.verbose) front::irGenerator::irGenerator::outputInstructions(std::cout,
+    package, inst);
+    
     front::optimization::bmir_optimization::BmirOptimization bmirOptimization(
         package, bmirVariableTable, inst, options);
     bmirOptimization.add_pass(
         std::make_unique<front::optimization::scalize_fake_var_array::
                              ScalizeFakeVarArray>());
     bmirOptimization.do_bmir_optimization();
+
+    LOG(INFO) << ("optimized bmir") << std::endl;
+    if (options.verbose) front::irGenerator::irGenerator::outputInstructions(std::cout,
+    package, inst);
 
     LOG(INFO) << "generating SSA" << std::endl;
 
