@@ -7,7 +7,9 @@
 #include <variant>
 #include <vector>
 
-namespace backend::optimization {
+#include "aixlog.hpp"
+
+namespace optimization::complex_dce {
 using namespace mir::inst;
 
 class ComplexDceRunner {
@@ -15,7 +17,7 @@ class ComplexDceRunner {
   ComplexDceRunner(MirFunction& f) : f(f) {}
   MirFunction& f;
 
-  std::unordered_set<VarId> root_vars;
+  std::unordered_set<VarId> do_not_delete;
   std::unordered_set<VarId> ref_vars;
   std::unordered_multimap<mir::types::LabelId, VarId> bb_var_dependance;
 
@@ -38,6 +40,9 @@ class ComplexDceRunner {
   void add_store_dependance(VarId dst, Value& src) {
     if (auto var = std::get_if<VarId>(&src)) add_store_dependance(dst, *var);
   }
+  void add_store_dependance(Value& dst, VarId src) {
+    if (auto var = std::get_if<VarId>(&dst)) add_store_dependance(*var, src);
+  }
   void add_store_dependance(Value& dst, Value& src) {
     if (auto dst_ = std::get_if<VarId>(&dst)) add_store_dependance(*dst_, src);
   }
@@ -47,6 +52,36 @@ class ComplexDceRunner {
   void scan_bb_dependance_vars();
   void calc_remained_vars();
   void delete_excess_vars();
+
+  void optimize_func() {
+    LOG(TRACE) << "fn: " << f.name << std::endl;
+    scan_bb_dependance_vars();
+    scan_dependant_vars();
+    display_dependance_maps();
+    calc_remained_vars();
+    LOG(TRACE) << "Result:" << std::endl;
+    for (auto x : do_not_delete) {
+      LOG(TRACE) << x << std::endl;
+    }
+    delete_excess_vars();
+  }
+
+  void display_dependance_maps() {
+    LOG(TRACE) << "Dependance:" << std::endl;
+    for (auto x : var_dependance) {
+      LOG(TRACE) << x.first << " <- " << x.second << std::endl;
+    }
+
+    LOG(TRACE) << "Store dependance:" << std::endl;
+    for (auto x : store_dependance) {
+      LOG(TRACE) << x.first << " <- " << x.second << std::endl;
+    }
+
+    LOG(TRACE) << "Root:" << std::endl;
+    for (auto x : do_not_delete) {
+      LOG(TRACE) << x << std::endl;
+    }
+  }
 };
 
 void ComplexDceRunner::scan_bb_dependance_vars() {
@@ -68,17 +103,20 @@ void ComplexDceRunner::scan_dependant_vars() {
         add_dependance(x->dest, x->rhs);
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
         for (auto v : x->params) add_dependance(x->dest, v);
+        do_not_delete.insert(x->dest);
       } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
         add_dependance(x->dest, x->src);
       } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
         add_dependance(x->dest, x->src);
       } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
         add_store_dependance(x->dest, x->val);
+        // add_store_dependance(x->val, x->dest);
       } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
         add_dependance(x->dest, x->src);
         add_dependance(x->dest, x->offset);
       } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
         add_store_dependance(x->dest, x->val);
+        // add_store_dependance(x->dest, x->offset);
         add_store_dependance(x->offset, x->val);
       } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
         add_ref_var(i.dest);
@@ -94,7 +132,12 @@ void ComplexDceRunner::scan_dependant_vars() {
     if (bb.second.jump.kind == mir::inst::JumpInstructionKind::Return) {
       auto ret = bb.second.jump.cond_or_ret;
       if (ret) {
-        root_vars.insert({ret.value()});
+        do_not_delete.insert({ret.value()});
+      }
+    } else if (bb.second.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+      auto ret = bb.second.jump.cond_or_ret;
+      if (ret) {
+        do_not_delete.insert({ret.value()});
       }
     }
   }
@@ -109,27 +152,28 @@ void ComplexDceRunner::calc_remained_vars() {
   while (!remaining.empty()) {
     auto v = remaining.front();
     remaining.pop_front();
+    visited.insert(v);
     for (auto [it, end] = invert_dependance.equal_range(v); it != end; it++) {
-      if (visited.find(it->second) != visited.end()) {
+      if (visited.find(it->second) == visited.end()) {
         remaining.push_back(it->second);
-        visited.insert(it->second);
       }
     }
     for (auto [it, end] = store_dependance.equal_range(v); it != end; it++) {
-      root_vars.insert(it->second);
+      do_not_delete.insert(it->second);
+      do_not_delete.insert(v);
     }
   }
 
   // Add all dependant of root vars
   remaining.clear();
-  for (auto x : root_vars) remaining.push_back(x);
+  for (auto x : do_not_delete) remaining.push_back(x);
   while (!remaining.empty()) {
     auto v = remaining.front();
     remaining.pop_front();
+    do_not_delete.insert(v);
     for (auto [it, end] = var_dependance.equal_range(v); it != end; it++) {
-      if (root_vars.find(it->second) != root_vars.end()) {
+      if (do_not_delete.find(it->second) == do_not_delete.end()) {
         remaining.push_back(it->second);
-        root_vars.insert(it->second);
       }
     }
   }
@@ -139,7 +183,7 @@ void ComplexDceRunner::delete_excess_vars() {
   for (auto& bb : f.basic_blks) {
     auto new_inst = std::vector<std::unique_ptr<Inst>>();
     for (auto& inst : bb.second.inst) {
-      if (root_vars.find(inst->dest) != root_vars.end()) {
+      if (do_not_delete.find(inst->dest) != do_not_delete.end()) {
         new_inst.push_back(std::move(inst));
       }
     }
@@ -149,5 +193,11 @@ void ComplexDceRunner::delete_excess_vars() {
 
 void ComplexDeadCodeElimination::optimize_mir(
     mir::inst::MirPackage& mir_pkg,
-    std::map<std::string, std::any>& extra_data_repo) {}
-}  // namespace backend::optimization
+    std::map<std::string, std::any>& extra_data_repo) {
+  for (auto& f : mir_pkg.functions) {
+    if (f.second.type->is_extern) continue;
+    auto dce = ComplexDceRunner(f.second);
+    dce.optimize_func();
+  }
+}
+}  // namespace optimization::complex_dce
