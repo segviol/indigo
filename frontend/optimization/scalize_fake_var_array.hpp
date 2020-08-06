@@ -6,7 +6,8 @@ namespace front::optimization::scalize_fake_var_array {
 class ScalizeFakeVarArray final
     : public bmir_optimization::BmirOptimizationPass {
  public:
-  virtual std::string pass_name() { return "scalize fake var array"; }
+  std::string name = "scalize fake var array";
+  virtual std::string pass_name() const { return name; }
 
   virtual void optimize_bmir(
       mir::inst::MirPackage& package,
