@@ -1,6 +1,6 @@
 #pragma once
 
-#include "frontend/optimization/bmir_optimization.hpp"
+#include "bmir_optimization.hpp"
 
 namespace front::optimization::scalize_fake_var_array {
 class ScalizeFakeVarArray final
