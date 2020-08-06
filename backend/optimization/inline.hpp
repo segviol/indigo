@@ -308,7 +308,7 @@ class Inline_Func : public backend::MirOptimizePass {
             continue;
           }
           if (subfunc.variable_table_size() + func.variable_table_size() >=
-              256) {
+              1024) {
             continue;
           }
           //  Then this func is inlineable

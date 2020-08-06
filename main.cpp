@@ -13,6 +13,7 @@
 #include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/cast_inst.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
+#include "backend/optimization/const_loop_expand.hpp"
 #include "backend/optimization/const_merge.hpp"
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
@@ -60,6 +61,9 @@ void add_passes(backend::Backend& backend) {
   // inside block only and remove tmp vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::loop_expand::Const_Loop_Expand>());
+
   backend.add_pass(
       std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
   // delete common exprs new created and replace not phi vars

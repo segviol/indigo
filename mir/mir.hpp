@@ -187,6 +187,7 @@ class Inst : public prelude::Displayable {
   virtual std::set<VarId> useVars() const = 0;
   virtual void replace(VarId from, VarId to) = 0;
   virtual ~Inst() {}
+  virtual Inst* deep_copy() = 0;
 };
 
 /// Assign instruction. `$dest = $src`
@@ -209,6 +210,7 @@ class AssignInst final : public Inst {
       src = to;
     }
   }
+  Inst* deep_copy() { return new AssignInst(dest, src); }
 };
 
 /// Operator instruction. `$dest = $lhs op $rhs`
@@ -242,6 +244,7 @@ class OpInst final : public Inst {
       rhs = to;
     }
   }
+  Inst* deep_copy() { return new OpInst(dest, lhs, rhs, op); }
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -271,6 +274,7 @@ class CallInst final : public Inst {
       }
     }
   }
+  Inst* deep_copy() { return new CallInst(dest, func, params); }
 };
 
 /// Reference instruction. `$dest = &$val`
@@ -288,7 +292,12 @@ class RefInst final : public Inst {
     if (auto val = std::get_if<VarId>(&this->val)) s.insert(*val);
     return s;
   }
-  void replace(VarId from, VarId to) {}
+  void replace(VarId from, VarId to) {
+    if (val.index() == 0 && std::get<VarId>(val) == from) {
+      val = to;
+    }
+  }
+  Inst* deep_copy() { return new RefInst(dest, val); }
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -312,6 +321,7 @@ class LoadInst final : public Inst {
       src = to;
     }
   }
+  Inst* deep_copy() { return new LoadInst(src, dest); }
 };
 
 /// Dereference instruction. `$dest = load $val`
@@ -342,6 +352,7 @@ class LoadOffsetInst final : public Inst {
       offset = to;
     }
   }
+  Inst* deep_copy() { return new LoadOffsetInst(src, dest, offset); }
 };
 
 /// Store instruction. `store $val to $dest`
@@ -370,6 +381,7 @@ class StoreInst final : public Inst {
       dest = to;
     }
   }
+  Inst* deep_copy() { return new StoreInst(val, dest); }
 };
 
 /// Store instruction. `store $val to $dest($offset)`
@@ -405,6 +417,7 @@ class StoreOffsetInst final : public Inst {
       offset = to;
     }
   }
+  Inst* deep_copy() { return new StoreOffsetInst(val, dest, offset); }
 };
 
 /// Offset ptr by offset. `$dest = $ptr + $offset`
@@ -434,6 +447,7 @@ class PtrOffsetInst final : public Inst {
       offset = to;
     }
   }
+  Inst* deep_copy() { return new PtrOffsetInst(dest, ptr, offset); }
 };
 
 /// Phi instruction. `$dest = phi(...$vars)`
@@ -454,6 +468,7 @@ class PhiInst final : public Inst {
     }
     return s;
   }
+  Inst* deep_copy() { return new PhiInst(dest, vars); }
 
   void replace(VarId from, VarId to) {}  // phi should not be replaced
 };
