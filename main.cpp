@@ -132,9 +132,10 @@ int main(int argc, const char** argv) {
         bmirVariableTable = syntax_analyze.getBmirVariableTable();
 
     LOG(INFO) << ("origin bmir") << std::endl;
-    if (options.verbose) front::irGenerator::irGenerator::outputInstructions(std::cout,
-    package, inst);
-    
+    if (options.verbose)
+      front::irGenerator::irGenerator::outputInstructions(std::cout, package,
+                                                          inst);
+
     front::optimization::bmir_optimization::BmirOptimization bmirOptimization(
         package, bmirVariableTable, inst, options);
     bmirOptimization.add_pass(
@@ -143,8 +144,9 @@ int main(int argc, const char** argv) {
     bmirOptimization.do_bmir_optimization();
 
     LOG(INFO) << ("optimized bmir") << std::endl;
-    if (options.verbose) front::irGenerator::irGenerator::outputInstructions(std::cout,
-    package, inst);
+    if (options.verbose)
+      front::irGenerator::irGenerator::outputInstructions(std::cout, package,
+                                                          inst);
 
     LOG(INFO) << "generating SSA" << std::endl;
 
