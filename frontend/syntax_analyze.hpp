@@ -54,11 +54,7 @@ class SyntaxAnalyze {
   ~SyntaxAnalyze();
 
   void gm_comp_unit();
-
-  void outputInstructions(std::ostream &out) {
-    irGenerator.outputInstructions(out);
-  }
-
+  
   irGenerator::irGenerator &getIrGenerator() { return irGenerator; }
   optimization::bmir_variable_table::BmirVariableTable &getBmirVariableTable() {
     return bmirVariableTable;
