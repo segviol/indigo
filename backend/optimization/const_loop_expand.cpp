@@ -38,7 +38,8 @@ struct Rewriter {
     varId = end_iter->first;
   }
 
-  std::vector<std::unique_ptr<mir::inst::Inst>> get_insts(int times) {
+  std::vector<std::unique_ptr<mir::inst::Inst>> get_insts(
+      int times, mir::inst::VarId& new_change_var) {
     std::vector<std::unique_ptr<mir::inst::Inst>> res;
     while (times--) {
       var_map.clear();
@@ -61,6 +62,7 @@ struct Rewriter {
             ptr->dest = var_map.at(ptr->dest);
           }
           if (flag) {
+            new_change_var = ptr->dest;
             phi_var_pair.second = ptr->dest;
           }
           res.push_back(std::move(ptr));
@@ -339,8 +341,8 @@ void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
   blk.jump = mir::inst::JumpInstruction(mir::inst::JumpInstructionKind::Br,
                                         blk.jump.bb_false);
   int times = info.get_times();
-
-  auto insts = rwt.get_insts(times);
+  mir::inst::VarId new_change_var;
+  auto insts = rwt.get_insts(times, new_change_var);
   blk.inst.clear();
   for (auto& inst : insts) {
     loop_start.inst.push_back(std::move(inst));
@@ -362,6 +364,13 @@ void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
     if (phiInst->useVars().count(info.change_var)) {
       phiInst->vars.erase(std::find(phiInst->vars.begin(), phiInst->vars.end(),
                                     info.change_var));
+    }
+    if (times) {
+      if (phiInst->useVars().count(info.init_var.first)) {
+        phiInst->vars.erase(std::find(
+            phiInst->vars.begin(), phiInst->vars.end(), info.init_var.first));
+        phiInst->vars.push_back(new_change_var);
+      }
     }
   }
 }
