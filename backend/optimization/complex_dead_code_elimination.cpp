@@ -11,6 +11,7 @@
 
 namespace optimization::complex_dce {
 using namespace mir::inst;
+using namespace mir::types;
 
 class ComplexDceRunner {
  public:
@@ -84,8 +85,75 @@ class ComplexDceRunner {
   }
 };
 
+void postorder_traverse_bb(std::vector<LabelId>& vec, std::set<LabelId>& vis,
+                           MirFunction& f, LabelId id) {
+  if (vis.find(id) != vis.end()) return;
+  vis.insert(id);
+  auto& jmp = f.basic_blks.at(id).jump;
+  switch (jmp.kind) {
+    case mir::inst::JumpInstructionKind::Br:
+      postorder_traverse_bb(vec, vis, f, jmp.bb_true);
+      break;
+    case mir::inst::JumpInstructionKind::BrCond:
+      postorder_traverse_bb(vec, vis, f, jmp.bb_true);
+      postorder_traverse_bb(vec, vis, f, jmp.bb_false);
+      break;
+    default:
+      break;
+  }
+  vec.push_back(id);
+}
+
 void ComplexDceRunner::scan_bb_dependance_vars() {
+  // Calculate dominate nodes using algorithm specified in:
+  // https://www.cs.rice.edu/~keith/EMBED/dom.pdf
+  auto start_node = f.basic_blks.begin()->first;
+  std::vector<LabelId> vec;
+  {
+    std::set<LabelId> vis;
+    postorder_traverse_bb(vec, vis, f, start_node);
+  }
+  auto dom = std::map<mir::types::LabelId, std::set<mir::types::LabelId>>();
+  auto all_nodes = std::set<LabelId>();
   for (auto& bb : f.basic_blks) {
+    all_nodes.insert(bb.first);
+  }
+  for (auto& bb : f.basic_blks) {
+    dom.insert({bb.first, std::set<mir::types::LabelId>(all_nodes)});
+  }
+  dom.at(start_node).insert(start_node);
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (auto it = vec.crbegin(); it != vec.crbegin(); it++) {
+      auto& pred = f.basic_blks.at(*it).preceding;
+      std::set<LabelId> new_set;
+
+      if (pred.size() == 0) {
+      } else {
+        auto pred_it = pred.begin();
+        new_set = std::set<LabelId>(dom.at(*pred_it++));
+        while (pred_it != pred.end()) {
+          auto& dom_p = dom.at(*pred_it);
+          auto it_set = new_set.begin();
+          while (it_set != new_set.end()) {
+            if (dom_p.find(*it_set) != dom_p.end()) {
+              it_set++;
+            } else {
+              it_set = new_set.erase(it_set);
+            }
+          }
+          pred_it++;
+        }
+      }
+      new_set.insert(*it);
+      auto& dom_set = dom.at(*it);
+      if (dom_set != new_set) {
+        changed = true;
+        dom_set = std::move(new_set);
+      }
+    }
   }
 }
 
@@ -116,7 +184,8 @@ void ComplexDceRunner::scan_dependant_vars() {
         add_dependance(x->dest, x->offset);
       } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
         add_store_dependance(x->dest, x->val);
-        // add_store_dependance(x->dest, x->offset);
+        add_store_dependance(x->dest, x->offset);
+        add_store_dependance(x->offset, x->dest);
         add_store_dependance(x->offset, x->val);
       } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
         add_ref_var(i.dest);
