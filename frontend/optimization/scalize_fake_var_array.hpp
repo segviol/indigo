@@ -49,13 +49,14 @@ class ScalizeFakeVarArray final
               size_t index = instructionIter - insts.begin();
               insts.insert(
                   insts.begin() + index,
-                  std::make_shared<mir::inst::AssignInst>(
-                      loadInst->dest,
-                      mir::inst::Value(
-                          bmirVariableTable
-                              .getVarArray(tmpVarId2Offset[src].first)
-                              ->initValues.at(tmpVarId2Offset[src].second /
-                                              mir::types::INT_SIZE))));
+                  std::shared_ptr<mir::inst::AssignInst>(
+                      new mir::inst::AssignInst(
+                          loadInst->dest,
+                          mir::inst::Value(
+                              bmirVariableTable
+                                  .getVarArray(tmpVarId2Offset[src].first)
+                                  ->initValues.at(tmpVarId2Offset[src].second /
+                                                  mir::types::INT_SIZE)))));
               insts.erase(insts.begin() + index + 1);
             }
             break;
