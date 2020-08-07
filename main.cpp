@@ -67,11 +67,11 @@ void add_passes(backend::Backend& backend) {
   // delete common exprs new created and replace not phi vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
-  //backend.add_pass(std::make_unique<
-  //                 optimization::memvar_propagation::Memory_Var_Propagation>(false));
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
-  //backend.add_pass(std::make_unique<
-  //                 optimization::memvar_propagation::Memory_Var_Propagation>(false));
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   // backend.add_pass(
@@ -89,8 +89,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
 
-  //backend.add_pass(std::make_unique<
-  //                 optimization::memvar_propagation::Memory_Var_Propagation>(false));
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
