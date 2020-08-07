@@ -281,8 +281,13 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
             }
             continue;
           } else {
+            change_var = var;
             for (auto& inst : loop_blk.inst) {
-              change_var = var;
+              if (inst->dest == loop_blk.jump.cond_or_ret.value() &&
+                  !inst->useVars().count(var)) {
+                flag = false;
+                break;
+              }
               if (inst->dest == var &&
                   inst->inst_kind() == mir::inst::InstKind::Op) {
                 mir::inst::Value val(0);
