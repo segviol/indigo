@@ -151,6 +151,12 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
       : std::variant<int32_t, VarId>(i),
         shift(shift),
         shift_amount(shift_amount) {}
+  Value(std::variant<int32_t, VarId> i, arm::RegisterShiftKind shift,
+        uint8_t shift_amount)
+      : std::variant<int32_t, VarId>(i),
+        shift(shift),
+        shift_amount(shift_amount) {}
+  Value(const Value& val) = default;
 
   arm::RegisterShiftKind shift = arm::RegisterShiftKind::Lsl;
   uint8_t shift_amount = 0;
@@ -163,6 +169,19 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
   }
   bool has_shift() const { return !is_immediate() && shift_amount != 0; }
   bool is_immediate() const { return std::holds_alternative<int32_t>(*this); }
+  Value& replace_self(Value other) {
+    *this = Value((std::variant<int32_t, VarId>&)other, this->shift,
+                  this->shift_amount);
+    return *this;
+  }
+  Value& replace_with_varid(VarId other) {
+    *this = Value(other, this->shift, this->shift_amount);
+    return *this;
+  }
+  Value& replace_with_imm(int32_t other) {
+    *this = Value(other);
+    return *this;
+  }
   // Value(const Value& val) : std::variant<int32_t, VarId>(val) {
   //   if (val.has_shift()) {
   //     this->shift = val.shift;
@@ -171,10 +190,6 @@ class Value : public std::variant<int32_t, VarId>, public prelude::Displayable {
   //     std::cout << *this << std::endl;
   //   }
   // };
-  Value(const Value& val) = default;
-  Value(Value&& val) = default;
-  Value& operator=(const Value& other) = default;
-  Value& operator=(Value&& other) = default;
   template <typename T>
   void map_if_varid(T action) {
     if (auto varid = std::get_if<VarId>(this)) {
@@ -218,9 +233,9 @@ class AssignInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (src.index() == 1 && std::get<VarId>(src) == from) {
-      src = to;
-    }
+    src.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new AssignInst(dest, src); }
 };
@@ -248,13 +263,12 @@ class OpInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (lhs.index() == 1 && std::get<VarId>(lhs) == from) {
-      lhs = to;
-    }
-
-    if (rhs.index() == 1 && std::get<VarId>(rhs) == from) {
-      rhs = to;
-    }
+    lhs.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
+    rhs.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new OpInst(dest, lhs, rhs, op); }
 };
@@ -281,9 +295,9 @@ class CallInst final : public Inst {
   }
   void replace(VarId from, VarId to) {
     for (auto& para : params) {
-      if (para.index() == 1 && std::get<VarId>(para) == from) {
-        para = to;
-      }
+      para.map_if_varid([&](Value& self, VarId& id) {
+        if (id == from) id = to;
+      });
     }
   }
   Inst* deep_copy() { return new CallInst(dest, func, params); }
@@ -329,9 +343,9 @@ class LoadInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (src.index() == 1 && std::get<VarId>(src) == from) {
-      src = to;
-    }
+    src.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new LoadInst(src, dest); }
 };
@@ -357,12 +371,12 @@ class LoadOffsetInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (src.index() == 1 && std::get<VarId>(src) == from) {
-      src = to;
-    }
-    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
-      offset = to;
-    }
+    src.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
+    offset.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new LoadOffsetInst(src, dest, offset); }
 };
@@ -386,12 +400,9 @@ class StoreInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (val.index() == 1 && std::get<VarId>(val) == from) {
-      val = to;
-    }
-    if (dest == from) {
-      dest = to;
-    }
+    val.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new StoreInst(val, dest); }
 };
@@ -419,15 +430,15 @@ class StoreOffsetInst final : public Inst {
     return s;
   }
   void replace(VarId from, VarId to) {
-    if (val.index() == 1 && std::get<VarId>(val) == from) {
-      val = to;
-    }
+    val.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
     if (dest == from) {
       dest = to;
     }
-    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
-      offset = to;
-    }
+    offset.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new StoreOffsetInst(val, dest, offset); }
 };
@@ -455,9 +466,9 @@ class PtrOffsetInst final : public Inst {
     if (ptr == from) {
       ptr = to;
     }
-    if (offset.index() == 1 && std::get<VarId>(offset) == from) {
-      offset = to;
-    }
+    offset.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
   }
   Inst* deep_copy() { return new PtrOffsetInst(dest, ptr, offset); }
 };
