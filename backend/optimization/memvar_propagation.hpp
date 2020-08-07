@@ -2,7 +2,6 @@
 
 #include <map>
 #include <vector>
-#include <algorithm>
 
 #include "../../arm_code/arm.hpp"
 #include "../../mir/mir.hpp"
@@ -10,60 +9,11 @@
 
 namespace optimization::memvar_propagation {
 
-class Dest {
- public:
-  mir::inst::VarId dest;
-  mir::inst::Value offset;
-  Dest(mir::inst::VarId _dest, mir::inst::Value _offset)
-      : dest(_dest), offset(_offset) {}
-  bool operator<(const Dest& d) const {
-    if (dest == d.dest) {
-      if (offset.index() == 0) {
-        if (d.offset.index() == 0) {
-          return std::get<0>(offset) < std::get<0>(d.offset);
-        } else {
-          return false;
-        }
-      } else {
-        if (d.offset.index() == 1) {
-          return std::get<1>(offset) < std::get<1>(d.offset);
-        } else {
-          return true;
-        }
-      }
-    } else {
-      return dest < d.dest;
-    }
-  }
-  bool operator==(const Dest& d) const {
-    if (dest == d.dest) {
-      if (offset.index() == 0) {
-        if (d.offset.index() == 0) {
-          return std::get<0>(offset) == std::get<0>(d.offset);
-        } else {
-          return false;
-        }
-      } else {
-        if (d.offset.index() == 1) {
-          return std::get<1>(offset) == std::get<1>(d.offset);
-        } else {
-          return false;
-        }
-      }
-    } else {
-      return false;
-    }
-  }
-};
-
 class Memory_Var_Propagation : public backend::MirOptimizePass {
  public:
   std::string name = "MemoryVarPropagation";
-  bool aftercast;
 
   std::string pass_name() const { return name; }
-
-  Memory_Var_Propagation(bool _aftercast) : aftercast(_aftercast) {}
 
   void optimize_func(mir::inst::MirFunction& func) {
     /*
@@ -358,7 +308,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     }
   }
 
-  void delete_store1(mir::inst::MirFunction& func) {
+  void delete_store(mir::inst::MirFunction& func) {
     std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
@@ -415,79 +365,12 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     }
   }
 
-  void delete_store2(mir::inst::MirFunction& func) {
-    std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
-    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
-      auto& bb = bit->second;
-      int index = 0;
-      std::map<Dest, std::vector<int>> store;
-      std::vector<int> del;
-      bool redu = false;
-      for (auto& inst : bb.inst) {
-        auto& i = *inst;
-        if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
-          Dest d(x->dest, x->offset);
-          auto find = store.find(d);
-          if (find == store.end()) {
-            std::vector<int> ind;
-            ind.push_back(index);
-            store.insert(
-                std::map<Dest, std::vector<int>>::value_type(
-                    d, ind));
-          } else {
-            find->second.push_back(index);
-          }
-        }
-        index++;
-      }
-
-      for (auto i = store.begin(); i != store.end(); i++) {
-        if (i->second.size() > 1) {
-          for (int j = 0; j < i->second.size() - 1; j++) {
-            index = 0;
-            bool dele = true;
-            for (auto& inst : bb.inst) {
-              auto& ii = *inst;
-              if (index >= i->second[j] && index < i->second[j + 1]) {
-                if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&ii)) {
-
-                  if (x->src.index() == 1) {
-                    Dest d(std::get<1>(x->src), x->offset);
-                    if (d == i->first) {
-                        dele = false;
-                    }
-                    
-                  }
-                }
-                if (auto x = dynamic_cast<mir::inst::CallInst*>(&ii)) {
-                  dele = false;
-                }
-              }
-              index++;
-            }
-            if (dele) {
-              del.push_back(i->second[j]);
-            }
-          }
-        }
-      }
-      sort(del.begin(), del.end());
-      for (int i = del.size() - 1; i >= 0; i--) {
-        bit->second.inst.erase(bit->second.inst.begin() + del[i]);
-      }
-    }
-  }
-
   void optimize_mir(mir::inst::MirPackage& package,
                     std::map<std::string, std::any>& extra_data_repo) {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          ++iter) {
       optimize_func(iter->second);
-      if (aftercast) {
-        delete_store2(iter->second);
-      } else {
-        delete_store1(iter->second);
-      }
+      delete_store(iter->second);
     }
   }
 };
