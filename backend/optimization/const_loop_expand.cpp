@@ -346,6 +346,19 @@ void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
   loop_start.jump = mir::inst::JumpInstruction(
       mir::inst::JumpInstructionKind::Br, loop_start.jump.bb_false);
   func.basic_blks.erase(blk.id);
+  auto& end_loop_blk = func.basic_blks.at(loop_start.jump.bb_true);
+  for (auto iter = end_loop_blk.inst.begin();
+       iter != end_loop_blk.inst.end() &&
+       iter->get()->inst_kind() == mir::inst::InstKind::Phi;
+       iter++) {
+    auto& inst = *iter;
+    auto& i = *inst;
+    auto phiInst = dynamic_cast<mir::inst::PhiInst*>(&i);
+    if (phiInst->useVars().count(info.change_var)) {
+      phiInst->vars.erase(std::find(phiInst->vars.begin(), phiInst->vars.end(),
+                                    info.change_var));
+    }
+  }
 }
 
 void Const_Loop_Expand::optimize_func(mir::inst::MirFunction& func) {
