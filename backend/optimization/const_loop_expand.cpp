@@ -63,7 +63,6 @@ struct Rewriter {
           if (flag) {
             phi_var_pair.second = ptr->dest;
           }
-          std::cout << *ptr << std::endl;
           res.push_back(std::move(ptr));
         }
       }
@@ -369,9 +368,9 @@ void Const_Loop_Expand::optimize_func(mir::inst::MirFunction& func) {
       size += times * func.variables.at(inst->dest.id).size();
     }
 
-    if (size >= 1024) {
-      return;
-    }
+    // if (size >= 1024) {
+    //   return;
+    // }
     expand_loop(func, blk, info.value());
   }
 }
