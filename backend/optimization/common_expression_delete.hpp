@@ -106,23 +106,13 @@ class Node {
     ) {
       mainVar = value.value();
     } else {
-      // if (local_vars.size()) {  // func para has high main priority
-      //   auto iter = local_vars.begin();
-      //   for (; iter != local_vars.end(); ++iter) {
-      //     if (iter->id < 10000) {
-      //       break;
-      //     }
-      //   }
-      //   if (iter != local_vars.end()) {
-      //     mainVar = *iter;
-      //     has_para = true;
-      //     local_vars.erase(iter);
-      //   }
-      // }
-      // if (live_vars.size()) {
-      //   mainVar = live_vars.front();
-      //   live_vars.pop_front();
-      // } else
+      for (auto var : live_vars) {
+        if (!env->func.variables.at(var.id).is_phi_var) {
+          mainVar = var;
+          live_vars.remove(var);
+          return;
+        }
+      }
       if (local_vars.size()) {
         // assert(local_vars.size()); store inst has no dest
         mainVar = local_vars.front();
@@ -183,6 +173,7 @@ class Node {
 
 class BlockNodes {
  public:
+  bool offset_inst;
   std::vector<sharedNode> nodes;
   std::map<mir::inst::VarId, NodeId> var_map;
   std::map<Node, NodeId> node_map;  // this map only uses for checking whether
@@ -195,8 +186,9 @@ class BlockNodes {
   std::list<uint32_t> exportQueue;
   ~BlockNodes() {}
   BlockNodes(std::map<uint32_t, mir::inst::Variable>& variables,
-             std::shared_ptr<livevar_analyse::Block_Live_Var>& blv)
-      : variables(variables), blv(blv) {}
+             std::shared_ptr<livevar_analyse::Block_Live_Var>& blv,
+             bool offset_inst)
+      : variables(variables), blv(blv), offset_inst(offset_inst) {}
 
   NodeId add_leaf_node(mir::inst::Value val) {
     auto id = nodes.size();
@@ -432,15 +424,30 @@ class BlockNodes {
               inst.push_back(std::move(phiInst));
             } else if (std::get<InNormOp>(node->op) == InNormOp::Load) {
               auto src = nodes[std::get<NodeId>(node->operands[0]).id]->mainVar;
-              auto loadInst = std::make_unique<mir::inst::LoadInst>(
-                  src, std::get<mir::inst::VarId>(node->mainVar));
-              inst.push_back(std::move(loadInst));
+              if (offset_inst) {
+                auto offset = convert_operand_to_value(node->operands[1]);
+                auto loadInst = std::make_unique<mir::inst::LoadOffsetInst>(
+                    src, std::get<mir::inst::VarId>(node->mainVar), offset);
+                inst.push_back(std::move(loadInst));
+              } else {
+                auto loadInst = std::make_unique<mir::inst::LoadInst>(
+                    src, std::get<mir::inst::VarId>(node->mainVar));
+                inst.push_back(std::move(loadInst));
+              }
+
             } else if (std::get<InNormOp>(node->op) == InNormOp::Store) {
               auto val = convert_operand_to_value(node->operands[0]);
               auto dest = convert_operand_to_value(node->operands[1]);
-              auto storeInst = std::make_unique<mir::inst::StoreInst>(
-                  val, std::get<mir::inst::VarId>(dest));
-              inst.push_back(std::move(storeInst));
+              if (offset_inst) {
+                auto offset = convert_operand_to_value(node->operands[2]);
+                auto loadInst = std::make_unique<mir::inst::StoreOffsetInst>(
+                    val, std::get<mir::inst::VarId>(dest), offset);
+                inst.push_back(std::move(loadInst));
+              } else {
+                auto storeInst = std::make_unique<mir::inst::StoreInst>(
+                    val, std::get<mir::inst::VarId>(dest));
+                inst.push_back(std::move(storeInst));
+              }
             }
             break;
           }
@@ -554,13 +561,15 @@ class BlockNodes {
 
 class Common_Expr_Del : public backend::MirOptimizePass {
  public:
+  bool offset_inst;
   const std::string name = "Common expression delete";
   std::string pass_name() const { return name; }
+  Common_Expr_Del(bool offset_inst = false) : offset_inst(offset_inst) {}
 
   void optimize_block(mir::inst::BasicBlk& block,
                       std::shared_ptr<livevar_analyse::Block_Live_Var>& blv,
                       std::map<uint32_t, mir::inst::Variable> variables) {
-    BlockNodes blnd(variables, blv);
+    BlockNodes blnd(variables, blv, offset_inst);
     for (auto& inst : block.inst) {
       auto kind = inst->inst_kind();
       auto& i = *inst;
@@ -626,22 +635,45 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           break;
         }
         case mir::inst::InstKind::Load: {
-          auto loadInst = dynamic_cast<mir::inst::LoadInst*>(&i);
-          auto op = InNormOp::Load;
-          std::vector<mir::inst::Value> values;
-          values.push_back(loadInst->src);
-          auto operands = blnd.cast_operands(values);
-          blnd.add_node(op, operands, loadInst->dest);
+          if (offset_inst) {
+            auto loadInst = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
+            auto op = InNormOp::Load;
+            std::vector<mir::inst::Value> values;
+            values.push_back(loadInst->src);
+            values.push_back(loadInst->offset);
+            auto operands = blnd.cast_operands(values);
+            blnd.add_node(op, operands, loadInst->dest);
+          } else {
+            auto loadInst = dynamic_cast<mir::inst::LoadInst*>(&i);
+            auto op = InNormOp::Load;
+            std::vector<mir::inst::Value> values;
+            values.push_back(loadInst->src);
+            auto operands = blnd.cast_operands(values);
+            blnd.add_node(op, operands, loadInst->dest);
+          }
+
           break;
         }
         case mir::inst::InstKind::Store: {
-          auto storeInst = dynamic_cast<mir::inst::StoreInst*>(&i);
-          auto op = InNormOp::Store;
-          std::vector<mir::inst::Value> values;
-          values.push_back(storeInst->val);
-          values.push_back(storeInst->dest);
-          auto operands = blnd.cast_operands(values);
-          blnd.add_node(op, operands);
+          if (offset_inst) {
+            auto storeInst = dynamic_cast<mir::inst::StoreOffsetInst*>(&i);
+            auto op = InNormOp::Store;
+            std::vector<mir::inst::Value> values;
+            values.push_back(storeInst->val);
+            values.push_back(storeInst->dest);
+            values.push_back(storeInst->offset);
+            auto operands = blnd.cast_operands(values);
+            blnd.add_node(op, operands);
+          } else {
+            auto storeInst = dynamic_cast<mir::inst::StoreInst*>(&i);
+            auto op = InNormOp::Store;
+            std::vector<mir::inst::Value> values;
+            values.push_back(storeInst->val);
+            values.push_back(storeInst->dest);
+            auto operands = blnd.cast_operands(values);
+            blnd.add_node(op, operands);
+          }
+
           break;
         }
         case mir::inst::InstKind::Call: {
