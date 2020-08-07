@@ -1,7 +1,7 @@
 #pragma once
 
-#include <map>
 #include <vector>
+#include <map>
 
 #include "../../arm_code/arm.hpp"
 #include "../../mir/mir.hpp"
@@ -20,7 +20,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     store val to s_dest
     l_dest = load src
     if src is the same as s_dest
-    l_dest can be repalced by val to
+    l_dest can be repalced by val to 
       1. the next store has same s_dest
       2. call
       3. end of the block
@@ -29,7 +29,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     std::map<mir::inst::VarId, mir::inst::VarId> reg_load;
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
-      // calculate call num
+      //calculate call num
       int index = 0;
       std::vector<int> call_index;
       call_index.push_back(0);
@@ -51,8 +51,8 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
             store;
         std::map<mir::inst::VarId, std::variant<int32_t, mir::inst::VarId>>
             load;
-        std::map<mir::inst::VarId,
-                 std::variant<int32_t, mir::inst::VarId>>::iterator it;
+        std::map<mir::inst::VarId, std::variant<int32_t, mir::inst::VarId>>
+            ::iterator it;
         index = 0;
         for (auto& inst : bb.inst) {
           if (index >= call_index[j] && index < upper_bound) {
@@ -106,8 +106,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
           std::map<mir::inst::VarId,
                    std::variant<int32_t, mir::inst::VarId>>::iterator iet;
           for (iet = load.begin(); iet != load.end(); iet++) {
-            if (iet->second.index() == 1 &&
-                it->first == std::get<1>(iet->second)) {
+            if (iet->second.index() == 1 && it->first == std::get<1>(iet->second)) {
               load[iet->first] = it->second;
             }
           }
@@ -121,7 +120,8 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
               if (x->src.index() == 1) {
                 std::map<mir::inst::VarId,
                          std::variant<int32_t, mir::inst::VarId>>::iterator
-                    lit = load.find(std::get<1>(x->src));
+                    lit =
+                    load.find(std::get<1>(x->src));
                 if (lit != load.end()) {
                   if (lit->second.index() == 0) {
                     x->src.emplace<0>(std::get<0>(lit->second));
@@ -214,7 +214,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
           index++;
         }
       }
-      // delete load
+      //delete load
       for (int i = del_index.size() - 1; i >= 0; i--) {
         auto iter = bit->second.inst.begin() + del_index[i];
         bit->second.inst.erase(iter);
@@ -308,69 +308,11 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     }
   }
 
-  void delete_store(mir::inst::MirFunction& func) {
-    std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
-    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
-      auto& bb = bit->second;
-      int index = 0;
-      std::map<mir::inst::VarId, std::vector<int>> store;
-      std::vector<int> del;
-      bool redu = false;
-      for (auto& inst : bb.inst) {
-        auto& i = *inst;
-        if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
-          auto find = store.find(x->dest);
-          if (find == store.end()) {
-            std::vector<int> ind;
-            ind.push_back(index);
-            store.insert(
-                std::map<mir::inst::VarId, std::vector<int>>::value_type(
-                    x->dest, ind));
-          } else {
-            find->second.push_back(index);
-          }
-        }
-        index++;
-      }
-
-      for (auto i = store.begin(); i != store.end(); i++) {
-        if (i->second.size() > 1) {
-          for (int j = 0; j < i->second.size() - 1; j++) {
-            index = 0;
-            bool dele = true;
-            for (auto& inst : bb.inst) {
-              auto& ii = *inst;
-              if (index >= i->second[j] && index < i->second[j + 1]) {
-                if (auto x = dynamic_cast<mir::inst::LoadInst*>(&ii)) {
-                  if (x->src.index() == 1 && std::get<1>(x->src) == i->first) {
-                    dele = false;
-                  }
-                }
-                if (auto x = dynamic_cast<mir::inst::CallInst*>(&ii)) {
-                  dele = false;
-                }
-              }
-              index++;
-            }
-            if (dele) {
-              del.push_back(i->second[j]);
-            }
-          }
-        }
-      }
-      sort(del.begin(), del.end());
-      for (int i = del.size() - 1; i >= 0; i--) {
-        bit->second.inst.erase(bit->second.inst.begin() + del[i]);
-      }
-    }
-  }
-
   void optimize_mir(mir::inst::MirPackage& package,
                     std::map<std::string, std::any>& extra_data_repo) {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          ++iter) {
       optimize_func(iter->second);
-      delete_store(iter->second);
     }
   }
 };
