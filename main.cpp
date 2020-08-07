@@ -80,14 +80,22 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::loop_expand::Const_Loop_Expand>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
+      std::make_unique<optimization::const_propagation::Const_Propagation>());
+  backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
+  backend.add_pass(
+      std::make_unique<optimization::const_propagation::Const_Propagation>());
+  backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
-  backend.add_pass(std::make_unique<
-                   optimization::memvar_propagation::Memory_Var_Propagation>());
+  backend.add_pass(
+      std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
 
   backend.add_pass(
