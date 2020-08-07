@@ -24,10 +24,15 @@ struct Rewriter {
   mir::inst::BasicBlk& blk;
   std::map<mir::inst::VarId, mir::inst::VarId> var_map;
   std::pair<mir::inst::VarId, mir::inst::VarId> phi_var_pair;
+  mir::inst::VarId change_var;
   int varId;
   Rewriter(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
-           std::pair<mir::inst::VarId, mir::inst::VarId> phi_var_pair)
-      : func(func), blk(blk), phi_var_pair(phi_var_pair) {
+           std::pair<mir::inst::VarId, mir::inst::VarId> phi_var_pair,
+           mir::inst::VarId change_var)
+      : func(func),
+        blk(blk),
+        phi_var_pair(phi_var_pair),
+        change_var(change_var) {
     auto end_iter = func.variables.end();
     end_iter--;
     varId = end_iter->first;
@@ -39,24 +44,27 @@ struct Rewriter {
       var_map.clear();
       var_map.insert(phi_var_pair);
       for (auto& inst : blk.inst) {
-        auto vars = inst->useVars();
-        vars.insert(inst->dest);
-        for (auto var : vars) {
-          copy_var(var);
+        if (inst->inst_kind() != mir::inst::InstKind::Store) {
+          copy_var(inst->dest);
         }
-        for (auto& inst : blk.inst) {
-          if (inst->inst_kind() == mir::inst::InstKind::Phi) {
-            continue;
-          } else {
-            auto ptr = std::unique_ptr<mir::inst::Inst>(inst->deep_copy());
-            bool flag = ptr->useVars().count(phi_var_pair.first);
-            for (auto var : ptr->useVars()) {
-              ptr->replace(var, var_map.at(var));
-            }
-            ptr->dest = var_map.at(ptr->dest);
-            phi_var_pair.second = ptr->dest;
-            res.push_back(std::move(ptr));
+      }
+      for (auto& inst : blk.inst) {
+        if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+          continue;
+        } else {
+          auto ptr = std::unique_ptr<mir::inst::Inst>(inst->deep_copy());
+          bool flag = inst->dest == change_var;
+          for (auto var : ptr->useVars()) {
+            if (var_map.count(var)) ptr->replace(var, var_map.at(var));
           }
+          if (var_map.count(ptr->dest)) {
+            ptr->dest = var_map.at(ptr->dest);
+          }
+          if (flag) {
+            phi_var_pair.second = ptr->dest;
+          }
+          std::cout << *ptr << std::endl;
+          res.push_back(std::move(ptr));
         }
       }
     }
@@ -84,17 +92,19 @@ struct loop_info {
   mir::inst::Op change_op;
   int change_value;
   mir::inst::VarId phi_var;
+  mir::inst::VarId change_var;
   loop_info(mir::types::LabelId loop_start,
             std::pair<mir::inst::VarId, int> init_var, mir::inst::Op in_op,
             int in_value, mir::inst::Op change_op, int change_value,
-            mir::inst::VarId phi_var)
+            mir::inst::VarId phi_var, mir::inst::VarId change_var)
       : loop_start(loop_start),
         init_var(init_var),
         in_op(in_op),
         in_value(in_value),
         change_op(change_op),
         change_value(change_value),
-        phi_var(phi_var) {}
+        phi_var(phi_var),
+        change_var(change_var) {}
   int get_times() {
     int res = 0;
     loop_info init(*this);
@@ -211,7 +221,9 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
                 !const_map.count(std::get<mir::inst::VarId>(opInst->rhs))) {
           continue;
         }
+
         auto& loop_blk = func.basic_blks.at(bb_true);
+
         auto phi_count = 0;
         mir::inst::VarId phi_dest;
         std::set<mir::inst::VarId> phi_vars;
@@ -227,11 +239,31 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
         if (phi_count != 1) {
           continue;
         }
+        for (; iter != blk.inst.end(); iter++) {
+          auto& inst = *iter;
+          if (inst->dest == cond) {
+            break;
+          }
+        }
+        cond = loop_blk.jump.cond_or_ret.value();
+        mir::inst::Op in_op;
+        for (auto& inst : loop_blk.inst) {
+          if (inst->dest == cond) {
+            assert(inst->inst_kind() == mir::inst::InstKind::Op);
+            auto& i = *inst;
+            auto opInst = dynamic_cast<mir::inst::OpInst*>(&i);
+            in_op = opInst->op;
+          }
+        }
+
         std::pair<mir::inst::VarId, int> init_var = {mir::inst::VarId(0), 0};
-        mir::inst::Op in_op = opInst->op;
+
         int in_value;
         mir::inst::Op change_op;
         int change_value;
+        mir::inst::VarId var;
+        mir::inst::VarId change_var;
+
         bool flag = false;
         for (auto var : phi_vars) {
           if (const_map.count(var)) {
@@ -251,6 +283,7 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
             continue;
           } else {
             for (auto& inst : loop_blk.inst) {
+              change_var = var;
               if (inst->dest == var &&
                   inst->inst_kind() == mir::inst::InstKind::Op) {
                 mir::inst::Value val(0);
@@ -276,7 +309,7 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
           continue;
         }
         return loop_info(blk.id, init_var, in_op, in_value, change_op,
-                         change_value, phi_dest);
+                         change_value, phi_dest, change_var);
       }
     }
   }
@@ -285,6 +318,7 @@ std::optional<loop_info> find_loop_start(mir::inst::MirFunction& func) {
 
 void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
                  loop_info info) {
+  auto& loop_start = func.basic_blks.at(info.loop_start);
   LOG(TRACE) << "expand loop starts at  " << info.loop_start << std::endl;
   LOG(TRACE) << "init_val: "
              << mir::inst::AssignInst(info.init_var.first, info.init_var.second)
@@ -297,9 +331,22 @@ void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
              << mir::inst::OpInst(mir::inst::VarId(0), info.init_var.first,
                                   info.in_value, info.in_op)
              << std::endl;
-  Rewriter rwt(func, blk, {info.phi_var, info.init_var.first});
+  Rewriter rwt(func, blk, {info.phi_var, info.init_var.first}, info.change_var);
   blk.jump = mir::inst::JumpInstruction(mir::inst::JumpInstructionKind::Br,
                                         blk.jump.bb_false);
+  int times = info.get_times();
+
+  auto insts = rwt.get_insts(times);
+  blk.inst.clear();
+  for (auto& inst : insts) {
+    loop_start.inst.push_back(std::move(inst));
+  }
+  func.basic_blks.at(loop_start.jump.bb_false)
+      .preceding.erase(loop_start.jump.bb_true);
+
+  loop_start.jump = mir::inst::JumpInstruction(
+      mir::inst::JumpInstructionKind::Br, loop_start.jump.bb_false);
+  func.basic_blks.erase(blk.id);
 }
 
 void Const_Loop_Expand::optimize_func(mir::inst::MirFunction& func) {
@@ -313,16 +360,15 @@ void Const_Loop_Expand::optimize_func(mir::inst::MirFunction& func) {
     std::set<mir::inst::VarId> vars;
     auto& blk =
         func.basic_blks.at(func.basic_blks.at(info->loop_start).jump.bb_true);
-    for (auto& inst : blk.inst) {
-      auto useVars = inst->useVars();
-      vars.insert(useVars.begin(), useVars.end());
-      vars.insert(inst->dest);
-    }
-    int times = info->get_times();
 
-    for (auto var : vars) {
-      size += times * func.variables.at(var.id).size();
+    int times = info->get_times();
+    for (auto& inst : blk.inst) {
+      if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+        continue;
+      }
+      size += times * func.variables.at(inst->dest.id).size();
     }
+
     if (size >= 1024) {
       return;
     }
