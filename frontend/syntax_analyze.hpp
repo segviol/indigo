@@ -1,3 +1,4 @@
+#pragma once
 #include <assert.h>
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include "../mir/mir.hpp"
 #include "express_node.hpp"
 #include "ir_generator.hpp"
+#include "optimization/bmir_variable_table.hpp"
 #include "symbol.hpp"
 #include "symbol_table.hpp"
 #include "word_analyze.hpp"
@@ -52,12 +54,11 @@ class SyntaxAnalyze {
   ~SyntaxAnalyze();
 
   void gm_comp_unit();
-
-  void outputInstructions(std::ostream &out) {
-    irGenerator.outputInstructions(out);
-  }
-
+  
   irGenerator::irGenerator &getIrGenerator() { return irGenerator; }
+  optimization::bmir_variable_table::BmirVariableTable &getBmirVariableTable() {
+    return bmirVariableTable;
+  }
 
  private:
   const std::uint32_t _initLayerNum = 0;
@@ -69,6 +70,7 @@ class SyntaxAnalyze {
   const vector<Word> &word_list;
   SymbolTable symbolTable;
   irGenerator::irGenerator irGenerator;
+  optimization::bmir_variable_table::BmirVariableTable bmirVariableTable;
 
   bool try_word(int n, Token tk);
   bool try_word(int n, Token tk1, Token tk2);
