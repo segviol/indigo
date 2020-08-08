@@ -24,7 +24,12 @@ namespace optimization::common_expr_del {
 class Node;
 
 typedef mir::inst::Op NormOp;
-enum class ExtraNormOp { Ref, Ptroffset, Assign };
+enum class ExtraNormOp {
+  Ref,
+  Ptroffset,
+  Assign,
+  Call
+};  // Call for function that has no side effect(load/store)
 enum class InNormOp { Load, Store, Call, Phi };
 typedef std::shared_ptr<Node> sharedNode;
 typedef std::variant<NormOp, ExtraNormOp, InNormOp> Op;
@@ -388,6 +393,18 @@ class BlockNodes {
                 inst.push_back(std::move(assignInst));
                 break;
               }
+              case ExtraNormOp::Call: {
+                auto func = std::get<std::string>(
+                    node->operands[node->operands.size() - 1]);
+                node->operands.pop_back();
+                std::vector<mir::inst::Value> params;
+                for (auto operand : node->operands) {
+                  params.push_back(convert_operand_to_value(operand));
+                }
+                auto callInst = std::make_unique<mir::inst::CallInst>(
+                    std::get<mir::inst::VarId>(node->mainVar), func, params);
+                inst.push_back(std::move(callInst));
+              }
             }
 
             break;
@@ -554,6 +571,7 @@ class BlockNodes {
 
 class Common_Expr_Del : public backend::MirOptimizePass {
  public:
+  std::set<std::string> mergeable_funcs;
   const std::string name = "Common expression delete";
   std::string pass_name() const { return name; }
 
@@ -646,11 +664,25 @@ class Common_Expr_Del : public backend::MirOptimizePass {
         }
         case mir::inst::InstKind::Call: {
           auto callInst = dynamic_cast<mir::inst::CallInst*>(&i);
-          auto op = InNormOp::Call;
-          std::vector<mir::inst::Value> values(callInst->params);
-          auto operands = blnd.cast_operands(values);
-          operands.push_back(callInst->func);
-          blnd.add_node(op, operands, callInst->dest);
+          if (!mergeable_funcs.count(callInst->func)) {
+            auto op = InNormOp::Call;
+            std::vector<mir::inst::Value> values(callInst->params);
+            auto operands = blnd.cast_operands(values);
+            operands.push_back(callInst->func);
+            blnd.add_node(op, operands, callInst->dest);
+          } else {
+            auto op = ExtraNormOp::Call;
+            std::vector<mir::inst::Value> values(callInst->params);
+            auto operands = blnd.cast_operands(values);
+            operands.push_back(callInst->func);
+            if (!blnd.query_node(op, operands)) {
+              blnd.add_node(op, operands, callInst->dest);
+            } else {
+              auto nodeId = blnd.query_nodeId(op, operands);
+              blnd.add_var(callInst->dest, nodeId.id);
+            }
+          }
+
           break;
         }
         case mir::inst::InstKind::PtrOffset: {
@@ -692,6 +724,39 @@ class Common_Expr_Del : public backend::MirOptimizePass {
     }
     blnd.export_insts(block);
   }
+
+  void init_funcs(mir::inst::MirPackage& package) {
+    for (auto& funcpair : package.functions) {
+      if (funcpair.second.type->is_extern) continue;
+      mergeable_funcs.insert(funcpair.first);
+    }
+    for (auto& funcpair : package.functions) {
+      bool flag = false;
+      for (auto& blkpair : funcpair.second.basic_blks) {
+        for (auto& inst : blkpair.second.inst) {
+          if (inst->inst_kind() == mir::inst::InstKind::Load ||
+              inst->inst_kind() == mir::inst::InstKind::Store) {
+            flag = true;
+            break;
+          }
+          if (inst->inst_kind() == mir::inst::InstKind::Call) {
+            auto& i = *inst;
+            auto callInst = dynamic_cast<mir::inst::CallInst*>(&i);
+            if (!mergeable_funcs.count(callInst->func)) {
+              flag = true;
+              break;
+            }
+          }
+        }
+        if (flag) {
+          break;
+        }
+      }
+      if (flag) {
+        mergeable_funcs.erase(funcpair.first);
+      }
+    }
+  }
   void optimize_func(mir::inst::MirFunction& func) {
     if (func.type->is_extern) {
       return;
@@ -710,6 +775,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
   }
   void optimize_mir(mir::inst::MirPackage& package,
                     std::map<std::string, std::any>& extra_data_repo) {
+    init_funcs(package);
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          ++iter) {
       optimize_func(iter->second);
