@@ -19,6 +19,10 @@ set(backend_files
     backend/optimization/excess_reg_delete.cpp
     backend/optimization/exit_ahead.cpp
     backend/optimization/exit_ahead.hpp
+    backend/optimization/const_loop_expand.cpp
+    backend/optimization/const_loop_expand.hpp
+    backend/optimization/func_array_global.hpp
+    backend/optimization/func_array_global.cpp
     backend/optimization/const_propagation.hpp
     backend/optimization/complex_dead_code_elimination.cpp
     backend/optimization/memvar_propagation.hpp
