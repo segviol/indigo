@@ -26,6 +26,7 @@ class ComplexDceRunner {
 
   std::unordered_set<VarId> do_not_delete;
   std::unordered_set<VarId> ref_vars;
+  std::unordered_set<VarId> backup_ref_vars;
   std::unordered_multimap<mir::types::LabelId, VarId> bb_var_dependance;
 
   std::unordered_multimap<VarId, VarId> store_dependance;
@@ -181,7 +182,10 @@ void ComplexDceRunner::scan_dependant_vars() {
         add_store_dependance(x->offset, x->dest);
         add_store_dependance(x->offset, x->val);
       } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
-        if (x->val.index() == 2) add_ref_var(i.dest);
+        if (x->val.index() == 2)
+          add_ref_var(i.dest);
+        else
+          backup_ref_vars.insert(i.dest);
       } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
         for (auto v : x->vars) add_dependance(x->dest, v);
       } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
@@ -210,32 +214,42 @@ void ComplexDceRunner::calc_remained_vars() {
   std::deque<VarId> remaining;
   std::unordered_set<VarId> visited;
 
-  for (auto x : ref_vars) remaining.push_back(x);
-  while (!remaining.empty()) {
-    auto v = remaining.front();
-    remaining.pop_front();
-    visited.insert(v);
-    for (auto [it, end] = invert_dependance.equal_range(v); it != end; it++) {
-      if (visited.find(it->second) == visited.end()) {
-        remaining.push_back(it->second);
+  bool changed = true;
+
+  while (changed) {
+    changed = false;
+
+    remaining.clear();
+    for (auto x : ref_vars) remaining.push_back(x);
+    while (!remaining.empty()) {
+      auto v = remaining.front();
+      remaining.pop_front();
+      visited.insert(v);
+      for (auto [it, end] = invert_dependance.equal_range(v); it != end; it++) {
+        if (visited.find(it->second) == visited.end()) {
+          remaining.push_back(it->second);
+        }
+      }
+      for (auto [it, end] = store_dependance.equal_range(v); it != end; it++) {
+        changed |= do_not_delete.insert(it->second).second;
+        changed |= do_not_delete.insert(v).second;
       }
     }
-    for (auto [it, end] = store_dependance.equal_range(v); it != end; it++) {
-      do_not_delete.insert(it->second);
-      do_not_delete.insert(v);
-    }
-  }
 
-  // Add all dependant of root vars
-  remaining.clear();
-  for (auto x : do_not_delete) remaining.push_back(x);
-  while (!remaining.empty()) {
-    auto v = remaining.front();
-    remaining.pop_front();
-    do_not_delete.insert(v);
-    for (auto [it, end] = var_dependance.equal_range(v); it != end; it++) {
-      if (do_not_delete.find(it->second) == do_not_delete.end()) {
-        remaining.push_back(it->second);
+    // Add all dependant of root vars
+    remaining.clear();
+    for (auto x : do_not_delete) remaining.push_back(x);
+    while (!remaining.empty()) {
+      auto v = remaining.front();
+      remaining.pop_front();
+      changed |= do_not_delete.insert(v).second;
+      for (auto [it, end] = var_dependance.equal_range(v); it != end; it++) {
+        if (do_not_delete.find(it->second) == do_not_delete.end()) {
+          remaining.push_back(it->second);
+        }
+      }
+      if (backup_ref_vars.find(v) != backup_ref_vars.end()) {
+        changed |= ref_vars.insert(v).second;
       }
     }
   }
