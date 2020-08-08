@@ -98,7 +98,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
-
+  backend.add_pass(std::make_unique<
+                   optimization::memvar_propagation::Memory_Var_Propagation>(true));
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(
