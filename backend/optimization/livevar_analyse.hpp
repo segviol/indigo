@@ -5,10 +5,10 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <iterator>
 #include <list>
 #include <map>
 #include <memory>
-#include <iterator>
 
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
@@ -112,12 +112,15 @@ class Block_Live_Var {
     }
     if (strict) {
       if (block.inst.at(idx)->inst_kind() == mir::inst::InstKind::Phi) {
-        for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
-          if (this->defvars->count(*iter)) {
-            useVars.erase(iter);
-            break;
-          }
-        }
+        // for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
+        //   if (this->defvars->count(*iter)) {
+        //     useVars.erase(iter);
+        //     break;
+        //   }
+        // }
+        useVars.clear();
+        useVars.insert(defvar);
+        defvars.clear();
       }
     }
 
