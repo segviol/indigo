@@ -264,13 +264,13 @@ void SyntaxAnalyze::gm_var_def() {
 
     if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
         irGenerator::TopLocalSmallArrayLength) {
-      if (!inits.empty()) {
+      if (!init_values.empty()) {
         initType = irGenerator::localArrayInitType::SmallInit;
       } else {
         initType = irGenerator::localArrayInitType::Small;
       }
     } else {
-      if (!inits.empty()) {
+      if (!init_values.empty()) {
         initType = irGenerator::localArrayInitType::BigInit;
       } else {
         initType = irGenerator::localArrayInitType::BigNoInit;
