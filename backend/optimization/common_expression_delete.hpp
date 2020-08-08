@@ -727,6 +727,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
 
   void init_funcs(mir::inst::MirPackage& package) {
     for (auto& funcpair : package.functions) {
+      if (funcpair.second.type->is_extern) continue;
       mergeable_funcs.insert(funcpair.first);
     }
     for (auto& funcpair : package.functions) {
