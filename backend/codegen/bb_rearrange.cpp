@@ -65,7 +65,7 @@ void BasicBlkRearrange::optimize_mir(
     }
     LOG(TRACE) << std::endl;
 
-    ordering_map.insert({f.second.name, std::move(res)});
+    ordering_map.insert_or_assign(f.second.name, std::move(res));
   }
   extra_data_repo.insert(
       {optimization::BASIC_BLOCK_ORDERING_DATA_NAME, std::move(ordering_map)});
