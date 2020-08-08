@@ -24,6 +24,7 @@ set(backend_files
     backend/optimization/func_array_global.hpp
     backend/optimization/func_array_global.cpp
     backend/optimization/const_propagation.hpp
+    backend/optimization/complex_dead_code_elimination.cpp
     backend/optimization/memvar_propagation.hpp
     backend/optimization/value_shift_collapse.cpp
     backend/codegen/codegen.hpp
@@ -48,7 +49,11 @@ set(frontend_files
     frontend/syntax_analyze.hpp
     frontend/syntax_analyze.cpp
     frontend/word_analyze.hpp
-    frontend/word_analyze.cpp)
+    frontend/word_analyze.cpp
+    frontend/optimization/bmir_optimization.hpp
+    frontend/optimization/bmir_optimization.cpp
+    frontend/optimization/bmir_variable_table.hpp
+    frontend/optimization/scalize_fake_var_array.hpp)
 
 set(mir_files
     mir/mir.cpp

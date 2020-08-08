@@ -15,7 +15,7 @@
 
 #include "../optimization/graph_color.hpp"
 #include "../optimization/optimization.hpp"
-#include "aixlog.hpp"
+#include "../../include/aixlog.hpp"
 
 namespace backend::codegen {
 using namespace arm;
@@ -102,6 +102,7 @@ class RegAllocator {
         spill_positions(),
         color_map(color_map),
         mir_to_arm(mir_to_arm),
+        bb_used_regs(),
         inst_sink() {}
   arm::Function &f;
   ColorMap &color_map;
@@ -109,7 +110,7 @@ class RegAllocator {
 
   std::set<Reg> used_regs = {};
   std::set<Reg> used_regs_temp = {};
-  // std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
+  std::unordered_map<uint32_t, std::set<Reg>> bb_used_regs;
   std::map<int, uint32_t> point_bb_map;
 
   std::unordered_map<Reg, Interval> live_intervals;
@@ -131,6 +132,8 @@ class RegAllocator {
   std::vector<std::unique_ptr<arm::Inst>> inst_sink;
   std::set<int> bl_points;
   std::unordered_set<Reg> wrote_to = {};
+
+  std::set<std::pair<Reg, int>> write_back_regs;
 
   int stack_size;
   int stack_offset = 0;
@@ -165,7 +168,7 @@ class RegAllocator {
     } else {
       live_intervals.insert({reg, Interval(point)});
     }
-    // add_reg_use_in_bb_at_point(reg, point);
+    add_reg_use_in_bb_at_point(reg, point);
   }
 
   void add_reg_write(Reg reg, unsigned int point) {
@@ -178,19 +181,19 @@ class RegAllocator {
     if (!r_use_insert.second) {
       r_use_insert.first->second++;
     };
-    // add_reg_use_in_bb_at_point(reg, point);
+    add_reg_use_in_bb_at_point(reg, point);
   }
 
-  // void add_reg_use_in_bb_at_point(Reg reg, unsigned int point) {
-  //   auto r_mapped = reg_map.find(reg);
-  //   if (r_mapped != reg_map.end()) {
-  //     auto bb_iter = point_bb_map.lower_bound(point);
-  //     bb_iter--;
-  //     auto &reg_set = bb_used_regs.insert({bb_iter->second,
-  //     {}}).first->second; reg_set.insert(r_mapped->second);
-  //     used_regs.insert(r_mapped->second);
-  //   }
-  // }
+  void add_reg_use_in_bb_at_point(Reg reg, unsigned int point) {
+    auto r_mapped = reg_map.find(reg);
+    if (r_mapped != reg_map.end()) {
+      auto bb_iter = point_bb_map.lower_bound(point);
+      bb_iter--;
+      auto &reg_set = bb_used_regs.insert({bb_iter->second, {}}).first->second;
+      reg_set.insert(r_mapped->second);
+      used_regs.insert(r_mapped->second);
+    }
+  }
 
 #pragma endregion
   void display_active_regs() {
