@@ -15,7 +15,7 @@
 
 #include "../optimization/graph_color.hpp"
 #include "../optimization/optimization.hpp"
-#include "aixlog.hpp"
+#include "../../include/aixlog.hpp"
 
 namespace backend::codegen {
 using namespace arm;
