@@ -18,6 +18,7 @@
 #include "backend/optimization/const_propagation.hpp"
 #include "backend/optimization/excess_reg_delete.hpp"
 #include "backend/optimization/exit_ahead.hpp"
+#include "backend/optimization/func_array_global.hpp"
 #include "backend/optimization/global_expression_move.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
@@ -100,6 +101,8 @@ void add_passes(backend::Backend& backend) {
 
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(
+      std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<
