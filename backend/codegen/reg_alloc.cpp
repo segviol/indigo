@@ -13,16 +13,14 @@
 #include <unordered_set>
 #include <vector>
 
+#include "../../include/aixlog.hpp"
 #include "../optimization/graph_color.hpp"
 #include "../optimization/optimization.hpp"
-#include "../../include/aixlog.hpp"
 
 namespace backend::codegen {
 using namespace arm;
 
 const std::set<Reg> GP_REGS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12, REG_LR};
-const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 8, 9, 10};
 
 /// An interval represented by this struct is a semi-open interval
 /// [start, end) where start means this value is first written and end means
