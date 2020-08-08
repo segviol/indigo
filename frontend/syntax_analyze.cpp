@@ -306,7 +306,9 @@ void SyntaxAnalyze::gm_var_def() {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CNS && var->_value != 0) {
+        if (var->_type == NodeType::CNS &&
+            (var->_value != 0 ||
+             initType == irGenerator::localArrayInitType::Small)) {
           rightVal.emplace<0>(var->_value);
           needAssgin = true;
         } else if (var->_type == NodeType::VAR) {
