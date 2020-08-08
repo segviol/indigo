@@ -108,7 +108,7 @@ class irGenerator {
    * 0: jumplabel
    * 1: {global_values, local_values}
    */
-  void ir_ref(LeftVal dest, LeftVal src);
+  void ir_ref(LeftVal dest, LeftVal src, bool begin = false);
   void ir_offset(LeftVal dest, LeftVal ptr, RightVal offset);
   void ir_load(LeftVal dest, RightVal src);
   void ir_store(LeftVal dest, RightVal src);
@@ -181,6 +181,9 @@ class irGenerator {
                           string name);
 
   string getGenSaveParamVarName(uint32_t id);
+
+  void insertInstruction(std::shared_ptr<mir::inst::Inst> &inst,
+                         bool begin = false);
 };
 }  // namespace front::irGenerator
 
