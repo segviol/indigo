@@ -245,21 +245,6 @@ void SyntaxAnalyze::gm_var_def() {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
 
-    if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
-        irGenerator::TopLocalSmallArrayLength) {
-      if (!inits.empty()) {
-        initType = irGenerator::localArrayInitType::SmallInit;
-      } else {
-        initType = irGenerator::localArrayInitType::Small;
-      }
-    } else {
-      if (!inits.empty()) {
-        initType = irGenerator::localArrayInitType::BigInit;
-      } else {
-        initType = irGenerator::localArrayInitType::BigNoInit;
-      }
-    }
-
     if (inGlobalLayer()) {
       if (init_values.empty()) {
         for (int i = 0;
@@ -274,6 +259,21 @@ void SyntaxAnalyze::gm_var_def() {
             inits.push_back(0);
           }
         }
+      }
+    }
+
+    if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
+        irGenerator::TopLocalSmallArrayLength) {
+      if (!init_values.empty()) {
+        initType = irGenerator::localArrayInitType::SmallInit;
+      } else {
+        initType = irGenerator::localArrayInitType::Small;
+      }
+    } else {
+      if (!init_values.empty()) {
+        initType = irGenerator::localArrayInitType::BigInit;
+      } else {
+        initType = irGenerator::localArrayInitType::BigNoInit;
       }
     }
 
@@ -306,9 +306,7 @@ void SyntaxAnalyze::gm_var_def() {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CNS &&
-            (var->_value != 0 ||
-             initType == irGenerator::localArrayInitType::Small)) {
+        if (var->_type == NodeType::CNS && var->_value != 0) {
           rightVal.emplace<0>(var->_value);
           needAssgin = true;
         } else if (var->_type == NodeType::VAR) {
@@ -351,6 +349,30 @@ void SyntaxAnalyze::gm_var_def() {
     }
   }
   symbolTable.push_symbol(symbol);
+
+  if (inGlobalLayer() && symbol->kind() == SymbolKind::Array) {
+    bool isConst = true;
+    std::vector<int32_t> constValues;
+
+    for (auto &value : init_values) {
+      if (value->_type == NodeType::CNS) {
+        constValues.push_back(value->_value);
+      } else {
+        isConst = false;
+        break;
+      }
+    }
+
+    if (isConst) {
+      std::shared_ptr<optimization::bmir_variable_table::VarArray> varArray =
+          std::make_shared<optimization::bmir_variable_table::VarArray>(
+              isConst);
+
+      varArray->initValues.assign(constValues.begin(), constValues.end());
+      bmirVariableTable.insertVarArray(
+          irGenerator.getVarName(symbol->getName(), symbol->getId()), varArray);
+    }
+  }
 }
 
 uint32_t SyntaxAnalyze::gm_init_val(vector<SharedExNdPtr> &init_values,
@@ -795,6 +817,14 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       irGenerator.ir_load(value, addr->_name);
     }
 
+    if (mode == ValueMode::left) {
+      if (bmirVariableTable.hasNameKey(
+              irGenerator.getVarName(arr->getName(), arr->getId()))) {
+        bmirVariableTable
+            .getVarArray(irGenerator.getVarName(arr->getName(), arr->getId()))
+            ->changed = true;
+      }
+    }
   } else {
     SharedSyPtr var = symbolTable.find_least_layer_symbol(name);
 
@@ -860,6 +890,13 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
       } else {
         irGenerator.ir_ref(
             arrPtr, irGenerator.getVarName(var->getName(), var->getId()));
+      }
+
+      if (bmirVariableTable.hasNameKey(
+              irGenerator.getVarName(var->getName(), var->getId()))) {
+        bmirVariableTable
+            .getVarArray(irGenerator.getVarName(var->getName(), var->getId()))
+            ->changed = true;
       }
     }
   }
