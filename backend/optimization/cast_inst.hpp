@@ -46,7 +46,13 @@ class Cast_Inst : public backend::MirOptimizePass {
                 {opInst->dest,
                  {std::get<mir::inst::VarId>(opInst->lhs), opInst->rhs}});
           }
-        } else {
+        } else if (inst->inst_kind() == mir::inst::InstKind::Assign) {
+          auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
+          if (!assignInst->src.is_immediate()) {
+            offset_map.insert(
+                {assignInst->dest,
+                 {std::get<mir::inst::VarId>(assignInst->src), 0}});
+          }
         }
         iter++;
       }
