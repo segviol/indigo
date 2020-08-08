@@ -191,6 +191,9 @@ class Livevar_Analyse {
   mir::inst::MirFunction& func;
   Livevar_Analyse(mir::inst::MirFunction& func, bool strcit = false)
       : func(func), strict(strcit) {
+    if (strict) {
+      unroll_phi();
+    }
     auto& vartable = func.variables;
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
@@ -209,7 +212,11 @@ class Livevar_Analyse {
       }
     }
   }
-  ~Livevar_Analyse(){};
+  ~Livevar_Analyse() {
+    if (strict) {
+      roll_phi();
+    }
+  };
 
   bool bfs_build(mir::inst::BasicBlk& start) {
     std::list<mir::types::LabelId> queue;
@@ -235,7 +242,8 @@ class Livevar_Analyse {
     LOG(TRACE) << " is unrolling phi for " << func.name << std::endl;
     var_replace::Var_Replace vp(func);
     for (auto& blkpair : func.basic_blks) {
-      for (auto& inst : blkpair.second.inst) {
+      for (auto i = 0; i < blkpair.second.inst.size(); ++i) {
+        auto& inst = blkpair.second.inst.at(i);
         if (inst->inst_kind() == mir::inst::InstKind::Phi) {
           phi_dests.insert(inst->dest);
           for (auto var : inst->useVars()) {
@@ -267,17 +275,13 @@ class Livevar_Analyse {
     if (!func.basic_blks.size()) {
       return;
     }
-    if (strict) {
-      unroll_phi();
-    }
+
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
     while (bfs_build(end->second))
       ;
-    if (strict) {
-      roll_phi();
-    }
+
     // for (auto& pair : livevars) {
     //   LOG(TRACE) << pair.first << ": " << std::endl;
     //   for (auto var : *pair.second->live_vars_in) {
