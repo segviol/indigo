@@ -54,6 +54,8 @@ class BmirOptimizationPass {
       std::map<std::string, std::vector<irGenerator::Instruction>>& funcInsts,
       std::map<std::string, std::any>& messages) = 0;
 
+  virtual ~BmirOptimizationPass() {}
+
  private:
 };
 }  // namespace front::optimization::bmir_optimization
