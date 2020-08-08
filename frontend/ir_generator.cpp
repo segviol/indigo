@@ -320,7 +320,8 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
         is_memory = false;
         break;
       case front::symbol::SymbolKind::Array:
-        if (initType == localArrayInitType::Small) {
+        if (initType == localArrayInitType::Small ||
+            initType == localArrayInitType::SmallInit) {
           auto varNameRef = getVarName(name, id) + "_$array";
 
           Variable variable(
@@ -353,11 +354,11 @@ void irGenerator::ir_declare_value(string name, symbol::SymbolKind kind, int id,
     if (kind == symbol::SymbolKind::Array) {
       switch (initType) {
         case localArrayInitType::Small: {
-          ir_ref(varName, varName + "_$array");
+          ir_ref(varName, varName + "_$array", true);
           break;
         }
         case localArrayInitType::SmallInit: {
-          ir_ref(varName, varName + "_$array");
+          ir_ref(varName, varName + "_$array", true);
           RightVal value;
           RightVal size;
           size.emplace<0>(len * ty->size().value());
@@ -513,7 +514,7 @@ void irGenerator::ir_leave_function() {
   _funcStack.pop_back();
 }
 
-void irGenerator::ir_ref(LeftVal dest, LeftVal src) {
+void irGenerator::ir_ref(LeftVal dest, LeftVal src, bool begin) {
   shared_ptr<VarId> destVarId;
   shared_ptr<std::variant<VarId, std::string>> val;
   LabelId id;
@@ -531,7 +532,7 @@ void irGenerator::ir_ref(LeftVal dest, LeftVal src) {
   refInst =
       shared_ptr<mir::inst::RefInst>(new mir::inst::RefInst(*destVarId, *val));
 
-  _funcNameToInstructions[_funcStack.back()].push_back(refInst);
+  insertInstruction(refInst, begin);
 }
 
 void irGenerator::ir_offset(LeftVal dest, LeftVal ptr, RightVal offset) {
@@ -611,7 +612,7 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
                                    std::vector<RightVal> params, bool begin) {
   shared_ptr<VarId> destVarId;
   std::vector<Value> paramValues;
-  shared_ptr<mir::inst::CallInst> callInst;
+  shared_ptr<mir::inst::Inst> callInst;
 
   switch (kind) {
     case front::symbol::SymbolKind::Ptr:
@@ -634,6 +635,11 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
   callInst = shared_ptr<mir::inst::CallInst>(
       new mir::inst::CallInst(*destVarId, funcName, paramValues));
 
+  insertInstruction(callInst, begin);
+}
+
+void irGenerator::insertInstruction(std::shared_ptr<mir::inst::Inst> &inst,
+                                    bool begin) {
   std::vector<Instruction> &instructions =
       _funcNameToInstructions[_funcStack.back()];
   if (begin) {
@@ -645,10 +651,10 @@ void irGenerator::ir_function_call(string retName, symbol::SymbolKind kind,
     insertPosition +=
         _package.functions.at(_funcStack.back()).type->params.size();
     insertPosition += _funcNameToFuncData[_funcStack.back()]._frontInstsNum;
-    instructions.insert(insertPosition, callInst);
+    instructions.insert(insertPosition, inst);
     _funcNameToFuncData[_funcStack.back()]._frontInstsNum++;
   } else {
-    instructions.push_back(callInst);
+    instructions.push_back(inst);
   }
 }
 
