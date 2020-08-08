@@ -67,8 +67,8 @@ void BasicBlkRearrange::optimize_mir(
 
     ordering_map.insert_or_assign(f.second.name, std::move(res));
   }
-  extra_data_repo.insert(
-      {optimization::BASIC_BLOCK_ORDERING_DATA_NAME, std::move(ordering_map)});
+  extra_data_repo.insert_or_assign(optimization::BASIC_BLOCK_ORDERING_DATA_NAME,
+                                   std::move(ordering_map));
 }
 
 std::vector<uint32_t> BasicBlkRearrange::optimize_func(
