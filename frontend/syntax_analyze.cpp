@@ -245,21 +245,6 @@ void SyntaxAnalyze::gm_var_def() {
       std::static_pointer_cast<ArraySymbol>(symbol)->addDimension(var);
     }
 
-    if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
-        irGenerator::TopLocalSmallArrayLength) {
-      if (!inits.empty()) {
-        initType = irGenerator::localArrayInitType::SmallInit;
-      } else {
-        initType = irGenerator::localArrayInitType::Small;
-      }
-    } else {
-      if (!inits.empty()) {
-        initType = irGenerator::localArrayInitType::BigInit;
-      } else {
-        initType = irGenerator::localArrayInitType::BigNoInit;
-      }
-    }
-
     if (inGlobalLayer()) {
       if (init_values.empty()) {
         for (int i = 0;
@@ -274,6 +259,21 @@ void SyntaxAnalyze::gm_var_def() {
             inits.push_back(0);
           }
         }
+      }
+    }
+
+    if (std::static_pointer_cast<ArraySymbol>(symbol)->getLen() <=
+        irGenerator::TopLocalSmallArrayLength) {
+      if (!inits.empty()) {
+        initType = irGenerator::localArrayInitType::SmallInit;
+      } else {
+        initType = irGenerator::localArrayInitType::Small;
+      }
+    } else {
+      if (!inits.empty()) {
+        initType = irGenerator::localArrayInitType::BigInit;
+      } else {
+        initType = irGenerator::localArrayInitType::BigNoInit;
       }
     }
 
@@ -306,9 +306,7 @@ void SyntaxAnalyze::gm_var_def() {
           std::static_pointer_cast<ArraySymbol>(symbol)->addValue(var);
         }
 
-        if (var->_type == NodeType::CNS &&
-            (var->_value != 0 ||
-             initType == irGenerator::localArrayInitType::Small)) {
+        if (var->_type == NodeType::CNS && var->_value != 0) {
           rightVal.emplace<0>(var->_value);
           needAssgin = true;
         } else if (var->_type == NodeType::VAR) {
