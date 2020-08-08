@@ -112,10 +112,12 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
       auto name = gvm.add_global_var(func.name, ref_var, val);
       LOG(TRACE) << "convert array " << ref_var << "in " << func.name
                  << " to global array " << name << "" << std::endl;
-      inst = std::make_unique<mir::inst::RefInst>(ref_var, name);
+      inst = std::make_unique<mir::inst::RefInst>(var, name);
       auto init_var = gvm.get_new_init_id(func.variables.at(ref_var.id));
       init_insts.push_back(
           std::make_unique<mir::inst::RefInst>(init_var, name));
+      func.variables.erase(ref_var);
+
       for (auto iter = startBlk.inst.begin(); iter != startBlk.inst.end();) {
         auto& inst = *iter;
         if (inst->useVars().count(var) &&
