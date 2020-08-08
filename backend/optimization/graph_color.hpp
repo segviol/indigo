@@ -78,6 +78,13 @@ class Conflict_Map {
         }
       }
     }
+    for (auto& pair : merged_Map) {
+      LOG(TRACE) << pair.first << " representes these vars : ";
+      for (auto var : pair.second) {
+        LOG(TRACE) << var << ", ";
+      }
+      LOG(TRACE) << std::endl;
+    }
   }
 
   int get_priority(mir::inst::VarId var) {
@@ -128,6 +135,10 @@ class Conflict_Map {
     for (auto useVar : useVars) {
       if (merged_var_Map.count(useVar)) {
         useVar = merged_var_Map.at(useVar);
+      }
+      if (defVar.id == 66059 && useVar.id == 66061 ||
+          useVar.id == 66059 && defVar.id == 66061) {
+        std::cout << "find it " << std::endl;
       }
       if (defVar == useVar) {
         continue;
@@ -367,6 +378,7 @@ class Graph_Color : public backend::MirOptimizePass {
     if (func.type->is_extern) {
       return;
     }
+    LOG(TRACE) << "Running graph coloring for" << func.name << std::endl;
     std::set<mir::inst::VarId> cross_blk_vars;
     auto map = std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
     func_color_map.insert({funcId, map});
@@ -379,6 +391,8 @@ class Graph_Color : public backend::MirOptimizePass {
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
       init_cross_blk_vars(iter->second, cross_blk_vars);
     }
+    LOG(TRACE) << " Conflict map :" << std::endl;
+
     if (enable) {
       for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
            ++iter) {
@@ -386,6 +400,13 @@ class Graph_Color : public backend::MirOptimizePass {
                           cross_blk_vars);
       }
       conflict_map->init_edge_vars();
+      for (auto& pair : conflict_map->dynamic_Map) {
+        LOG(TRACE) << pair.first << " conflicts with : ";
+        for (auto var : pair.second) {
+          LOG(TRACE) << var << ", ";
+        }
+        LOG(TRACE) << std::endl;
+      }
       while (!conflict_map->dynamic_Map.empty()) {
         conflict_map->remove_edge_less_colors();
         conflict_map->remove_edge_larger_colors();
