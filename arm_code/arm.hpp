@@ -14,7 +14,6 @@
 #include "../prelude/prelude.hpp"
 
 namespace arm {
-
 bool is_valid_immediate(uint32_t val);
 
 enum class RegisterShiftKind : uint8_t { Asr, Lsl, Lsr, Ror, Rrx };
@@ -33,6 +32,32 @@ enum class RegisterKind {
 // register, and any value larger or equal to 2^31 is considered as a virtual
 // vector register.
 using Reg = uint32_t;
+
+/// Frame pointer (base pointer)
+const uint32_t REG_FP = 11;
+/// Stack pointer
+const uint32_t REG_SP = 13;
+/// Link register
+const uint32_t REG_LR = 14;
+/// Program counter
+const uint32_t REG_PC = 15;
+
+const uint32_t REG_GP_START = 0;
+const uint32_t REG_DOUBLE_START = 16;
+const uint32_t REG_QUAD_START = 48;
+const uint32_t REG_V_GP_START = 64;
+const uint32_t REG_V_DOUBLE_START = 1 << 31;
+const uint32_t REG_V_QUAD_START = 3 << 30;
+
+const std::vector<Reg> TEMP_REGS = {0, 1, 2, 3, 12, REG_LR};
+const std::vector<Reg> GLOB_REGS = {4, 5, 6, 7, 8, 9, 10};
+
+inline bool is_virtual_register(Reg r) { return r >= 64; }
+RegisterKind register_type(Reg r);
+uint32_t register_num(Reg r);
+void display_reg_name(std::ostream& o, Reg r);
+
+Reg make_register(RegisterKind ty, uint32_t num);
 
 enum class ConstType { Word, AsciZ };
 
@@ -58,29 +83,6 @@ class ConstValue
   virtual void display(std::ostream& o) const;
   virtual ~ConstValue() {}
 };
-
-/// Frame pointer (base pointer)
-const uint32_t REG_FP = 11;
-/// Stack pointer
-const uint32_t REG_SP = 13;
-/// Link register
-const uint32_t REG_LR = 14;
-/// Program counter
-const uint32_t REG_PC = 15;
-
-const uint32_t REG_GP_START = 0;
-const uint32_t REG_DOUBLE_START = 16;
-const uint32_t REG_QUAD_START = 48;
-const uint32_t REG_V_GP_START = 64;
-const uint32_t REG_V_DOUBLE_START = 1 << 31;
-const uint32_t REG_V_QUAD_START = 3 << 30;
-
-inline bool is_virtual_register(Reg r) { return r >= 64; }
-RegisterKind register_type(Reg r);
-uint32_t register_num(Reg r);
-void display_reg_name(std::ostream& o, Reg r);
-
-Reg make_register(RegisterKind ty, uint32_t num);
 
 struct RegisterOperand : public prelude::Displayable {
   RegisterOperand() : RegisterOperand(0) {}
