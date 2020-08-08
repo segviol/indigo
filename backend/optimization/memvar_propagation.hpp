@@ -484,9 +484,9 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
          ++iter) {
       optimize_func(iter->second);
       if (aftercast) {
-        //delete_store2(iter->second);
+        delete_store2(iter->second);
       } else {
-        delete_store1(iter->second);
+        //delete_store1(iter->second);
       }
     }
   }
