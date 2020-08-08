@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <iterator>
 
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
@@ -190,7 +191,7 @@ class Livevar_Analyse {
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
       auto& block = iter->second;
-      auto blv = std::make_shared<Block_Live_Var>(block, vartable);
+      auto blv = std::make_shared<Block_Live_Var>(block, vartable, strict);
       livevars[iter->second.id] = blv;
     }
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
