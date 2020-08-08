@@ -346,6 +346,9 @@ class Graph_Color : public backend::MirOptimizePass {
                          std::set<mir::inst::VarId>& cross_blk_vars) {
     auto& block = blv->block;
     for (auto iter = block.inst.begin(); iter != block.inst.end(); ++iter) {
+      if (iter->get()->inst_kind() == mir::inst::InstKind::Phi) {
+        continue;
+      }
       auto defVar = iter->get()->dest;
       if (blv->queryTy(defVar) == mir::types::TyKind::Void ||
           !cross_blk_vars.count(defVar)) {
