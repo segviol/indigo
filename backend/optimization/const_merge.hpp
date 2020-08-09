@@ -126,24 +126,25 @@ class Merge_Const : public backend::MirOptimizePass {
           case Op::Rem:
             res = lhs % rhs;
             break;
-          case Op::Eq:
-            res = lhs == rhs;
-            break;
-          case Op::Neq:
-            res = lhs != rhs;
-            break;
-          case Op::Gt:
-            res = lhs > rhs;
-            break;
-          case Op::Lt:
-            res = lhs < rhs;
-            break;
-          case Op::Gte:
-            res = lhs >= rhs;
-            break;
-          case Op::Lte:
-            res = lhs <= rhs;
-            break;
+            // comment beacuse this will destroy the loop information
+          // case Op::Eq:
+          //   res = lhs == rhs;
+          //   break;
+          // case Op::Neq:
+          //   res = lhs != rhs;
+          //   break;
+          // case Op::Gt:
+          //   res = lhs > rhs;
+          //   break;
+          // case Op::Lt:
+          //   res = lhs < rhs;
+          //   break;
+          // case Op::Gte:
+          //   res = lhs >= rhs;
+          //   break;
+          // case Op::Lte:
+          //   res = lhs <= rhs;
+          //   break;
           case Op::And:
             res = lhs & rhs;
             break;
