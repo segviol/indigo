@@ -351,7 +351,8 @@ class Graph_Color : public backend::MirOptimizePass {
       }
       auto defVar = iter->get()->dest;
       if (blv->queryTy(defVar) == mir::types::TyKind::Void ||
-          !cross_blk_vars.count(defVar)) {
+          !cross_blk_vars.count(defVar) &&
+              !conflict_map->merged_var_Map.count(defVar)) {
         continue;
       }
       int idx = iter - block.inst.begin();
