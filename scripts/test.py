@@ -198,7 +198,7 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                     continue
 
                 link_output = subprocess.run([
-                    'gcc', 'tmp.s', args.linked_library_path, '-march=armv7-a',
+                    'gcc', 'tmp.s', args.linked_library_path, '-march=armv7-a', '-mcpu=cortex-a73',
                     "-o", "tmp"
                 ],
                                              capture_output=True)
