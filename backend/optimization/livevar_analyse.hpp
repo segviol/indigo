@@ -5,13 +5,14 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <iterator>
 #include <list>
 #include <map>
 #include <memory>
-#include <iterator>
 
 #include "../../mir/mir.hpp"
 #include "../backend.hpp"
+#include "./var_replace.hpp"
 
 namespace optimization::livevar_analyse {
 class Block_Live_Var;
@@ -112,12 +113,14 @@ class Block_Live_Var {
     }
     if (strict) {
       if (block.inst.at(idx)->inst_kind() == mir::inst::InstKind::Phi) {
-        for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
-          if (this->defvars->count(*iter)) {
-            useVars.erase(iter);
-            break;
-          }
-        }
+        // for (auto iter = useVars.begin(); iter != useVars.end(); iter++) {
+        //   if (this->defvars->count(*iter)) {
+        //     useVars.erase(iter);
+        //     break;
+        //   }
+        // }
+        useVars.clear();
+        defvars.clear();
       }
     }
 
@@ -183,10 +186,14 @@ class Block_Live_Var {
 class Livevar_Analyse {
  public:
   std::map<mir::types::LabelId, sharedPtrBlkLivevar> livevars;
+  std::set<mir::inst::VarId> phi_dests;
   bool strict;
   mir::inst::MirFunction& func;
   Livevar_Analyse(mir::inst::MirFunction& func, bool strcit = false)
       : func(func), strict(strcit) {
+    if (strict) {
+      unroll_phi();
+    }
     auto& vartable = func.variables;
     for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
          ++iter) {
@@ -205,7 +212,12 @@ class Livevar_Analyse {
       }
     }
   }
-  ~Livevar_Analyse(){};
+  ~Livevar_Analyse() {
+    if (strict) {
+      roll_phi();
+    }
+  };
+
   bool bfs_build(mir::inst::BasicBlk& start) {
     std::list<mir::types::LabelId> queue;
     std::set<mir::types::LabelId> visited;
@@ -226,15 +238,50 @@ class Livevar_Analyse {
     return modify;
   }
 
+  void unroll_phi() {
+    LOG(TRACE) << " is unrolling phi for " << func.name << std::endl;
+    var_replace::Var_Replace vp(func);
+    for (auto& blkpair : func.basic_blks) {
+      for (auto i = 0; i < blkpair.second.inst.size(); ++i) {
+        auto& inst = blkpair.second.inst.at(i);
+        if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+          phi_dests.insert(inst->dest);
+          for (auto var : inst->useVars()) {
+            func.basic_blks.at(vp.defpoint.at(var).first)
+                .inst.push_back(
+                    std::make_unique<mir::inst::AssignInst>(inst->dest, var));
+          }
+        }
+      }
+    }
+    // LOG(TRACE) << func << std::endl;
+  }
+
+  void roll_phi() {
+    for (auto& blkpair : func.basic_blks) {
+      for (auto iter = blkpair.second.inst.begin();
+           iter != blkpair.second.inst.end();) {
+        if (iter->get()->inst_kind() == mir::inst::InstKind::Assign &&
+            phi_dests.count(iter->get()->dest)) {
+          iter = blkpair.second.inst.erase(iter);
+        } else {
+          iter++;
+        }
+      }
+    }
+  }
+
   void build() {
     if (!func.basic_blks.size()) {
       return;
     }
+
     auto end = func.basic_blks.end();
     end--;
     sharedPtrVariableSet empty = std::make_shared<VariableSet>();
     while (bfs_build(end->second))
       ;
+
     // for (auto& pair : livevars) {
     //   LOG(TRACE) << pair.first << ": " << std::endl;
     //   for (auto var : *pair.second->live_vars_in) {
