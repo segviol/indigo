@@ -11,7 +11,7 @@
 
 namespace optimization::memvar_propagation {
 
-enum class VarKind { GlobalVar, GlobalArray, LocalArray };
+enum class VarKind { GlobalVar, GlobalArray, LocalArray, Uncertain };
 
 class Dest {
  public:
@@ -531,7 +531,6 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
     std::map<mir::types::LabelId, mir::inst::BasicBlk>::iterator bit;
     std::set<Var> address;
 
-    std::cout << "1" << std::endl;
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
       std::vector<int> temp;
@@ -554,14 +553,46 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
         }
       }
     }
-    std::cout << "2" << std::endl;
+    for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
+      auto& bb = bit->second;
+      std::vector<int> temp;
+      for (auto& inst : bb.inst) {
+        auto& i = *inst;
+        if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
+          bool has = false;
+          for (auto k = address.begin(); k != address.end(); k++) {
+            if ((*k).id == x->dest) {
+              has = true;
+              break;
+            }
+          }
+          if (!has) {
+            Var var(x->dest, VarKind::Uncertain);
+            address.insert(var);
+          }
+        } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+          bool has = false;
+          if (x->src.index() == 1) {
+            for (auto k = address.begin(); k != address.end(); k++) {
+              if ((*k).id == std::get<1>(x->src)) {
+                has = true;
+                break;
+              }
+            }
+            if (!has) {
+              Var var(std::get<1>(x->src), VarKind::Uncertain);
+              address.insert(var);
+            }
+          }
+        }
+      }
+    }
     for (bit = func.basic_blks.begin(); bit != func.basic_blks.end(); bit++) {
       auto& bb = bit->second;
       for (auto k = address.begin(); k != address.end(); k++) {
         int index = 0;
         std::vector<int> call_index;
         call_index.push_back(0);
-        std::cout << "3" << std::endl;
         for (auto& inst : bb.inst) {
           auto& i = *inst;
           if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
@@ -573,7 +604,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
           if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
             if (x->dest == (*k).id) {
               call_index.push_back(index);
-            }  
+            }
           }
           index++;
         }
@@ -581,8 +612,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
         for (int j = 0; j < call_index.size(); j++) {
           int upper_bound = (j == (call_index.size() - 1)) ? bb.inst.size()
                                                            : call_index[j + 1];
-          std::map<Dest, std::variant<int32_t, mir::inst::VarId>>
-              store;
+          std::map<Dest, std::variant<int32_t, mir::inst::VarId>> store;
           std::map<mir::inst::VarId, std::variant<int32_t, mir::inst::VarId>>
               load;
           std::map<Dest, std::variant<int32_t, mir::inst::VarId>>::iterator it;
@@ -601,13 +631,14 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                 it = store.find(d);
                 if (it == store.end()) {
                   store.insert(
-                      std::map<Dest,
-                               std::variant<int32_t, mir::inst::VarId>>::
+                      std::map<Dest, std::variant<int32_t, mir::inst::VarId>>::
                           value_type(d, value));
                 } else {
                   store[d] = value;
                 }
-              } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+              } else if (auto x =
+                             dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+                std::cout << x->dest << std::endl;
                 if (x->src.index() == 1) {
                   Dest d(std::get<1>(x->src), x->offset);
                   it = store.find(d);
@@ -631,12 +662,10 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                     std::variant<int32_t, mir::inst::VarId> value;
                     value.emplace<1>(x->dest);
                     Dest d(std::get<1>(x->src), x->offset);
-                    if (x->src.index() == 1) {
-                      store.insert(
-                          std::map<Dest,
-                                   std::variant<int32_t, mir::inst::VarId>>::
-                              value_type(d, value));
-                    }
+                    store.insert(
+                        std::map<Dest,
+                                 std::variant<int32_t, mir::inst::VarId>>::
+                            value_type(d, value));
                   }
                 }
               }
@@ -713,7 +742,8 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                     }
                   }
                 }
-              } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+              } else if (auto x =
+                             dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
                 if (x->src.index() == 1) {
                   std::map<mir::inst::VarId,
                            std::variant<int32_t, mir::inst::VarId>>::iterator
@@ -738,7 +768,8 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                     }
                   }
                 }
-              } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
+              } else if (auto x =
+                             dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
                 if (x->val.index() == 1) {
                   std::map<mir::inst::VarId,
                            std::variant<int32_t, mir::inst::VarId>>::iterator
