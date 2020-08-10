@@ -542,13 +542,27 @@ void LabelInst::display(std::ostream &o) const { o << label << ":"; }
     o << "(value=" << std::any_cast<ty>(v) << ")"; \
   }
 
+#define ctrl_inst_display_type_a(v, ty) \
+  if (v.type() == typeid(ty)) {         \
+    o << std::any_cast<ty>(v);          \
+  }
+
 void CtrlInst::display(std::ostream &o) const {
-  o << "@ " << key << "<" << val.type().name() << ">";
-  ctrl_inst_display_type(val, int);
-  ctrl_inst_display_type(val, double);
-  ctrl_inst_display_type(val, float);
-  ctrl_inst_display_type(val, long);
-  ctrl_inst_display_type(val, std::string);
+  if (is_asm_option) {
+    o << "." << key << " ";
+    ctrl_inst_display_type_a(val, int);
+    ctrl_inst_display_type_a(val, double);
+    ctrl_inst_display_type_a(val, float);
+    ctrl_inst_display_type_a(val, long);
+    ctrl_inst_display_type_a(val, std::string);
+  } else {
+    o << "@ " << key << "<" << val.type().name() << ">";
+    ctrl_inst_display_type(val, int);
+    ctrl_inst_display_type(val, double);
+    ctrl_inst_display_type(val, float);
+    ctrl_inst_display_type(val, long);
+    ctrl_inst_display_type(val, std::string);
+  }
 }
 
 void Function::display(std::ostream &o) const {
@@ -562,6 +576,7 @@ void Function::display(std::ostream &o) const {
   o << "\t@ " << name << ": " << *ty << std::endl;
 
   o << name << ":" << std::endl;
+  o << "\t.align 7" << std::endl;
   o << "\t.fnstart" << std::endl;
   for (auto &i : inst) {
     if (i == nullptr) {
