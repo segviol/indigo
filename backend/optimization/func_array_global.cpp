@@ -67,6 +67,20 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
           }
         }
       }
+    } else if (inst->inst_kind() == mir::inst::InstKind::Call) {
+      auto& i = *inst;
+      auto call = dynamic_cast<mir::inst::CallInst*>(&i);
+      if (call->func == "memset") {
+        continue;
+      }
+      auto vars = inst->useVars();
+      if (vars.size() > 1) {  // store must be all const(except addr)
+        for (auto var : vars) {
+          if (ref_results.count(var)) {
+            ref_results.erase(var);
+          }
+        }
+      }
     }
   }
 
@@ -128,6 +142,18 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
           ptr->replace(var, init_var);
           init_insts.push_back(std::move(ptr));
           iter = startBlk.inst.erase(iter);
+        } else if (inst->useVars().count(var) &&
+                   inst->inst_kind() == mir::inst::InstKind::Call) {
+          auto& inst = *iter;
+          auto& i = *inst;
+          auto callInst = dynamic_cast<mir::inst::CallInst*>(&i);
+          if (callInst->func == "memset") {
+            auto ptr = std::unique_ptr<mir::inst::Inst>(inst->deep_copy());
+            ptr->replace(var, init_var);
+            ptr->dest = gvm.get_new_init_id(func.variables.at(inst->dest.id));
+            init_insts.push_back(std::move(ptr));
+            iter = startBlk.inst.erase(iter);
+          }
         } else {
           iter++;
         }
