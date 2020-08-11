@@ -36,7 +36,7 @@ void CodeAlignOptimization::optimize_func(
           auto id_str = x->label.substr(bb_id_idx + 1);
           auto bb_id = std::stoi(id_str);
           if (cycle_set.find(bb_id) != cycle_set.end())
-            inst_new.push_back(std::make_unique<CtrlInst>("align", 6, true));
+            inst_new.push_back(std::make_unique<CtrlInst>("align", 7, true));
         } catch (std::exception &i) {
         }
       }
