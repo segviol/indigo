@@ -29,7 +29,7 @@ void CodeAlignOptimization::optimize_func(
                        .at(f.name);
   std::vector<std::unique_ptr<arm::Inst>> inst_new;
   for (size_t index = 0; index < f.inst.size(); index++) {
-    auto &i = f.inst.begin() + index;
+    auto i = f.inst.begin() + index;
     if (auto x = dynamic_cast<arm::LabelInst *>(i->get())) {
       if (x->label.find(".bb_") == 0) {
         uint32_t cmpuInstNum;
