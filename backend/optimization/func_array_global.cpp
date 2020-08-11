@@ -45,7 +45,7 @@ void Func_Array_Global::optimize_mir(
 
 void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
                                       mir::inst::MirPackage& mir) {
-  if (!func.basic_blks.size()) {
+  if (!func.basic_blks.size() || func.name == "$$5_main") {
     return;
   }
   auto& startBlk = func.basic_blks.begin()->second;
@@ -75,7 +75,8 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
       continue;
     }
     for (auto& inst : blk.second.inst) {
-      if (inst->inst_kind() == mir::inst::InstKind::Store) {
+      if (inst->inst_kind() == mir::inst::InstKind::Store ||
+          inst->inst_kind() == mir::inst::InstKind::Call) {
         for (auto var : ref_results) {
           if (inst->useVars().count(var)) {
             ref_results.erase(var);
