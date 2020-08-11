@@ -79,6 +79,7 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
         for (auto var : ref_results) {
           if (inst->useVars().count(var)) {
             ref_results.erase(var);
+            break;
           }
         }
       }
