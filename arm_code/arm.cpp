@@ -576,7 +576,7 @@ void Function::display(std::ostream &o) const {
   o << "\t@ " << name << ": " << *ty << std::endl;
 
   o << name << ":" << std::endl;
-  o << "\t.align 7" << std::endl;
+  // o << "\t.align 7" << std::endl;
   o << "\t.fnstart" << std::endl;
   for (auto &i : inst) {
     if (i == nullptr) {
