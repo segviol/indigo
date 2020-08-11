@@ -59,8 +59,10 @@ void CodeAlignOptimization::optimize_func(
             auto bb_id_idx = x->label.find_last_of("$");
             auto id_str = x->label.substr(bb_id_idx + 1);
             auto bb_id = std::stoi(id_str);
-            if (cycle_set.find(bb_id) != cycle_set.end())
+            if (cycle_set.find(bb_id) != cycle_set.end()) {
               inst_new.push_back(std::make_unique<CtrlInst>("align", 7, true));
+              index++;
+            }
           } catch (std::exception &i) {
           }
         }
