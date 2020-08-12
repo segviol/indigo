@@ -403,6 +403,9 @@ class StoreInst final : public Inst {
     val.map_if_varid([&](Value& self, VarId& id) {
       if (id == from) id = to;
     });
+    if (dest == from) {
+      dest = to;
+    }
   }
   Inst* deep_copy() { return new StoreInst(val, dest); }
 };
