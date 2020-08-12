@@ -88,6 +88,7 @@ struct Rewriter {
 struct loop_info {
   const int unrolling_times = 4;
   mir::types::LabelId loop_start;
+  mir::inst::MirFunction& func;
   std::pair<mir::inst::VarId, mir::inst::Value> init_var;
   std::pair<mir::inst::Op, mir::inst::VarId> cmp;  // op must be <
   std::pair<mir::inst::Op, int> change;            // must be +1
@@ -97,16 +98,33 @@ struct loop_info {
             std::pair<mir::inst::VarId, mir::inst::Value> init_var,
             std::pair<mir::inst::Op, mir::inst::VarId> cmp,
             std::pair<mir::inst::Op, int> change, mir::inst::VarId phi_var,
-            mir::inst::VarId change_var)
+            mir::inst::VarId change_var, mir::inst::MirFunction& func)
       : loop_start(loop_start),
         init_var(init_var),
         cmp(cmp),
         change(change),
         phi_var(phi_var),
-        change_var(change_var) {}
+        change_var(change_var),
+        func(func) {}
+  mir::inst::VarId copy_var(mir::inst::VarId var) {
+    auto end_iter = func.basic_blks.end();
+    end_iter--;
+    mir::inst::VarId new_var(end_iter->first + 1);
+    func.variables.insert({new_var, func.variables.at(var.id)});
+    return new_var;
+  }
   int get_times() { return unrolling_times; }
-  std::pair<mir::inst::VarId, std::vector<std::unique_ptr<mir::inst::Inst>>>
-  rewrite_jump() {}
+
+  std::vector<std::unique_ptr<mir::inst::Inst>> rewrite_jump(
+      mir::inst::BasicBlk& blk) {
+    auto val = blk.jump.cond_or_ret.value();
+    auto iter = blk.inst.rbegin();
+    for (; iter != blk.inst.rend(); ++iter) {
+      if (iter->get()->dest == val) {
+        break;
+      }
+    }
+  }
 };
 
 void Loop_Unrolling::optimize_mir(
