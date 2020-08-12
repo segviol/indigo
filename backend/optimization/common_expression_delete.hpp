@@ -541,9 +541,6 @@ class BlockNodes {
           for (auto var : node->live_vars) {
             if (!env->func.variables.at(var.id).is_phi_var &&
                 var != not_phi_var.value()) {
-              if (var.id == 65611) {
-                std::cout << "tmp" << std::endl;
-              }
               vp.replace(var, not_phi_var.value());
             }
           }
