@@ -115,15 +115,19 @@ struct loop_info {
   }
   int get_times() { return unrolling_times; }
 
-  std::vector<std::unique_ptr<mir::inst::Inst>> rewrite_jump(
-      mir::inst::BasicBlk& blk) {
+  void rewrite_jump_cond(mir::inst::BasicBlk& blk, mir::inst::OpInst& inst) {
     auto val = blk.jump.cond_or_ret.value();
-    auto iter = blk.inst.rbegin();
-    for (; iter != blk.inst.rend(); ++iter) {
-      if (iter->get()->dest == val) {
-        break;
-      }
-    }
+
+    auto sub = copy_var(inst.dest);
+    blk.inst.push_back(std::make_unique<mir::inst::OpInst>(
+        sub, inst.rhs, init_var.second, mir::inst::Op::Sub));
+    auto multimes = copy_var(inst.dest);
+    blk.inst.push_back(std::make_unique<mir::inst::OpInst>(
+        multimes, inst.lhs, get_times(), mir::inst::Op::Mul));
+    auto cond = copy_var(inst.dest);
+    blk.inst.push_back(std::make_unique<mir::inst::OpInst>(cond, multimes, sub,
+                                                           mir::inst::Op::Lt));
+    blk.jump.cond_or_ret = cond;
   }
 };
 
@@ -261,7 +265,8 @@ std::optional<loop_info> is_loop_start(mir::inst::MirFunction& func,
         }
       }
 
-      return loop_info(blk.id, init_var, cmp, change, phi_dest, change_var);
+      return loop_info(blk.id, init_var, cmp, change, phi_dest, change_var,
+                       func);
     }
   }
   return res;
