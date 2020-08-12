@@ -286,7 +286,7 @@ class Inline_Func : public backend::MirOptimizePass {
       auto iter = func.basic_blks.begin();
       for (; iter != func.basic_blks.end(); ++iter) {
         bool flag = false;
-        if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
+        if (iter->first < cur_blkId) {
           // if (iter->first < cur_blkId || !base_labels.count(iter->first)) {
 
           continue;
@@ -327,7 +327,7 @@ class Inline_Func : public backend::MirOptimizePass {
 
           std::vector<std::unique_ptr<mir::inst::Inst>> end_blk_insts;
           auto& end_blk = func.basic_blks.at(sub_end_id);
-          // base_labels.insert(sub_end_id);
+          base_labels.insert(sub_end_id);
           for (auto& j : end_blk.inst) {
             end_blk_insts.push_back(std::move(j));
           }
