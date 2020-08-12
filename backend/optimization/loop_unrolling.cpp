@@ -41,9 +41,12 @@ struct Rewriter {
   std::vector<std::unique_ptr<mir::inst::Inst>> get_insts(
       int times, mir::inst::VarId& new_change_var) {
     std::vector<std::unique_ptr<mir::inst::Inst>> res;
-    while (times--) {
+    auto cond = mir::inst::VarId(0);
+    for (int i = 0; i < times; i++) {
       var_map.clear();
-      var_map.insert(phi_var_pair);
+      if (i) {
+        var_map.insert(phi_var_pair);
+      }
       for (auto& inst : blk.inst) {
         if (inst->inst_kind() != mir::inst::InstKind::Store) {
           copy_var(inst->dest);
@@ -51,6 +54,15 @@ struct Rewriter {
       }
       for (auto& inst : blk.inst) {
         if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+          if (i == 0) {
+            auto ptr = std::unique_ptr<mir::inst::Inst>(inst->deep_copy());
+            auto& i = *ptr;
+            auto phi = dynamic_cast<mir::inst::PhiInst*>(&i);
+            phi->vars.erase(
+                std::find(phi->vars.begin(), phi->vars.end(), change_var));
+            ptr->dest = var_map.at(ptr->dest);
+            res.push_back(std::move(ptr));
+          }
           continue;
         } else {
           auto ptr = std::unique_ptr<mir::inst::Inst>(inst->deep_copy());
@@ -65,14 +77,33 @@ struct Rewriter {
             new_change_var = ptr->dest;
             phi_var_pair.second = ptr->dest;
           }
+          if (inst->inst_kind() == mir::inst::InstKind::Op) {
+            auto& i = *inst;
+            auto opist = dynamic_cast<mir::inst::OpInst*>(&i);
+            if (opist->op == mir::inst::Op::Lt) {
+              cond = ptr->dest;
+            }
+          }
           res.push_back(std::move(ptr));
         }
       }
     }
+    if (res.size()) {
+      auto& inst = res.front();
+      assert(inst->inst_kind() == mir::inst::InstKind::Phi);
+      auto& i = *inst;
+      auto phi = dynamic_cast<mir::inst::PhiInst*>(&i);
+      phi->vars.push_back(mir::inst::VarId(new_change_var.id));
+    }
+    blk.jump.cond_or_ret = cond;
     return res;
   }
 
-  mir::inst::VarId get_new_VarId() { return ++varId; }
+  mir::inst::VarId get_new_VarId() {
+    auto end_iter = func.variables.end();
+    end_iter--;
+    return mir::inst::VarId(end_iter->first + 1);
+  }
 
   mir::inst::VarId copy_var(mir::inst::VarId var) {
     if (var_map.count(var)) {
@@ -107,7 +138,7 @@ struct loop_info {
         change_var(change_var),
         func(func) {}
   mir::inst::VarId copy_var(mir::inst::VarId var) {
-    auto end_iter = func.basic_blks.end();
+    auto end_iter = func.variables.end();
     end_iter--;
     mir::inst::VarId new_var(end_iter->first + 1);
     func.variables.insert({new_var, func.variables.at(var.id)});
@@ -115,15 +146,23 @@ struct loop_info {
   }
   int get_times() { return unrolling_times; }
 
-  void rewrite_jump_cond(mir::inst::BasicBlk& blk, mir::inst::OpInst& inst) {
+  void rewrite_jump_cond(mir::inst::BasicBlk& blk) {
     auto val = blk.jump.cond_or_ret.value();
-
+    auto iter = blk.inst.rbegin();
+    for (; iter != blk.inst.rend(); ++iter) {
+      if (iter->get()->dest == val) {
+        break;
+      }
+    }
+    auto& x = *iter;
+    auto& i = *x;
+    auto& inst = *dynamic_cast<mir::inst::OpInst*>(&i);
     auto sub = copy_var(inst.dest);
     blk.inst.push_back(std::make_unique<mir::inst::OpInst>(
         sub, inst.rhs, init_var.second, mir::inst::Op::Sub));
     auto multimes = copy_var(inst.dest);
     blk.inst.push_back(std::make_unique<mir::inst::OpInst>(
-        multimes, inst.lhs, get_times(), mir::inst::Op::Mul));
+        multimes, inst.lhs, get_times(), mir::inst::Op::Add));
     auto cond = copy_var(inst.dest);
     blk.inst.push_back(std::make_unique<mir::inst::OpInst>(cond, multimes, sub,
                                                            mir::inst::Op::Lt));
@@ -215,20 +254,12 @@ std::optional<loop_info> is_loop_start(mir::inst::MirFunction& func,
       if (phi_count != 1) {
         return res;
       }
-      for (; iter != blk.inst.end(); iter++) {
-        auto& inst = *iter;
-        if (inst->dest == start_cond) {
-          break;
-        }
-      }
       start_cond = loop_blk.jump.cond_or_ret.value();
-      mir::inst::Op in_op;
       for (auto& inst : loop_blk.inst) {
         if (inst->dest == start_cond) {
           assert(inst->inst_kind() == mir::inst::InstKind::Op);
           auto& i = *inst;
           auto opInst = dynamic_cast<mir::inst::OpInst*>(&i);
-          in_op = opInst->op;
         }
       }
 
@@ -300,41 +331,96 @@ void expand_loop(mir::inst::MirFunction& func, mir::inst::BasicBlk& blk,
                                   info.cmp.second, info.cmp.first)
              << std::endl;
   Rewriter rwt(func, blk, {info.phi_var, info.init_var.first}, info.change_var);
-  blk.jump = mir::inst::JumpInstruction(mir::inst::JumpInstructionKind::Br,
-                                        blk.jump.bb_false);
+  info.rewrite_jump_cond(blk);
+  info.rewrite_jump_cond(func.basic_blks.at(info.loop_start));
+
+  auto end_iter = func.basic_blks.end();
+  end_iter--;
+  end_iter--;
+
+  // extra loop
+  auto extra_loop_start = end_iter->first + 1;
+  auto extra_loop = end_iter->first + 2;
+  func.basic_blks.insert(
+      {extra_loop_start, mir::inst::BasicBlk(extra_loop_start)});
+  func.basic_blks.insert({extra_loop, mir::inst::BasicBlk(extra_loop)});
+  auto& extra_loop_start_blk = func.basic_blks.at(extra_loop_start);
+  auto& extra_loop_blk = func.basic_blks.at(extra_loop);
+  extra_loop_start_blk.preceding =
+      std::set<mir::types::LabelId>{loop_start.id, blk.id};
+  extra_loop_blk.preceding =
+      std::set<mir::types::LabelId>{extra_loop_start_blk.id, extra_loop_blk.id};
+
+  // original loop's end
+  func.basic_blks.at(loop_start.jump.bb_false).preceding =
+      std::set<mir::types::LabelId>{extra_loop_start_blk.id, extra_loop_blk.id};
+
+  // copy original loop insts in extra loop blk
+  for (auto& inst : blk.inst) {
+    extra_loop_blk.inst.push_back(
+        std::unique_ptr<mir::inst::Inst>(inst->deep_copy()));
+  }
+  extra_loop_blk.jump = mir::inst::JumpInstruction(
+      mir::inst::JumpInstructionKind::BrCond, extra_loop_blk.id,
+      loop_start.jump.bb_false, blk.jump.cond_or_ret,
+      mir::inst::JumpKind::Loop);
+  // init extra loop start 's insts
   int times = info.get_times();
   mir::inst::VarId new_change_var;
   auto insts = rwt.get_insts(times, new_change_var);
+  auto new_phi = info.copy_var(info.init_var.first);
+  extra_loop_start_blk.inst.push_back(std::make_unique<mir::inst::PhiInst>(
+      new_phi,
+      std::vector<mir::inst::VarId>{info.init_var.first, new_change_var}));
+  auto cond = info.copy_var(blk.jump.cond_or_ret.value());
+  extra_loop_start_blk.inst.push_back(std::make_unique<mir::inst::OpInst>(
+      cond, new_phi, info.cmp.second, info.cmp.first));
+  extra_loop_start_blk.jump = mir::inst::JumpInstruction(
+      mir::inst::JumpInstructionKind::BrCond, extra_loop_blk.id,
+      loop_start.jump.bb_false, cond, mir::inst::JumpKind::Loop);
+
+  blk.jump = mir::inst::JumpInstruction(
+      mir::inst::JumpInstructionKind::BrCond, blk.id, extra_loop_start_blk.id,
+      blk.jump.cond_or_ret.value(), mir::inst::JumpKind::Loop);
+  auto& inst = extra_loop_blk.inst.front();
+  auto& i = *inst;
+  assert(inst->inst_kind() == mir::inst::InstKind::Phi);
+  auto phiInst = dynamic_cast<mir::inst::PhiInst*>(&i);
+  phiInst->vars.erase(std::find(phiInst->vars.begin(), phiInst->vars.end(),
+                                info.init_var.first));
+  phiInst->vars.push_back(new_phi);
   blk.inst.clear();
   for (auto& inst : insts) {
-    loop_start.inst.push_back(std::move(inst));
+    blk.inst.push_back(std::move(inst));
   }
   func.basic_blks.at(loop_start.jump.bb_false)
       .preceding.erase(loop_start.jump.bb_true);
 
   loop_start.jump = mir::inst::JumpInstruction(
-      mir::inst::JumpInstructionKind::Br, loop_start.jump.bb_false);
-  func.basic_blks.erase(blk.id);
-  auto& end_loop_blk = func.basic_blks.at(loop_start.jump.bb_true);
-  for (auto iter = end_loop_blk.inst.begin();
-       iter != end_loop_blk.inst.end() &&
-       iter->get()->inst_kind() == mir::inst::InstKind::Phi;
-       iter++) {
-    auto& inst = *iter;
-    auto& i = *inst;
-    auto phiInst = dynamic_cast<mir::inst::PhiInst*>(&i);
-    if (phiInst->useVars().count(info.change_var)) {
-      phiInst->vars.erase(std::find(phiInst->vars.begin(), phiInst->vars.end(),
-                                    info.change_var));
-    }
-    if (times) {
-      if (phiInst->useVars().count(info.init_var.first)) {
-        phiInst->vars.erase(std::find(
-            phiInst->vars.begin(), phiInst->vars.end(), info.init_var.first));
-        phiInst->vars.push_back(new_change_var);
-      }
-    }
-  }
+      mir::inst::JumpInstructionKind::BrCond, loop_start.jump.bb_true,
+      extra_loop_start_blk.id, loop_start.jump.cond_or_ret.value());
+  // auto& end_loop_blk = func.basic_blks.at(loop_start.jump.bb_true);
+  // for (auto iter = end_loop_blk.inst.begin();
+  //      iter != end_loop_blk.inst.end() &&
+  //      iter->get()->inst_kind() == mir::inst::InstKind::Phi;
+  //      iter++) {
+  //   auto& inst = *iter;
+  //   auto& i = *inst;
+  //   auto phiInst = dynamic_cast<mir::inst::PhiInst*>(&i);
+  //   if (phiInst->useVars().count(info.change_var)) {
+  //     phiInst->vars.erase(std::find(phiInst->vars.begin(),
+  //     phiInst->vars.end(),
+  //                                   info.change_var));
+  //   }
+  //   if (times) {
+  //     if (phiInst->useVars().count(info.init_var.first)) {
+  //       phiInst->vars.erase(std::find(
+  //           phiInst->vars.begin(), phiInst->vars.end(),
+  //           info.init_var.first));
+  //       phiInst->vars.push_back(new_change_var);
+  //     }
+  //   }
+  // }
 }
 
 void Loop_Unrolling::optimize_func(mir::inst::MirFunction& func) {
