@@ -54,7 +54,7 @@ void CodeAlignOptimization::optimize_func(
           }
         }
 
-        if (totalInstNum >= 5 && (double)cmpuInstNum / totalInstNum > 0.5) {
+        if (totalInstNum >= 5) {
           try {
             auto bb_id_idx = x->label.find_last_of("$");
             auto id_str = x->label.substr(bb_id_idx + 1);
