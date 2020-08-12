@@ -71,9 +71,15 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
     for (auto& inst : end_blk.inst) {
       pre_blk.inst.push_back(std::move(inst));
     }
-    pre_blk.jump =
-        mir::inst::JumpInstruction(mir::inst::JumpInstructionKind::Return,
-                                   end_iter->first, -1, mir::inst::VarId(0));
+    if (func.type->ret->kind() != mir::types::TyKind::Void) {
+      pre_blk.jump =
+          mir::inst::JumpInstruction(mir::inst::JumpInstructionKind::Return,
+                                     end_iter->first, -1, mir::inst::VarId(0));
+    } else {
+      pre_blk.jump = mir::inst::JumpInstruction(
+          mir::inst::JumpInstructionKind::Return, end_iter->first, -1);
+    }
+
     end_iter->second.jump = mir::inst::JumpInstruction(
         mir::inst::JumpInstructionKind::Undefined, -1, -1);
     end_iter->second.inst.clear();
