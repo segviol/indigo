@@ -634,7 +634,7 @@ class Common_Expr_Del : public backend::MirOptimizePass {
           auto assignInst = dynamic_cast<mir::inst::AssignInst*>(&i);
           if (assignInst->src.index() == 1) {
             auto srcvar = std::get<mir::inst::VarId>(assignInst->src);
-            if (variables.at(srcvar.id).is_temp_var) {
+            if (variables.at(srcvar.id).is_temp_var && blnd.query_var(srcvar)) {
               auto nodeId = blnd.query_nodeId(srcvar);
               blnd.add_var(assignInst->dest, nodeId);
               break;
