@@ -37,7 +37,7 @@ void CodeAlignOptimization::optimize_func(
 
         cmpuInstNum = 0;
         for (totalInstNum = 1;
-             totalInstNum <= 5 && index + totalInstNum < f.inst.size();
+             totalInstNum <= 6 && index + totalInstNum < f.inst.size();
              totalInstNum++) {
           arm::Inst *inst = (f.inst.begin() + index + totalInstNum)->get();
           if (inst->op == arm::OpCode::LdR || inst->op == arm::OpCode::LdM ||
@@ -54,7 +54,7 @@ void CodeAlignOptimization::optimize_func(
           }
         }
 
-        if (totalInstNum >= 3 && (double)cmpuInstNum / totalInstNum > 0.5) {
+        if (totalInstNum >= 5 && (double)cmpuInstNum / totalInstNum > 0.5) {
           try {
             auto bb_id_idx = x->label.find_last_of("$");
             auto id_str = x->label.substr(bb_id_idx + 1);
