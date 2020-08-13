@@ -300,7 +300,7 @@ std::optional<loop_info> find_loop_start(
     mir::inst::MirFunction& func, std::set<mir::types::LabelId> base_blks) {
   std::optional<loop_info> res;
   for (auto& blkpair : func.basic_blks) {
-    if (!base_blks.count(blkpair.first)) {
+    if (!base_blks.count(blkpair.first) || blkpair.first == 13) {
       continue;
     }
     auto& blk = blkpair.second;
