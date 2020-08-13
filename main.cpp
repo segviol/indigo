@@ -77,8 +77,7 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(std::make_unique<
-                   optimization::global_var_to_local::Global_Var_to_Local>());
+
   backend.add_pass(std::make_unique<
                    optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());
@@ -137,6 +136,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
+  backend.add_pass(std::make_unique<
+                   optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
 

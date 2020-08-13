@@ -94,11 +94,11 @@ void Global_Var_to_Local::optimize_mir(
       auto& inst = vp.get_usepoint(usepoint);
       if (inst->inst_kind() == mir::inst::InstKind::Store) {
         auto& i = *inst;
-        auto ist = dynamic_cast<mir::inst::StoreInst*>(&i);
+        auto ist = dynamic_cast<mir::inst::StoreOffsetInst*>(&i);
         inst = std::make_unique<mir::inst::AssignInst>(var, ist->val);
       } else {
         auto& i = *inst;
-        auto ist = dynamic_cast<mir::inst::LoadInst*>(&i);
+        auto ist = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
         inst = std::make_unique<mir::inst::AssignInst>(ist->dest, var);
       }
     }
