@@ -457,11 +457,13 @@ struct LabelInst final : public Inst {
 ///
 /// Valid opcode: _Ctrl
 struct CtrlInst final : public Inst {
-  CtrlInst(std::string key, std::any val)
+  CtrlInst(std::string key, std::any val, bool is_asm_option = false)
       : Inst(OpCode::_Ctrl, ConditionCode::Always),
         key(std::move(key)),
-        val(std::move(val)) {}
+        val(std::move(val)),
+        is_asm_option(is_asm_option) {}
 
+  bool is_asm_option;
   std::string key;
   std::any val;
 
