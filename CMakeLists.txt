@@ -29,6 +29,7 @@ set(backend_files
     backend/optimization/complex_dead_code_elimination.cpp
     backend/optimization/memvar_propagation.hpp
     backend/optimization/value_shift_collapse.cpp
+    backend/optimization/cycle.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp

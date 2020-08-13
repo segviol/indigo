@@ -31,6 +31,7 @@
 #include "backend/optimization/remove_temp_var.hpp"
 #include "backend/optimization/value_shift_collapse.hpp"
 #include "backend/optimization/var_mir_fold.hpp"
+#include "backend/optimization/cycle.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/optimization/bmir_optimization.hpp"
@@ -129,7 +130,7 @@ void add_passes(backend::Backend& backend) {
                    optimization::complex_dce::ComplexDeadCodeElimination>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-
+  backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
   backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
