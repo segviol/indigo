@@ -56,6 +56,9 @@ void Global_Var_to_Local::optimize_mir(
       continue;
     optimize_func(f.second, global_vars);
   }
+  if (!mir.functions.count("$$5_main")) {
+    return;
+  }
   auto& f = mir.functions.at("$$5_main");
   if (!f.basic_blks.size()) {
     return;
