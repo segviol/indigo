@@ -9,6 +9,7 @@ class BasicBlkRearrange final : public backend::MirOptimizePass {
                     std::map<std::string, std::any> &extra_data_repo) override;
 
  private:
-  std::vector<uint32_t> optimize_func(mir::inst::MirFunction &f);
+  std::tuple<std::vector<uint32_t>, std::set<uint32_t>> optimize_func(
+      mir::inst::MirFunction &f);
 };
 }  // namespace backend::codegen

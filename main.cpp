@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "backend/backend.hpp"
+#include "backend/codegen/align_code.hpp"
 #include "backend/codegen/bb_rearrange.hpp"
 #include "backend/codegen/codegen.hpp"
 #include "backend/codegen/math_opt.hpp"
@@ -31,6 +32,7 @@
 #include "backend/optimization/remove_temp_var.hpp"
 #include "backend/optimization/value_shift_collapse.hpp"
 #include "backend/optimization/var_mir_fold.hpp"
+#include "backend/optimization/cycle.hpp"
 #include "frontend/ir_generator.hpp"
 #include "frontend/optim_mir.hpp"
 #include "frontend/optimization/bmir_optimization.hpp"
@@ -118,6 +120,8 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<
           optimization::memvar_propagation::Memory_Var_Propagation>(true));
   backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
+  backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
 
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
@@ -131,7 +135,7 @@ void add_passes(backend::Backend& backend) {
                    optimization::complex_dce::ComplexDeadCodeElimination>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-
+  backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
   backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
@@ -145,6 +149,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
+  backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 
 int main(int argc, const char** argv) {
