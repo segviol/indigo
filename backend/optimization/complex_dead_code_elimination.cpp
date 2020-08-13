@@ -168,6 +168,7 @@ void ComplexDceRunner::scan_dependant_vars() {
         add_dependance(x->dest, x->src);
       } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
         add_store_dependance(x->dest, x->val);
+        add_store_dependance(x->val, x->dest);
         add_store_dependance(x->dest, x->dest);
         add_store_dependance(x->val, x->val);
         // add_store_dependance(x->val, x->dest);
@@ -176,12 +177,15 @@ void ComplexDceRunner::scan_dependant_vars() {
         add_dependance(x->dest, x->offset);
       } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
         add_dependance(x->dest, x->offset);
-        add_store_dependance(x->dest, x->dest);
         add_store_dependance(x->offset, x->offset);
-        add_store_dependance(x->dest, x->val);
-        add_store_dependance(x->dest, x->offset);
+        add_store_dependance(x->dest, x->dest);
+        add_store_dependance(x->val, x->val);
         add_store_dependance(x->offset, x->dest);
         add_store_dependance(x->offset, x->val);
+        add_store_dependance(x->dest, x->offset);
+        add_store_dependance(x->dest, x->val);
+        add_store_dependance(x->val, x->offset);
+        add_store_dependance(x->val, x->dest);
       } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
         if (x->val.index() == 1)
           add_ref_var(i.dest);
