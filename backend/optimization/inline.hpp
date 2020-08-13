@@ -231,6 +231,7 @@ class Rewriter {
 class Inline_Func : public backend::MirOptimizePass {
  public:
   std::set<std::string> uninlineable_funcs;
+  std::set<std::string> uninlined_funcs;
   std::string name = "InlineFunction";
   bool recursively;
   Inline_Func(bool recursively = true) : recursively(recursively) {}
@@ -309,6 +310,7 @@ class Inline_Func : public backend::MirOptimizePass {
           }
           if (subfunc.variable_table_size() + func.variable_table_size() >=
               1024) {
+            uninlined_funcs.insert(subfunc.name);
             continue;
           }
           //  Then this func is inlineable
@@ -398,6 +400,20 @@ class Inline_Func : public backend::MirOptimizePass {
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          iter++) {
       optimize_func(iter->first, iter->second, package.functions);
+    }
+    std::set<std::string> allInlinedFuncs;
+    uninlined_funcs.insert("main");
+    for (auto& pair : package.functions) {
+      if (pair.second.type->is_extern) continue;
+      if (!uninlined_funcs.count(pair.first) &&
+          !uninlineable_funcs.count(pair.first)) {
+        allInlinedFuncs.insert(pair.first);
+      }
+    }
+    for (auto s : allInlinedFuncs) {
+      LOG(TRACE) << s << " is deleted because all of it's calls are inlined "
+                 << std::endl;
+      package.functions.erase(s);
     }
     for (auto iter = package.functions.begin(); iter != package.functions.end();
          iter++) {
