@@ -55,24 +55,30 @@ void BasicBlkRearrange::optimize_mir(
     mir::inst::MirPackage& mir,
     std::map<std::string, std::any>& extra_data_repo) {
   optimization::BasicBlockOrderingType ordering_map;
+  optimization::CycleStartType cycle_map;
   for (auto& f : mir.functions) {
     if (f.second.type->is_extern) continue;
     auto res = optimize_func(f.second);
+    auto arrange = std::move(std::get<0>(res));
+    auto cycle = std::move(std::get<1>(res));
 
     LOG(TRACE) << "bb arrangement for " << f.second.name << " is:" << std::endl;
-    for (auto i : res) {
+    for (auto i : arrange) {
       LOG(TRACE) << i << " ";
     }
     LOG(TRACE) << std::endl;
 
-    ordering_map.insert_or_assign(f.second.name, std::move(res));
+    ordering_map.insert_or_assign(f.second.name, std::move(arrange));
+    cycle_map.insert_or_assign(f.second.name, std::move(cycle));
   }
   extra_data_repo.insert_or_assign(optimization::BASIC_BLOCK_ORDERING_DATA_NAME,
                                    std::move(ordering_map));
+  extra_data_repo.insert_or_assign(optimization::CYCLE_START_DATA_NAME,
+                                   std::move(cycle_map));
 }
 
-std::vector<uint32_t> BasicBlkRearrange::optimize_func(
-    mir::inst::MirFunction& f) {
+std::tuple<std::vector<uint32_t>, std::set<uint32_t>>
+BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
   auto cycles = CycleSolver(f).solve();
   std::set<int> visited;
   std::deque<int> bfs;
@@ -120,6 +126,10 @@ std::vector<uint32_t> BasicBlkRearrange::optimize_func(
       bfs.push_back(bb.jump.bb_false);
     }
   }
-  return std::move(arrangement);
+  auto cycle_start_set = std::set<uint32_t>();
+  for (auto c : cycles) {
+    if (c.second != 0) cycle_start_set.insert(c.first);
+  }
+  return {std::move(arrangement), std::move(cycle_start_set)};
 }
 }  // namespace backend::codegen

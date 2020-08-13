@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "backend/backend.hpp"
+#include "backend/codegen/align_code.hpp"
 #include "backend/codegen/bb_rearrange.hpp"
 #include "backend/codegen/codegen.hpp"
 #include "backend/codegen/math_opt.hpp"
@@ -41,6 +42,7 @@
 #include "mir/mir.hpp"
 #include "opt.hpp"
 #include "prelude/fake_mir_generate.hpp"
+
 
 using std::cout;
 using std::endl;
@@ -138,6 +140,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
+  backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 
 int main(int argc, const char** argv) {
