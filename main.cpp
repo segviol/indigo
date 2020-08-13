@@ -21,6 +21,7 @@
 #include "backend/optimization/exit_ahead.hpp"
 #include "backend/optimization/func_array_global.hpp"
 #include "backend/optimization/global_expression_move.hpp"
+#include "backend/optimization/global_var_to_local.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/loop_unrolling.hpp"
@@ -70,9 +71,14 @@ void add_passes(backend::Backend& backend) {
 
   backend.add_pass(
       std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
+
   // delete common exprs new created and replace not phi vars
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(std::make_unique<
+                   optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(std::make_unique<
                    optimization::memvar_propagation::Memory_Var_Propagation>());
   backend.add_pass(std::make_unique<optimization::const_merge::Merge_Const>());

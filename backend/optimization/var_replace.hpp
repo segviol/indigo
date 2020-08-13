@@ -51,6 +51,12 @@ class Var_Replace {
     }
   }
 
+  std::unique_ptr<mir::inst::Inst>& get_usepoint(
+      std::pair<mir::types::LabelId, int> pair) {  // not jump point
+    auto& inst = func.basic_blks.at(pair.first).inst.at(pair.second);
+    return inst;
+  }
+
   void add_usepoint(mir::inst::VarId var, mir::types::LabelId labelId,
                     int idx) {
     if (!usepoints.count(var)) {

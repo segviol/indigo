@@ -25,6 +25,8 @@ set(backend_files
     backend/optimization/func_array_global.cpp
     backend/optimization/loop_unrolling.hpp
     backend/optimization/loop_unrolling.cpp
+    backend/optimization/global_var_to_local.hpp
+    backend/optimization/global_var_to_local.cpp
     backend/optimization/const_propagation.hpp
     backend/optimization/complex_dead_code_elimination.cpp
     backend/optimization/memvar_propagation.hpp
