@@ -43,7 +43,6 @@
 #include "opt.hpp"
 #include "prelude/fake_mir_generate.hpp"
 
-
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -114,6 +113,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<
           optimization::memvar_propagation::Memory_Var_Propagation>(true));
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
 
