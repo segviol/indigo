@@ -158,8 +158,8 @@ void Codegen::generate_startup() {
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
-arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   // If it's param, load before use
   if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -178,18 +178,20 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
       if (found != reg_map.end()) {
         // assert(arm::register_type(found->second) ==
         //        arm::RegisterKind::VirtualGeneralPurpose);
+        if (v_ != v) reg_map.insert({v_, found->second});
         return found->second;
       } else {
         auto reg = alloc_vgp();
         reg_map.insert({v, reg});
+        if (v_ != v) reg_map.insert({v_, reg});
         return reg;
       }
     }
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -198,12 +200,13 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
   } else {
     auto reg = alloc_vd();
     reg_map.insert({v, reg});
+    if (v_ != v) reg_map.insert({v_, reg});
     return reg;
   }
 }
 
 arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -249,7 +252,7 @@ void Codegen::scan() {
 #pragma region CollapseShow
   LOG(TRACE) << "collapsing: " << std::endl;
   for (auto& v : var_collapse) {
-    LOG(TRACE) << v.first << " -> " << v.second << std::endl;
+    LOG(TRACE) << v.first << " -> " << get_collapsed_var(v.second) << std::endl;
   }
   LOG(TRACE) << std::endl;
 #pragma endregion
@@ -358,8 +361,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
 }
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
-  // auto v = get_collapsed_var(v_);
-  auto v = v_;
+  auto v = get_collapsed_var(v_);
+  // auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -388,8 +391,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(
     mir::inst::VarId v_, mir::inst::Value& offset) {
   // TODO: Remove "*4" after fixing offset
-  // auto v = get_collapsed_var(v_);
-  auto v = v_;
+  auto v = get_collapsed_var(v_);
+  // auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
