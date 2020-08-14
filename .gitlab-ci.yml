@@ -38,7 +38,7 @@ test:
         - mkdir -p output
         # - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/functional_test -r
-        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r -t 60
     artifacts:
         when: always
         paths:
