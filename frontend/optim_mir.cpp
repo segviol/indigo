@@ -52,7 +52,6 @@ map<int, BasicBlock*> generate_CFG(
     }
     nodes.insert(map<int, BasicBlock*>::value_type(preid, block));
   }
-  
   BasicBlock* exit = new BasicBlock(-2, preid);
   nodes.insert(map<int, BasicBlock*>::value_type(-2, exit));
 
@@ -123,8 +122,8 @@ map<int, BasicBlock*> generate_CFG(
   }
 
   // step3: delete node which do not have preBlock expect entry
-  bool change = true;
-  while (change) {
+  bool changed = true;
+  while (changed) {
     vector<int> del;
     for (iter = nodes.begin(); iter != nodes.end(); iter++) {
       if (iter->first != -1 && iter->second->preBlock.size() == 0) {
@@ -139,7 +138,7 @@ map<int, BasicBlock*> generate_CFG(
       }
     }
     if (del.size() == 0) {
-      change = false;
+      changed = false;
     }
     for (int i = 0; i < del.size(); i++) {
       iter = nodes.find(del[i]);
@@ -512,14 +511,14 @@ map<mir::inst::VarId, set<int>> active_var(map<int, BasicBlock*> nodes) {
         it->first, vectors_intersection(it->second, iter->second)));
   }
   // output for test
-  cout << endl << "*** desplay global var ***" << endl;
+  /*cout << endl << "*** desplay global var ***" << endl;
   for (it = global.begin(); it != global.end(); it++) {
       cout << it->first;
       for (int i = 0; i < it->second.size(); i++) {
           cout << " " << it->second[i];
       }
       cout << endl;
-  }
+  }*/
 
   // step4: build the blocks.
   map<mir::inst::VarId, set<int>> blocks;
@@ -1363,7 +1362,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
-      /*bool change = true;
+      bool change = true;
       while (change) {
         change = false;
         redundantphi.clear();
@@ -1490,7 +1489,6 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
-      */
       for (int i = 0; i < order.size(); i++) {
         map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
         mir::types::LabelId id = iit->first;
