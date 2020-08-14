@@ -130,8 +130,12 @@ void add_passes(backend::Backend& backend) {
                    optimization::complex_dce::ComplexDeadCodeElimination>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+<<<<<<< HEAD
   backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+=======
+  //backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
+>>>>>>> develop
   backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
