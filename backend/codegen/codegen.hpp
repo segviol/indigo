@@ -121,7 +121,8 @@ class Codegen final {
   arm::Reg alloc_vd();
   arm::Reg alloc_vq();
 
-  arm::Operand2 translate_value_to_operand2(mir::inst::Value& v);
+  arm::Operand2 translate_value_to_operand2(mir::inst::Value& v,
+                                            bool check_valid_imm = true);
   arm::Reg translate_value_to_reg(mir::inst::Value& v);
   arm::Reg translate_var_reg(mir::inst::VarId v);
 

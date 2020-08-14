@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "../../arm_code/arm.hpp"
 #include "../backend.hpp"
 
 namespace optimization::algebraic_simplification {

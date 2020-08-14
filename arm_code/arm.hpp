@@ -168,6 +168,7 @@ class Operand2 : public std::variant<RegisterOperand, int32_t>,
   Operand2(int32_t i) : std::variant<RegisterOperand, int32_t>(i) {}
 
   Reg get_reg() { return std::get_if<RegisterOperand>(this)->reg; }
+  int32_t get_num() { return *std::get_if<int32_t>(this); }
   bool is_reg() { return std::get_if<RegisterOperand>(this); }
   bool is_virtual() {
     auto ip = std::get_if<RegisterOperand>(this);

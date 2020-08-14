@@ -275,10 +275,11 @@ arm::Reg Codegen::alloc_vq() {
                             vreg_vq_counter++);
 }
 
-arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v) {
+arm::Operand2 Codegen::translate_value_to_operand2(mir::inst::Value& v,
+                                                   bool check_valid_imm) {
   if (auto x = v.get_if<int32_t>()) {
     auto int_value = *x;
-    if (is_valid_immediate(int_value)) {
+    if (!check_valid_imm || is_valid_immediate(int_value)) {
       return Operand2(int_value);
     } else {
       auto reg = alloc_vgp();
@@ -634,7 +635,7 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::Mul, translate_var_reg(i.dest),
           translate_value_to_reg(lhs),
-          RegisterOperand(translate_value_to_reg(rhs))));
+          translate_value_to_operand2(rhs, false)));
       break;
 
     case mir::inst::Op::MulSh:
@@ -647,7 +648,8 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
     case mir::inst::Op::Div:
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::SDiv, translate_var_reg(i.dest),
-          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+          translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs, false)));
       break;
 
     case mir::inst::Op::And:
@@ -697,7 +699,8 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       // Mod operations needs to be eliminated in later passes.
       inst.push_back(std::make_unique<Arith3Inst>(
           arm::OpCode::_Mod, translate_var_reg(i.dest),
-          translate_value_to_reg(lhs), translate_value_to_operand2(rhs)));
+          translate_value_to_reg(lhs),
+          translate_value_to_operand2(rhs, false)));
       break;
     case mir::inst::Op::Gt:
       emit_compare(i.dest, lhs, rhs, ConditionCode::Gt, reverse_params);
