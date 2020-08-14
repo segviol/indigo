@@ -97,7 +97,7 @@ int main()
 	}
 	i=lenb-1;
 	while (i>=0) {
-		putint(b[i])
+		putint(b[i]);
 		i=i-1;
 	} 
 	putch(10);
