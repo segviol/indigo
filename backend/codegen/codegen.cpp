@@ -207,6 +207,24 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
   }
 }
 
+void Codegen::add_collapsed_var(mir::inst::VarId tgt, mir::inst::VarId item) {
+  auto tgt_src = get_collapsed_var(tgt);
+  auto item_src = get_collapsed_var(item);
+
+  var_collapse.insert_or_assign(item_src, tgt_src);
+}
+
+mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  auto it = var_collapse.find(i);
+  if (it == var_collapse.end()) {
+    return i;
+  } else if (it->second == i) {
+    return i;
+  } else {
+    return get_collapsed_var(it->second);
+  }
+}
+
 void Codegen::scan() {
   for (auto& bb : func.basic_blks) {
     std::set<mir::inst::VarId> bb_var_use;
@@ -221,30 +239,24 @@ void Codegen::scan() {
     var_use.insert({bb.first, std::move(bb_var_use)});
   }
 
-  // #pragma region CollapseShow
-  //   LOG(TRACE) << "collapsing: " << std::endl;
-  //   for (auto& v : var_collapse) {
-  //     LOG(TRACE) << v.first << " -> " << v.second << std::endl;
-  //   }
-  //   LOG(TRACE) << std::endl;
-  // #pragma endregion
+#pragma region CollapseShow
+  LOG(TRACE) << "collapsing: " << std::endl;
+  for (auto& v : var_collapse) {
+    LOG(TRACE) << v.first << " -> " << v.second << std::endl;
+  }
+  LOG(TRACE) << std::endl;
+#pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  // auto set = std::set<mir::inst::VarId>();
-  // auto dest = get_collapsed_var(phi.dest);
-  // set.insert(dest);
-  // for (auto& id : phi.vars) {
-  // auto x = get_collapsed_var(id);
-  // set.insert(x);
-  // }
   auto dest = phi.dest;
   LOG(TRACE) << dest << " <- ";
   for (auto& x : phi.vars) {
     LOG(TRACE) << x << " ";
-    var_collapse.insert({x, dest});
+    add_collapsed_var(dest, x);
+    // var_collapse.insert({x, dest});
   }
   LOG(TRACE) << std::endl;
 }
@@ -738,20 +750,20 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 
 void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
   for (auto id : i) {
-    auto collapsed = var_collapse.equal_range(id);
-    if (collapsed.first == collapsed.second) {
+    auto collapsed = get_collapsed_var(id);
+    if (collapsed == id) {
       continue;
     }
     auto src_reg = get_or_alloc_vgp(id);
-    display_reg_name(LOG(DEBUG), src_reg);
-    auto vis = std::set<mir::inst::VarId>();
-    for (auto it = collapsed.first; it != collapsed.second; it++) {
-      if (vis.find(it->second) != vis.end()) continue;
-      vis.insert(it->second);
-      auto dest_reg = get_or_alloc_vgp(it->second);
-      inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
-                                                  RegisterOperand(src_reg)));
-    }
+    // display_reg_name(LOG(DEBUG), src_reg);
+    // auto vis = std::set<mir::inst::VarId>();
+    // for (auto it = collapsed.first; it != collapsed.second; it++) {
+    //   if (vis.find(it->second) != vis.end()) continue;
+    //   vis.insert(it->second);
+    auto dest_reg = get_or_alloc_vgp(collapsed);
+    inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
+                                                RegisterOperand(src_reg)));
+    // }
   }
 }
 
