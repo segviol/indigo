@@ -52,6 +52,7 @@ map<int, BasicBlock*> generate_CFG(
     }
     nodes.insert(map<int, BasicBlock*>::value_type(preid, block));
   }
+  
   BasicBlock* exit = new BasicBlock(-2, preid);
   nodes.insert(map<int, BasicBlock*>::value_type(-2, exit));
 
@@ -122,33 +123,38 @@ map<int, BasicBlock*> generate_CFG(
   }
 
   // step3: delete node which do not have preBlock expect entry
-  vector<int> del;
-  for (iter = nodes.begin(); iter != nodes.end(); iter++) {
-    if (iter->first != -1 && iter->second->preBlock.size() == 0) {
-      del.push_back(iter->first);
-      for (int i = 0; i < iter->second->nextBlock.size(); i++) {
-        iter->second->nextBlock[i]->preBlock.erase(
-            std::remove(iter->second->nextBlock[i]->preBlock.begin(),
-                        iter->second->nextBlock[i]->preBlock.end(),
-                        iter->second),
-            iter->second->nextBlock[i]->preBlock.end());
+  bool change = true;
+  while (change) {
+    vector<int> del;
+    for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+      if (iter->first != -1 && iter->second->preBlock.size() == 0) {
+        del.push_back(iter->first);
+        for (int i = 0; i < iter->second->nextBlock.size(); i++) {
+          iter->second->nextBlock[i]->preBlock.erase(
+              std::remove(iter->second->nextBlock[i]->preBlock.begin(),
+                          iter->second->nextBlock[i]->preBlock.end(),
+                          iter->second),
+              iter->second->nextBlock[i]->preBlock.end());
+        }
+      }
+    }
+    if (del.size() == 0) {
+      change = false;
+    }
+    for (int i = 0; i < del.size(); i++) {
+      iter = nodes.find(del[i]);
+      if (iter != nodes.end()) {
+        nodes.erase(iter);
+      }
+      vector<int>::iterator j;
+      for (j = order.begin(); j != order.end(); j++) {
+        if (*j == del[i]) {
+          order.erase(j);
+          break;
+        }
       }
     }
   }
-  for (int i = 0; i < del.size(); i++) {
-    iter = nodes.find(del[i]);
-    if (iter != nodes.end()) {
-      nodes.erase(iter);
-    }
-    vector<int>::iterator j;
-    for (j = order.begin(); j != order.end(); j++) {
-      if (*j == del[i]) {
-        order.erase(j);
-        break;
-      }
-    }
-  }
-
   cout << endl << "*** desplay CFG ***" << endl;
   for (iter = nodes.begin(); iter != nodes.end(); iter++) {
     cout << "node: " << setw(7) << iter->first << " successor node(s): ";
@@ -506,14 +512,14 @@ map<mir::inst::VarId, set<int>> active_var(map<int, BasicBlock*> nodes) {
         it->first, vectors_intersection(it->second, iter->second)));
   }
   // output for test
-  /*cout << endl << "*** desplay global var ***" << endl;
+  cout << endl << "*** desplay global var ***" << endl;
   for (it = global.begin(); it != global.end(); it++) {
       cout << it->first;
       for (int i = 0; i < it->second.size(); i++) {
           cout << " " << it->second[i];
       }
       cout << endl;
-  }*/
+  }
 
   // step4: build the blocks.
   map<mir::inst::VarId, set<int>> blocks;
@@ -1357,7 +1363,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
-      bool change = true;
+      /*bool change = true;
       while (change) {
         change = false;
         redundantphi.clear();
@@ -1484,6 +1490,7 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
+      */
       for (int i = 0; i < order.size(); i++) {
         map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
         mir::types::LabelId id = iit->first;
