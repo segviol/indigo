@@ -95,11 +95,23 @@ void Global_Var_to_Local::optimize_mir(
       if (inst->inst_kind() == mir::inst::InstKind::Store) {
         auto& i = *inst;
         auto ist = dynamic_cast<mir::inst::StoreOffsetInst*>(&i);
-        inst = std::make_unique<mir::inst::AssignInst>(var, ist->val);
+        if (!ist->val.is_immediate() &&
+            !f.variables.at(std::get<mir::inst::VarId>(ist->val).id)
+                 .is_phi_var) {
+          vp.replace((std::get<mir::inst::VarId>(ist->val).id), var);
+          inst = std::make_unique<mir::inst::AssignInst>(var, var);
+        } else {
+          inst = std::make_unique<mir::inst::AssignInst>(var, ist->val);
+        }
       } else {
         auto& i = *inst;
         auto ist = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
-        inst = std::make_unique<mir::inst::AssignInst>(ist->dest, var);
+        if (!f.variables.at(ist->dest.id).is_phi_var) {
+          vp.replace(ist->dest, var);
+          inst = std::make_unique<mir::inst::AssignInst>(var, var);
+        } else {
+          inst = std::make_unique<mir::inst::AssignInst>(ist->dest, var);
+        }
       }
     }
   }
