@@ -205,7 +205,7 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
+arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
   auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
