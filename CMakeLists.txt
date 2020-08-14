@@ -23,13 +23,17 @@ set(backend_files
     backend/optimization/const_loop_expand.hpp
     backend/optimization/func_array_global.hpp
     backend/optimization/func_array_global.cpp
+    backend/optimization/loop_unrolling.hpp
+    backend/optimization/loop_unrolling.cpp
     backend/optimization/const_propagation.hpp
     backend/optimization/complex_dead_code_elimination.cpp
     backend/optimization/memvar_propagation.hpp
     backend/optimization/value_shift_collapse.cpp
+    backend/optimization/cycle.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
+    backend/codegen/align_code.cpp
     backend/codegen/reg_alloc.cpp
     backend/codegen/math_opt.cpp
     backend/codegen/err.hpp

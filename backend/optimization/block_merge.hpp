@@ -31,6 +31,9 @@ class Merge_Block : public backend::MirOptimizePass {
       bool flag = false;
       for (auto& blkiter : func.basic_blks) {
         auto& blk = blkiter.second;
+        if (blk.id > 100000) {
+          continue;
+        }
         if (blk.preceding.size() == 1) {
           auto& preBlk = func.basic_blks.at(*blk.preceding.begin());
           auto end_iter = func.basic_blks.end();
