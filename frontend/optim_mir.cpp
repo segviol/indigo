@@ -122,33 +122,38 @@ map<int, BasicBlock*> generate_CFG(
   }
 
   // step3: delete node which do not have preBlock expect entry
-  vector<int> del;
-  for (iter = nodes.begin(); iter != nodes.end(); iter++) {
-    if (iter->first != -1 && iter->second->preBlock.size() == 0) {
-      del.push_back(iter->first);
-      for (int i = 0; i < iter->second->nextBlock.size(); i++) {
-        iter->second->nextBlock[i]->preBlock.erase(
-            std::remove(iter->second->nextBlock[i]->preBlock.begin(),
-                        iter->second->nextBlock[i]->preBlock.end(),
-                        iter->second),
-            iter->second->nextBlock[i]->preBlock.end());
+  bool changed = true;
+  while (changed) {
+    vector<int> del;
+    for (iter = nodes.begin(); iter != nodes.end(); iter++) {
+      if (iter->first != -1 && iter->second->preBlock.size() == 0) {
+        del.push_back(iter->first);
+        for (int i = 0; i < iter->second->nextBlock.size(); i++) {
+          iter->second->nextBlock[i]->preBlock.erase(
+              std::remove(iter->second->nextBlock[i]->preBlock.begin(),
+                          iter->second->nextBlock[i]->preBlock.end(),
+                          iter->second),
+              iter->second->nextBlock[i]->preBlock.end());
+        }
+      }
+    }
+    if (del.size() == 0) {
+      changed = false;
+    }
+    for (int i = 0; i < del.size(); i++) {
+      iter = nodes.find(del[i]);
+      if (iter != nodes.end()) {
+        nodes.erase(iter);
+      }
+      vector<int>::iterator j;
+      for (j = order.begin(); j != order.end(); j++) {
+        if (*j == del[i]) {
+          order.erase(j);
+          break;
+        }
       }
     }
   }
-  for (int i = 0; i < del.size(); i++) {
-    iter = nodes.find(del[i]);
-    if (iter != nodes.end()) {
-      nodes.erase(iter);
-    }
-    vector<int>::iterator j;
-    for (j = order.begin(); j != order.end(); j++) {
-      if (*j == del[i]) {
-        order.erase(j);
-        break;
-      }
-    }
-  }
-
   cout << endl << "*** desplay CFG ***" << endl;
   for (iter = nodes.begin(); iter != nodes.end(); iter++) {
     cout << "node: " << setw(7) << iter->first << " successor node(s): ";
