@@ -87,38 +87,45 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
         use_vars.clear();
         met_cmp = true;
       }
+      use_vars.insert(i.dest);
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else {
       throw new std::bad_cast();
     }
-    use_vars.insert(i.dest);
   }
   if (!met_cmp) emit_phi_move(use_vars);
   translate_branch(blk.jump);
@@ -791,8 +798,6 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
           }
         }
       }
-      // TODO: Omit the second jump argument if label is right after it
-      // TODO: Move this^ to peephole optimization
       if (cond) {
         inst.pop_back();
         inst.pop_back();
