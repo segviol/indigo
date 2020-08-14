@@ -98,8 +98,11 @@ void Global_Var_to_Local::optimize_mir(
         if (!ist->val.is_immediate() &&
             !f.variables.at(std::get<mir::inst::VarId>(ist->val).id)
                  .is_phi_var) {
-          vp.replace((std::get<mir::inst::VarId>(ist->val).id), var);
+          auto val = std::get<mir::inst::VarId>(ist->val);
+          vp.replace(val, var);
           inst = std::make_unique<mir::inst::AssignInst>(var, var);
+          auto& def = vp.get_usepoint(vp.defpoint.at(val));
+          def->dest = var;
         } else {
           inst = std::make_unique<mir::inst::AssignInst>(var, ist->val);
         }
@@ -109,6 +112,8 @@ void Global_Var_to_Local::optimize_mir(
         if (!f.variables.at(ist->dest.id).is_phi_var) {
           vp.replace(ist->dest, var);
           inst = std::make_unique<mir::inst::AssignInst>(var, var);
+          auto& def = vp.get_usepoint(vp.defpoint.at(ist->dest));
+          def->dest = var;
         } else {
           inst = std::make_unique<mir::inst::AssignInst>(ist->dest, var);
         }
