@@ -161,7 +161,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
              precblk.jump.bb_true == start);
   }
 
-  std::set<int> get_precedings(int start, std::variant<Op, LoadOp> op) {
+  std::set<int> get_precedings(int start) {
     auto prec = env->func.basic_blks.at(start).preceding;
     std::set<int> res;
     std::list<int> queue;
@@ -173,7 +173,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     while (!queue.empty()) {
       auto f = queue.front();
       queue.pop_front();
-      if (res.count(f) || env->blk_op_map.at(f).disable_op(op)) {
+      if (res.count(f)) {
         continue;
       }
       res.insert(f);
@@ -200,10 +200,30 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
       }
     } else {
       auto f = *prec.begin();
-      res = get_precedings(f, op);
+      res = get_precedings(f);
+      if (op.index() != 0) {
+        std::set<mir::types::LabelId> disabled_pre;
+        for (auto p : res) {
+          if (env->blk_op_map.at(p).disable_op(op)) {
+            if (disabled_pre.count(p)) {
+              continue;
+            }
+            disabled_pre.insert(p);
+            for (auto x : get_precedings(p)) {
+              disabled_pre.insert(x);
+            }
+          }
+        }
+        for (auto p : disabled_pre) {
+          if (res.count(p)) {
+            res.erase(p);
+          }
+        }
+      }
+
       prec.erase(prec.begin());
       for (auto p : prec) {
-        auto precs = get_precedings(p, op);
+        auto precs = get_precedings(p);
         std::set<int> tmp;
         std::set_intersection(res.begin(), res.end(), precs.begin(),
                               precs.end(), std::inserter(tmp, tmp.begin()));
@@ -332,12 +352,10 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                 } else {
                   LOG(TRACE)
                       << inst->dest << " is replaced to " << var << std::endl;
-                  if (inst->dest.id == 65594) {
-                    std::cout << "a " << std::endl;
-                  }
                   vp.replace(inst->dest, var);
                   // useless inst
-                  inst = std::make_unique<mir::inst::AssignInst>(inst->dest, 0);
+                  inst =
+                      std::make_unique<mir::inst::AssignInst>(inst->dest, -999);
                 }
                 func.variables.at(var).is_temp_var = false;
                 modify = true;
@@ -359,7 +377,8 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                 if (!func.variables.at(var.id).is_phi_var) {
                   vp.replace(inst->dest, var);
                   // useless inst
-                  inst = std::make_unique<mir::inst::AssignInst>(inst->dest, 0);
+                  inst =
+                      std::make_unique<mir::inst::AssignInst>(inst->dest, -999);
                   func.variables.at(var).is_temp_var = false;
                   modify = true;
                   continue;

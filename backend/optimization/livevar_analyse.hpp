@@ -244,8 +244,6 @@ class Livevar_Analyse {
     for (auto& blkpair : func.basic_blks) {
       for (auto i = 0; i < blkpair.second.inst.size(); ++i) {
         auto& inst = blkpair.second.inst.at(i);
-        std::cout << blkpair.first << " " << i << " " << *inst << std::endl;
-
         if (inst->inst_kind() == mir::inst::InstKind::Phi) {
           phi_dests.insert(inst->dest);
           for (auto var : inst->useVars()) {
