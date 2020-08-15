@@ -76,6 +76,7 @@ class Var_Replace {
           auto& inst = func.basic_blks.at(pair.first).inst.at(pair.second);
           inst->replace(from, to);
         }
+        usepoints.at(to).push_back(pair);
       }
     }
   }
