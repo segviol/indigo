@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -428,13 +429,33 @@ void ConstValue::display(std::ostream &o) const {
       newline = true;
       repeat_count = 1;
     } else {
-      o << ", " << last;
+      o << ", " << last << std::endl;
+    }
+    if (len && x->size() < len.value()) {
+      o << "\t.fill " << (len.value() - x->size()) << ", 4, " << last
+        << std::endl;
     }
   } else if (auto x = std::get_if<std::string>(this)) {
     if (ty == ConstType::AsciZ)
       o << "\t.asciz \"" << *x << "\"";
     else if (ty == ConstType::Word)
       o << "\t.word " << *x;
+  }
+}
+
+size_t ConstValue::size() {
+  if (auto x = std::get_if<uint32_t>(this)) {
+    return 4;
+  } else if (auto x = std::get_if<std::vector<uint32_t>>(this)) {
+    if (len) {
+      return *len;
+    } else {
+      return x->size();
+    }
+  } else if (auto x = std::get_if<std::string>(this)) {
+    return x->size();
+  } else {
+    throw std::logic_error("No such variant");
   }
 }
 
