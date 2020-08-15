@@ -87,38 +87,45 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
         use_vars.clear();
         met_cmp = true;
       }
+      use_vars.insert(i.dest);
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
+      use_vars.insert(i.dest);
       met_cmp = false;
       translate_inst(*x);
     } else {
       throw new std::bad_cast();
     }
-    use_vars.insert(i.dest);
   }
   if (!met_cmp) emit_phi_move(use_vars);
   translate_branch(blk.jump);
@@ -151,8 +158,8 @@ void Codegen::generate_startup() {
   // TODO: Expand stack here; we haven't allocated the stack for now!
 }
 
-arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   // If it's param, load before use
   if (v > 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -171,18 +178,20 @@ arm::Reg Codegen::get_or_alloc_vgp(mir::inst::VarId v) {
       if (found != reg_map.end()) {
         // assert(arm::register_type(found->second) ==
         //        arm::RegisterKind::VirtualGeneralPurpose);
+        if (v_ != v) reg_map.insert({v_, found->second});
         return found->second;
       } else {
         auto reg = alloc_vgp();
         reg_map.insert({v, reg});
+        if (v_ != v) reg_map.insert({v_, reg});
         return reg;
       }
     }
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -191,12 +200,13 @@ arm::Reg Codegen::get_or_alloc_vd(mir::inst::VarId v) {
   } else {
     auto reg = alloc_vd();
     reg_map.insert({v, reg});
+    if (v_ != v) reg_map.insert({v_, reg});
     return reg;
   }
 }
 
-arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
-  // auto v = get_collapsed_var(v_);
+arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v_) {
+  auto v = get_collapsed_var(v_);
   auto found = reg_map.find(v);
   if (found != reg_map.end()) {
     assert(arm::register_type(found->second) ==
@@ -204,6 +214,24 @@ arm::Reg Codegen::get_or_alloc_vq(mir::inst::VarId v) {
     return found->second;
   } else {
     return alloc_vq();
+  }
+}
+
+void Codegen::add_collapsed_var(mir::inst::VarId tgt, mir::inst::VarId item) {
+  auto tgt_src = get_collapsed_var(tgt);
+  auto item_src = get_collapsed_var(item);
+
+  var_collapse.insert_or_assign(item_src, tgt_src);
+}
+
+mir::inst::VarId Codegen::get_collapsed_var(mir::inst::VarId i) {
+  auto it = var_collapse.find(i);
+  if (it == var_collapse.end()) {
+    return i;
+  } else if (it->second == i) {
+    return i;
+  } else {
+    return get_collapsed_var(it->second);
   }
 }
 
@@ -221,30 +249,24 @@ void Codegen::scan() {
     var_use.insert({bb.first, std::move(bb_var_use)});
   }
 
-  // #pragma region CollapseShow
-  //   LOG(TRACE) << "collapsing: " << std::endl;
-  //   for (auto& v : var_collapse) {
-  //     LOG(TRACE) << v.first << " -> " << v.second << std::endl;
-  //   }
-  //   LOG(TRACE) << std::endl;
-  // #pragma endregion
+#pragma region CollapseShow
+  LOG(TRACE) << "collapsing: " << std::endl;
+  for (auto& v : var_collapse) {
+    LOG(TRACE) << v.first << " -> " << get_collapsed_var(v.second) << std::endl;
+  }
+  LOG(TRACE) << std::endl;
+#pragma endregion
 }
 
 void Codegen::deal_call(mir::inst::CallInst& call) {}
 
 void Codegen::deal_phi(mir::inst::PhiInst& phi) {
-  // auto set = std::set<mir::inst::VarId>();
-  // auto dest = get_collapsed_var(phi.dest);
-  // set.insert(dest);
-  // for (auto& id : phi.vars) {
-  // auto x = get_collapsed_var(id);
-  // set.insert(x);
-  // }
   auto dest = phi.dest;
   LOG(TRACE) << dest << " <- ";
   for (auto& x : phi.vars) {
     LOG(TRACE) << x << " ";
-    var_collapse.insert({x, dest});
+    add_collapsed_var(dest, x);
+    // var_collapse.insert({x, dest});
   }
   LOG(TRACE) << std::endl;
 }
@@ -339,8 +361,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(
 }
 
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
-  // auto v = get_collapsed_var(v_);
-  auto v = v_;
+  auto v = get_collapsed_var(v_);
+  // auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -369,8 +391,8 @@ arm::MemoryOperand Codegen::translate_var_to_memory_arg(mir::inst::VarId v_) {
 arm::MemoryOperand Codegen::translate_var_to_memory_arg(
     mir::inst::VarId v_, mir::inst::Value& offset) {
   // TODO: Remove "*4" after fixing offset
-  // auto v = get_collapsed_var(v_);
-  auto v = v_;
+  auto v = get_collapsed_var(v_);
+  // auto v = v_;
   // If it's param, load before use
   if (v >= 4 && v <= param_size) {
     auto reg = alloc_vgp();
@@ -738,20 +760,20 @@ void Codegen::emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,
 
 void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
   for (auto id : i) {
-    auto collapsed = var_collapse.equal_range(id);
-    if (collapsed.first == collapsed.second) {
+    auto collapsed = get_collapsed_var(id);
+    if (collapsed == id) {
       continue;
     }
     auto src_reg = get_or_alloc_vgp(id);
-    display_reg_name(LOG(DEBUG), src_reg);
-    auto vis = std::set<mir::inst::VarId>();
-    for (auto it = collapsed.first; it != collapsed.second; it++) {
-      if (vis.find(it->second) != vis.end()) continue;
-      vis.insert(it->second);
-      auto dest_reg = get_or_alloc_vgp(it->second);
-      inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
-                                                  RegisterOperand(src_reg)));
-    }
+    // display_reg_name(LOG(DEBUG), src_reg);
+    // auto vis = std::set<mir::inst::VarId>();
+    // for (auto it = collapsed.first; it != collapsed.second; it++) {
+    //   if (vis.find(it->second) != vis.end()) continue;
+    //   vis.insert(it->second);
+    auto dest_reg = get_or_alloc_vgp(collapsed);
+    inst.push_back(std::make_unique<Arith2Inst>(OpCode::Mov, dest_reg,
+                                                RegisterOperand(src_reg)));
+    // }
   }
 }
 
@@ -779,8 +801,6 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
           }
         }
       }
-      // TODO: Omit the second jump argument if label is right after it
-      // TODO: Move this^ to peephole optimization
       if (cond) {
         inst.pop_back();
         inst.pop_back();
