@@ -77,6 +77,9 @@ class BlockOps {
         if (inst->inst_kind() == mir::inst::InstKind::Load) {
           auto loadInst = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
           auto addr = std::get<mir::inst::VarId>(loadInst->src);
+          if (stores.count(addr)) {
+            continue;
+          }
           loads.insert({{addr, loadInst->offset}, loadInst->dest});
         } else if (inst->inst_kind() == mir::inst::InstKind::Store) {
           auto storeInst = dynamic_cast<mir::inst::StoreOffsetInst*>(&i);
@@ -222,6 +225,25 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     }
 
     auto& startblk = func.basic_blks.begin()->second;
+    for (auto& blkpair : func.basic_blks) {
+      auto& blk = blkpair.second;
+      for (auto iter = blkpair.second.inst.begin();
+           iter != blkpair.second.inst.end();) {
+        auto& inst = *iter;
+        if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+          auto& i = *inst;
+          auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
+          if (blk.id == startblk.id) {
+            break;
+          }
+          func.variables.at(inst->dest.id).is_temp_var = false;
+          startblk.inst.push_back(std::move(inst));
+          iter = blk.inst.erase(iter);
+        } else {
+          iter++;
+        }
+      }
+    }
     int cnt = 0;
     while (true) {
       bool modify = false;
@@ -290,26 +312,34 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                 }
                 auto var = env->blk_op_map.at(id).ops.at(op);
                 if (func.variables.at(var.id).is_phi_var) {
+                  vp.setdefpoint(inst->dest, id,
+                                 func.basic_blks.at(id).inst.size());
+                  for (auto var : inst->useVars()) {
+                    auto& usepoints = vp.usepoints.at(var);
+                    std::pair<mir::types::LabelId, int> point = {
+                        blk.id, iter - block.inst.begin()};
+                    auto find_iter =
+                        std::find(usepoints.begin(), usepoints.end(), point);
+                    if (find_iter != usepoints.end()) {
+                      usepoints.erase(find_iter);
+                      usepoints.push_back(
+                          {id, func.basic_blks.at(id).inst.size()});
+                    }
+                  }
                   func.basic_blks.at(id).inst.push_back(std::move(inst));
-                  iter = block.inst.erase(iter);
+                  inst = std::make_unique<mir::inst::AssignInst>(
+                      mir::inst::VarId(-1), -1);
                 } else {
+                  LOG(TRACE)
+                      << inst->dest << " is replaced to " << var << std::endl;
+                  if (inst->dest.id == 65594) {
+                    std::cout << "a " << std::endl;
+                  }
                   vp.replace(inst->dest, var);
                   // useless inst
                   inst = std::make_unique<mir::inst::AssignInst>(inst->dest, 0);
                 }
                 func.variables.at(var).is_temp_var = false;
-                modify = true;
-                continue;
-              }
-              case mir::inst::InstKind::Ref: {
-                auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
-                if (blk.id == startblk.id) {
-                  break;
-                }
-                vp.setdefpoint(inst->dest, start, startblk.inst.size());
-                func.variables.at(inst->dest.id).is_temp_var = false;
-                startblk.inst.push_back(std::move(inst));
-                iter = block.inst.erase(iter);
                 modify = true;
                 continue;
               }
