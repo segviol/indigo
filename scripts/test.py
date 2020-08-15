@@ -180,7 +180,7 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                 compiler_output = subprocess.run(
                     [args.compiler_path, new_path, "-d", "-o", "tmp.s"],
                     capture_output=True,
-                    timeout=15)
+                    timeout=30)
 
                 # compiler error
                 if compiler_output.returncode != 0:
