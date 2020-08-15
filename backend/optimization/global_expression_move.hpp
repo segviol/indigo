@@ -60,13 +60,13 @@ struct hasher {
 
 class BlockOps {
  public:
-  std::unordered_set<Op, hasher> ops;
+  std::unordered_map<Op, mir::inst::VarId, hasher> ops;
   BlockOps(mir::inst::BasicBlk& blk) {
     for (auto& inst : blk.inst) {
       auto& i = *inst;
       if (inst->inst_kind() == mir::inst::InstKind::Op) {
         auto opInst = dynamic_cast<mir::inst::OpInst*>(&i);
-        ops.insert(Op(opInst->op, opInst->lhs, opInst->rhs));
+        ops.insert({Op(opInst->op, opInst->lhs, opInst->rhs), opInst->dest});
       }
     }
   }
@@ -158,7 +158,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     if (prec.size() == 0) {
       return start;
     }
-    std::set<int> res;
+    std::set<mir::types::LabelId> res;
     if (prec.size() == 1) {
       auto p = bfs(*prec.begin(), op);
       if (env->blk_op_map.at(p).has_op(op)) {
@@ -189,13 +189,15 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     if (func.type->is_extern) {
       return;
     }
-    livevar_analyse::Livevar_Analyse lva(func);
-    lva.build();
-    var_replace::Var_Replace vp(func);
-    env = std::make_shared<Env>(func, lva, vp);
+
     auto& startblk = func.basic_blks.begin()->second;
+    int cnt = 0;
     while (true) {
       bool modify = false;
+      livevar_analyse::Livevar_Analyse lva(func);
+      lva.build();
+      var_replace::Var_Replace vp(func);
+      env = std::make_shared<Env>(func, lva, vp);
       std::list<mir::types::LabelId> queue;
       std::set<mir::types::LabelId> visited;
       auto iter = func.basic_blks.end();
@@ -215,6 +217,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
           auto& variables = func.variables;
           for (auto iter = block.inst.begin(); iter != block.inst.end();) {
             auto& inst = *iter;
+            std::cout << std::endl;
             if (func.variables.at(inst->dest.id).is_phi_var) {
               iter++;
               continue;
@@ -228,6 +231,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                   break;
                 }
                 int id = -1;
+                Op op(opInst->op, opInst->lhs, opInst->rhs);
                 if (!opInst->lhs.is_immediate() &&
                     !opInst->rhs.is_immediate()) {
                   auto lhs = std::get<mir::inst::VarId>(opInst->lhs);
@@ -236,29 +240,33 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                       !blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
                 } else if (!opInst->lhs.is_immediate()) {
                   auto lhs = std::get<mir::inst::VarId>(opInst->lhs);
                   if (!blv->live_vars_in->count(lhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
 
                 } else if (!opInst->rhs.is_immediate()) {
                   auto rhs = std::get<mir::inst::VarId>(opInst->rhs);
                   if (!blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
                 }
                 if (id == start) {
                   break;
                 }
-                vp.setdefpoint(inst->dest, start,
-                               func.basic_blks.at(id).inst.size());
-                func.variables.at(inst->dest.id).is_temp_var = false;
-                func.basic_blks.at(id).inst.push_back(std::move(inst));
-                iter = block.inst.erase(iter);
+                auto var = env->blk_op_map.at(id).ops.at(op);
+                vp.replace(inst->dest, var);
+                // useless inst
+                inst = std::make_unique<mir::inst::AssignInst>(inst->dest, 0);
+                // vp.setdefpoint(inst->dest, start,
+                //                func.basic_blks.at(id).inst.size());
+                func.variables.at(var).is_temp_var = false;
+                // func.basic_blks.at(id).inst.push_back(std::move(inst));
+                // iter = block.inst.erase(iter);
                 modify = true;
                 continue;
               }
