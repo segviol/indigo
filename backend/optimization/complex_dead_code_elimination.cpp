@@ -316,23 +316,23 @@ void ComplexDceRunner::remove_excess_bb() {
         }
         if (bb.preceding.empty()) next_bb.preceding.erase(bbid);
 
-        // } else if (bb.jump.kind == mir::inst::JumpInstructionKind::Return) {
-        //   auto it = bb.preceding.begin();
-        //   while (it != bb.preceding.end()) {
-        //     auto prec = *it;
-        //     auto& prec_bb = f.basic_blks.at(prec);
-        //     if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
-        //       prec_bb.jump.jump_kind = bb.jump.jump_kind;
-        //       prec_bb.jump.bb_true = bb.jump.bb_true;
-        //       prec_bb.jump.bb_false = bb.jump.bb_false;
-        //       prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
-        //       prec_bb.jump.kind = bb.jump.kind;
+      } else if (bb.jump.kind == mir::inst::JumpInstructionKind::Return) {
+        auto it = bb.preceding.begin();
+        while (it != bb.preceding.end()) {
+          auto prec = *it;
+          auto& prec_bb = f.basic_blks.at(prec);
+          if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+            prec_bb.jump.jump_kind = bb.jump.jump_kind;
+            prec_bb.jump.bb_true = bb.jump.bb_true;
+            prec_bb.jump.bb_false = bb.jump.bb_false;
+            prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
+            prec_bb.jump.kind = bb.jump.kind;
 
-        //       it = bb.preceding.erase(it);
-        //     } else {
-        //       it++;
-        //     }
-        //   }
+            it = bb.preceding.erase(it);
+          } else {
+            it++;
+          }
+        }
       }
     }
   }
