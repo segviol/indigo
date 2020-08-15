@@ -69,8 +69,9 @@ class ConstValue
   ConstValue(uint32_t x)
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
         ty(ConstType::Word) {}
-  ConstValue(std::vector<uint32_t> x)
+  ConstValue(std::vector<uint32_t> x, std::optional<int> len = std::nullopt)
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
+        len(len),
         ty(ConstType::Word) {}
   ConstValue(std::string x)
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x),
@@ -79,7 +80,9 @@ class ConstValue
       : std::variant<uint32_t, std::vector<uint32_t>, std::string>(x), ty(ty) {}
 
   ConstType ty;
+  std::optional<int> len;
 
+  size_t size();
   virtual void display(std::ostream& o) const;
   virtual ~ConstValue() {}
 };
