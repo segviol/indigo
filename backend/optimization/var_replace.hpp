@@ -82,6 +82,10 @@ class Var_Replace {
           auto& inst = func.basic_blks.at(pair.first).inst.at(pair.second);
           inst->replace(from, to);
         }
+        if (!usepoints.count(to)) {
+          usepoints.insert(
+              {to, std::vector<std::pair<mir::types::LabelId, int>>()});
+        }
         usepoints.at(to).push_back(pair);
       }
     }
