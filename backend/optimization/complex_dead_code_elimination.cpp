@@ -24,6 +24,9 @@ class ComplexDceRunner {
   MirFunction& f;
   // std::vector<LabelId>& reverse_postorder;
 
+  /// Does the pass change anything about function?
+  bool it_changed = true;
+
   std::unordered_set<VarId> do_not_delete;
   std::unordered_set<VarId> ref_vars;
   std::unordered_set<VarId> backup_ref_vars;
@@ -60,18 +63,23 @@ class ComplexDceRunner {
   // void scan_bb_dependance_vars();
   void calc_remained_vars();
   void delete_excess_vars();
+  void remove_excess_bb();
 
   void optimize_func() {
-    LOG(TRACE) << "fn: " << f.name << std::endl;
-    // scan_bb_dependance_vars();
-    scan_dependant_vars();
-    display_dependance_maps();
-    calc_remained_vars();
-    LOG(TRACE) << "Result:" << std::endl;
-    for (auto x : do_not_delete) {
-      LOG(TRACE) << x << std::endl;
+    while (it_changed) {
+      it_changed = false;
+      LOG(TRACE) << "fn: " << f.name << std::endl;
+      // scan_bb_dependance_vars();
+      scan_dependant_vars();
+      display_dependance_maps();
+      calc_remained_vars();
+      LOG(TRACE) << "Result:" << std::endl;
+      for (auto x : do_not_delete) {
+        LOG(TRACE) << x << std::endl;
+      }
+      delete_excess_vars();
+      remove_excess_bb();
     }
-    delete_excess_vars();
   }
 
   void display_dependance_maps() {
@@ -262,9 +270,84 @@ void ComplexDceRunner::delete_excess_vars() {
     for (auto& inst : bb.second.inst) {
       if (do_not_delete.find(inst->dest) != do_not_delete.end()) {
         new_inst.push_back(std::move(inst));
+      } else {
+        it_changed = true;
       }
     }
     bb.second.inst = std::move(new_inst);
+  }
+}
+
+void ComplexDceRunner::remove_excess_bb() {
+  for (auto& bb_entry : f.basic_blks) {
+    auto bbid = bb_entry.first;
+    auto& bb = bb_entry.second;
+    if (bb.inst.size() == 0) {
+      if (bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+        auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
+        for (auto prec : bb.preceding) {
+          auto& prec_bb = f.basic_blks.at(prec);
+          if (prec_bb.jump.bb_false == bbid)
+            prec_bb.jump.bb_false = bb.jump.bb_true;
+          if (prec_bb.jump.bb_true == bbid)
+            prec_bb.jump.bb_true = bb.jump.bb_true;
+          next_bb.preceding.insert(prec);
+        }
+        next_bb.preceding.erase(bbid);
+        bb.preceding.clear();
+      } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+        auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
+        auto it = bb.preceding.begin();
+        while (it != bb.preceding.end()) {
+          auto prec = *it;
+          auto& prec_bb = f.basic_blks.at(prec);
+          if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+            prec_bb.jump.jump_kind = bb.jump.jump_kind;
+            prec_bb.jump.bb_true = bb.jump.bb_true;
+            prec_bb.jump.bb_false = bb.jump.bb_false;
+            prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
+            prec_bb.jump.kind = bb.jump.kind;
+
+            next_bb.preceding.insert(prec);
+            it = bb.preceding.erase(it);
+          } else {
+            it++;
+          }
+        }
+        if (bb.preceding.empty()) next_bb.preceding.erase(bbid);
+
+        // } else if (bb.jump.kind == mir::inst::JumpInstructionKind::Return) {
+        //   auto it = bb.preceding.begin();
+        //   while (it != bb.preceding.end()) {
+        //     auto prec = *it;
+        //     auto& prec_bb = f.basic_blks.at(prec);
+        //     if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+        //       prec_bb.jump.jump_kind = bb.jump.jump_kind;
+        //       prec_bb.jump.bb_true = bb.jump.bb_true;
+        //       prec_bb.jump.bb_false = bb.jump.bb_false;
+        //       prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
+        //       prec_bb.jump.kind = bb.jump.kind;
+
+        //       it = bb.preceding.erase(it);
+        //     } else {
+        //       it++;
+        //     }
+        //   }
+      }
+    }
+  }
+
+  {
+    auto it = f.basic_blks.begin();
+    auto begin_bb = it->first;
+    while (it != f.basic_blks.end()) {
+      if (it->second.preceding.empty() && it->first != begin_bb) {
+        it = f.basic_blks.erase(it);
+        it_changed = true;
+      } else {
+        it++;
+      }
+    }
   }
 }
 
