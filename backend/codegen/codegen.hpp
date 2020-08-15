@@ -97,10 +97,10 @@ class Codegen final {
   std::map<mir::inst::VarId, arm::Reg> reg_map;
   std::map<arm::Label, arm::ConstValue> consts;
 
-  std::map<mir::types::LabelId, std::set<mir::inst::VarId>> var_use;
-  std::multimap<mir::inst::VarId, mir::inst::VarId> var_collapse;
-  std::map<mir::inst::VarId, arm::Reg> fixed_vars;
-  std::map<mir::inst::VarId, arm::Reg> phi_reg;
+  std::unordered_map<mir::types::LabelId, std::set<mir::inst::VarId>> var_use;
+  std::unordered_map<mir::inst::VarId, mir::inst::VarId> var_collapse;
+  std::unordered_map<mir::inst::VarId, arm::Reg> fixed_vars;
+  std::unordered_map<mir::inst::VarId, arm::Reg> phi_reg;
 
   std::map<mir::inst::VarId, int32_t> stack_space_allocation;
 
@@ -139,7 +139,8 @@ class Codegen final {
   void init_reg_map();
   void deal_call(mir::inst::CallInst& call);
   void deal_phi(mir::inst::PhiInst& phi);
-  // std::optional<mir::inst::VarId> get_collapsed_var(mir::inst::VarId i);
+  void add_collapsed_var(mir::inst::VarId, mir::inst::VarId);
+  mir::inst::VarId get_collapsed_var(mir::inst::VarId i);
   void generate_startup();
   void generate_return_and_cleanup();
 
