@@ -301,6 +301,7 @@ void ComplexDceRunner::remove_excess_bb() {
           if (prec_bb.jump.bb_true == bbid)
             prec_bb.jump.bb_true = bb.jump.bb_true;
           next_bb.preceding.insert(prec);
+          next_bb.preceding.erase(bbid);
         }
         bb.preceding.clear();
       } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
@@ -318,6 +319,7 @@ void ComplexDceRunner::remove_excess_bb() {
               prec_bb.jump.kind = bb.jump.kind;
 
               next_bb.preceding.insert(prec);
+              next_bb.preceding.erase(bbid);
               it = bb.preceding.erase(it);
             } else {
               it++;
@@ -335,7 +337,6 @@ void ComplexDceRunner::remove_excess_bb() {
             prec_bb.jump.bb_false = bb.jump.bb_false;
             prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
             prec_bb.jump.kind = bb.jump.kind;
-
             it = bb.preceding.erase(it);
           } else {
             it++;
