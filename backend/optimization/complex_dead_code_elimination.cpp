@@ -363,7 +363,19 @@ void ComplexDceRunner::remove_excess_bb() {
             prec_bb.jump.bb_false = bb.jump.bb_false;
             prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
             prec_bb.jump.kind = bb.jump.kind;
-            it = bb.preceding.erase(it);
+            // TODO: bb1048576 still requires every returning basic block to be
+            // preceding it;
+            if (bbid == 1048576) {
+              // do nothing; this basic block should not be erased from its
+              // preceeders
+              it++;
+            } else {
+              it = bb.preceding.erase(it);
+              if (auto end = f.basic_blks.find(1048576);
+                  end != f.basic_blks.end()) {
+                end->second.preceding.insert(prec);
+              }
+            }
             LOG(TRACE) << "Erasing " << *it << " in " << bbid << " (ret)"
                        << std::endl;
             it_changed = true;
