@@ -13,6 +13,7 @@ import colorlog
 import json
 from typing import List, Any
 import signal
+import difflib
 
 log_colors_config = {
     'DEBUG': 'white',  # cyan white
@@ -151,6 +152,17 @@ def dump_stdout(name: str, stdout: bytes):
         f.write(stdout)
 
 
+def format_function_diff_file_name(name: str):
+    name = name.replace('/', '_')
+    return f"{output_folder_name}/program-stdout-{name}.diff"
+
+
+def dump_diff(name: str, diff: str):
+    filename = format_function_diff_file_name(name)
+    with open(filename, "w") as f:
+        f.write(diff)
+
+
 def decode_stderr_timer(stderr: str) -> float:
     time_match = re.search('TOTAL:\s*(\d+)H-(\d+)M-(\d+)S-(\d+)us\s*$', stderr)
     if time_match == None:
@@ -286,6 +298,10 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                     with open(os.path.join(dir, f"{prefix}.out"), 'r') as f:
                         std_output = f.read().replace("\r", "").strip()
 
+                    limited_stdout = std_output[0:max_stdout]
+                    if len(limited_stdout) > max_stdout:
+                        limited_stdout += "...(stripped)"
+
                     my_output_lines = [
                         x.strip() for x in my_output.splitlines()
                         if x.strip() != ''
@@ -300,18 +316,27 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                     dump_stdout(new_path, process.stdout)
 
                     if my_output_lines != std_output_lines:
+                        diff = '\n'.join(
+                            difflib.unified_diff(std_output_lines,
+                                                 my_output_lines,
+                                                 fromfile='std_output',
+                                                 tofile='my_output',
+                                                 lineterm=''))
+
                         logger.error(
-                            f"mismatched output for {new_path}: \nexpected: {real_std_output}\ngot {my_output}"
+                            f"mismatched output for {new_path}: \ndiff:\n{diff}"
                         )
                         with open(
                                 format_compiler_output_file_name(
                                     new_path, 'stdout'), "w") as f:
                             f.write(compiler_output.stdout.decode('utf-8'))
 
+                        dump_diff(new_path, diff)
+
                         result.failed.append(
                             FailedTest(new_path, "output_mismatch", {
                                 "got": limited_output,
-                                "expected": real_std_output
+                                "expected": limited_stdout
                             }))
                     elif return_code != std_ret:
                         logger.error(
