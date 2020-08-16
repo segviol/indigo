@@ -29,6 +29,9 @@ build:
             - build/compiler
         expire_in: 1 week
     timeout: 8m
+    retry:
+        max: 2
+        when: script_failure
 test:
     stage: test
     dependencies:
