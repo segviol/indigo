@@ -123,7 +123,10 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-
+  backend.add_pass(
+      std::make_unique<optimization::global_expr_move::Global_Expr_Mov>(true));
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<
