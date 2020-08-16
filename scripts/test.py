@@ -152,6 +152,17 @@ def dump_stdout(name: str, stdout: bytes):
         f.write(stdout)
 
 
+def format_function_diff_file_name(name: str):
+    name = name.replace('/', '_')
+    return f"{output_folder_name}/program-stdout-{name}.diff"
+
+
+def dump_diff(name: str, diff: str):
+    filename = format_function_diff_file_name(name)
+    with open(filename, "wb") as f:
+        f.write(diff)
+
+
 def decode_stderr_timer(stderr: str) -> float:
     time_match = re.search('TOTAL:\s*(\d+)H-(\d+)M-(\d+)S-(\d+)us\s*$', stderr)
     if time_match == None:
@@ -305,11 +316,12 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                     dump_stdout(new_path, process.stdout)
 
                     if my_output_lines != std_output_lines:
-                        diff = ''.join(
+                        diff = '\n'.join(
                             difflib.unified_diff(std_output_lines,
                                                  my_output_lines,
                                                  fromfile='std_output',
-                                                 tofile='my_output'))
+                                                 tofile='my_output',
+                                                 lineterm=''))
 
                         logger.error(
                             f"mismatched output for {new_path}: \ndiff:\n{diff}"
@@ -318,6 +330,8 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                                 format_compiler_output_file_name(
                                     new_path, 'stdout'), "w") as f:
                             f.write(compiler_output.stdout.decode('utf-8'))
+
+                        dump_diff(new_path, diff)
 
                         result.failed.append(
                             FailedTest(new_path, "output_mismatch", {
