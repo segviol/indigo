@@ -131,8 +131,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());
-  // backend.add_pass(std::make_unique<
-  //                  optimization::value_shift_collapse::ValueShiftCollapse>());
+  backend.add_pass(std::make_unique<
+                   optimization::value_shift_collapse::ValueShiftCollapse>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<
                    optimization::complex_dce::ComplexDeadCodeElimination>());
