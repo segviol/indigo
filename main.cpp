@@ -53,7 +53,7 @@ using std::ofstream;
 using std::string;
 
 const bool debug = false;
-
+Options global_options;
 string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
@@ -155,6 +155,7 @@ void add_passes(backend::Backend& backend) {
 
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
+  global_options = options;
 
   if (options.dry_run) {
     // Only show which passes will be run
