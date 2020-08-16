@@ -68,6 +68,15 @@ class ComplexDceRunner {
   void optimize_func() {
     while (it_changed) {
       it_changed = false;
+      {
+        do_not_delete.clear();
+        ref_vars.clear();
+        backup_ref_vars.clear();
+        bb_var_dependance.clear();
+        store_dependance.clear();
+        invert_dependance.clear();
+        var_dependance.clear();
+      }
       LOG(TRACE) << "fn: " << f.name << std::endl;
       // scan_bb_dependance_vars();
       scan_dependant_vars();
