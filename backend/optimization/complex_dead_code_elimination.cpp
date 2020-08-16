@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "../../opt.hpp"
 #include "aixlog.hpp"
 
 namespace optimization::complex_dce {
@@ -66,7 +67,9 @@ class ComplexDceRunner {
   void remove_excess_bb();
 
   void optimize_func() {
+    int cnt = 0;
     while (it_changed) {
+      cnt++;
       it_changed = false;
       {
         do_not_delete.clear();
@@ -88,6 +91,12 @@ class ComplexDceRunner {
       }
       delete_excess_vars();
       remove_excess_bb();
+
+      if (global_options.show_code_after_each_pass && global_options.verbose) {
+        LOG(INFO) << "Code of function '" << f.name << "' after round " << cnt
+                  << " of complex DCE:" << std::endl;
+        std::cout << f << std::endl;
+      }
     }
   }
 
@@ -302,10 +311,15 @@ void ComplexDceRunner::remove_excess_bb() {
           if (prec_bb.jump.bb_true == bbid)
             prec_bb.jump.bb_true = bb.jump.bb_true;
 
-          next_bb.preceding.erase(bbid);
           next_bb.preceding.insert(prec);
         }
         bb.preceding.clear();
+        next_bb.preceding.erase(bbid);
+        LOG(TRACE) << "Clearing all preceding in " << bbid << " (br)"
+                   << std::endl;
+        LOG(TRACE) << "Erasing " << bbid << " in " << bb.jump.bb_true << " (br)"
+                   << std::endl;
+        it_changed = true;
       } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
         if (bb.jump.bb_true != bbid && bb.jump.bb_false != bbid) {
           auto& next_true_bb = f.basic_blks.at(bb.jump.bb_true);
@@ -321,11 +335,12 @@ void ComplexDceRunner::remove_excess_bb() {
               prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
               prec_bb.jump.kind = bb.jump.kind;
 
-              next_true_bb.preceding.erase(bbid);
               next_true_bb.preceding.insert(prec);
-              next_false_bb.preceding.erase(bbid);
               next_false_bb.preceding.insert(prec);
               it = bb.preceding.erase(it);
+              LOG(TRACE) << "Erasing " << *it << " in " << bbid << " (br_cond)"
+                         << std::endl;
+              it_changed = true;
             } else {
               it++;
             }
@@ -343,6 +358,9 @@ void ComplexDceRunner::remove_excess_bb() {
             prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
             prec_bb.jump.kind = bb.jump.kind;
             it = bb.preceding.erase(it);
+            LOG(TRACE) << "Erasing " << *it << " in " << bbid << " (ret)"
+                       << std::endl;
+            it_changed = true;
           } else {
             it++;
           }
@@ -356,23 +374,29 @@ void ComplexDceRunner::remove_excess_bb() {
     auto begin_bb = it->first;
     while (it != f.basic_blks.end()) {
       if (it->second.preceding.empty() && it->first != begin_bb) {
-        it = f.basic_blks.erase(it);
         if (it->second.jump.kind == mir::inst::JumpInstructionKind::Br) {
           auto next_bb = f.basic_blks.find(it->second.jump.bb_true);
           if (next_bb != f.basic_blks.end()) {
             next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br/clean)" << std::endl;
           }
         } else if (it->second.jump.kind ==
                    mir::inst::JumpInstructionKind::BrCond) {
           auto next_bb = f.basic_blks.find(it->second.jump.bb_true);
           if (next_bb != f.basic_blks.end()) {
             next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br_cond/clean/true)" << std::endl;
           }
           next_bb = f.basic_blks.find(it->second.jump.bb_false);
           if (next_bb != f.basic_blks.end()) {
             next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br_cond/clean/false)" << std::endl;
           }
         }
+        it = f.basic_blks.erase(it);
         it_changed = true;
       } else {
         it++;
