@@ -11,7 +11,10 @@ namespace optimization::exit_ahead {
 
 struct Rewriter {
   mir::inst::BasicBlk& blk;
-  Rewriter(mir::inst::BasicBlk& blk) : blk(blk) {}
+  mir::inst::VarId phi_dest;
+  Rewriter(mir::inst::BasicBlk& blk,
+           mir::inst::VarId phi_dest = mir::inst::VarId(0))
+      : blk(blk), phi_dest(phi_dest) {}
   std::vector<std::unique_ptr<mir::inst::Inst>> get_insts(
       mir::inst::VarId phi_var) {
     std::vector<std::unique_ptr<mir::inst::Inst>> res;
@@ -23,7 +26,9 @@ struct Rewriter {
             callInst->dest, callInst->func, callInst->params));
       } else if (inst->inst_kind() == mir::inst::InstKind::Assign &&
                  inst->dest.id == 0) {
-        res.push_back(std::unique_ptr<mir::inst::Inst>(inst->deep_copy()));
+        if (!inst->useVars().count(phi_dest)) {
+          res.push_back(std::unique_ptr<mir::inst::Inst>(inst->deep_copy()));
+        }
       }
     }
     return res;
@@ -48,11 +53,13 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
   auto& end_blk = end_iter->second;
   std::set<mir::inst::VarId> phi_vars;
   mir::inst::VarId phi_var(0);
+  mir::inst::VarId phi_dest(0);
   for (auto& inst : end_blk.inst) {
     if (inst->inst_kind() == mir::inst::InstKind::Phi) {
       if (phi_vars.size() > 0) {  // multiple phis in end blk
         return;
       }
+      phi_dest = inst->dest;
       phi_vars = inst->useVars();
     } else if (inst->inst_kind() == mir::inst::InstKind::Assign) {
       if (inst->dest.id != 0) {
@@ -63,7 +70,7 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
       return;
     }
   }
-  auto rwt = Rewriter(end_iter->second);
+  auto rwt = Rewriter(end_iter->second, phi_dest);
   if (end_blk.preceding.size() == 1) {
     auto pre = *end_blk.preceding.begin();
     auto& pre_blk = func.basic_blks.at(pre);
@@ -85,6 +92,9 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
     end_iter->second.inst.clear();
   } else {
     for (auto pre : end_blk.preceding) {
+      if (pre == 85) {
+        std::cout << "a" << std::endl;
+      }
       auto& pre_blk = func.basic_blks.at(pre);
       for (auto& inst : pre_blk.inst) {
         if (phi_vars.count(inst->dest)) {
@@ -113,10 +123,10 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
           }
         }
       }
-      end_iter->second.jump = mir::inst::JumpInstruction(
-          mir::inst::JumpInstructionKind::Undefined, -1, -1);
-      end_iter->second.inst.clear();
     }
+    end_iter->second.jump = mir::inst::JumpInstruction(
+        mir::inst::JumpInstructionKind::Undefined, -1, -1);
+    end_iter->second.inst.clear();
   }
 }
 

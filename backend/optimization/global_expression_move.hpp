@@ -24,6 +24,9 @@
 
 namespace optimization::global_expr_move {
 
+typedef std::pair<std::pair<mir::inst::VarId, mir::inst::Value>,
+                  mir::inst::VarId>
+    LoadOp;
 class Op {
  public:
   mir::inst::Op op;
@@ -60,27 +63,57 @@ struct hasher {
 
 class BlockOps {
  public:
-  std::unordered_set<Op, hasher> ops;
-  BlockOps(mir::inst::BasicBlk& blk) {
+  std::unordered_map<Op, mir::inst::VarId, hasher> ops;
+  std::map<std::pair<mir::inst::VarId, mir::inst::Value>, mir::inst::VarId>
+      loads;
+  std::set<mir::inst::VarId> stores;
+  BlockOps(mir::inst::BasicBlk& blk, bool offset = false) {
     for (auto& inst : blk.inst) {
       auto& i = *inst;
       if (inst->inst_kind() == mir::inst::InstKind::Op) {
         auto opInst = dynamic_cast<mir::inst::OpInst*>(&i);
-        ops.insert(Op(opInst->op, opInst->lhs, opInst->rhs));
+        ops.insert({Op(opInst->op, opInst->lhs, opInst->rhs), opInst->dest});
+      } else if (offset) {
+        if (inst->inst_kind() == mir::inst::InstKind::Load) {
+          auto loadInst = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
+          auto addr = std::get<mir::inst::VarId>(loadInst->src);
+          if (stores.count(addr)) {
+            continue;
+          }
+          loads.insert({{addr, loadInst->offset}, loadInst->dest});
+        } else if (inst->inst_kind() == mir::inst::InstKind::Store) {
+          auto storeInst = dynamic_cast<mir::inst::StoreOffsetInst*>(&i);
+          stores.insert(storeInst->dest);
+        }
       }
     }
   }
 
-  bool has_op(Op op) {
+  bool has_op(std::variant<Op, LoadOp> op) {
     // for (auto& op : ops) {
     //   auto opInst =
     //       mir::inst::OpInst(mir::inst::VarId(0), op.lhs, op.rhs, op.op);
     //   std::cout << opInst << std::endl;
     // }
-
-    return ops.find(op) != ops.end();
+    if (disable_op(op)) {
+      return false;
+    }
+    if (op.index() == 0) {
+      return ops.find(std::get<Op>(op)) != ops.end();
+    } else {
+      auto load = std::get<LoadOp>(op);
+      return loads.count(load.first);
+    }
   }
-};
+  bool disable_op(std::variant<Op, LoadOp> op) {
+    if (op.index() == 0) {
+      return false;
+    } else {
+      auto load = std::get<LoadOp>(op);
+      return stores.count(load.first.first);
+    }
+  }
+};  // namespace optimization::global_expr_move
 
 class Env {
  public:
@@ -89,10 +122,10 @@ class Env {
   std::map<mir::types::LabelId, BlockOps> blk_op_map;
   var_replace::Var_Replace& vp;
   Env(mir::inst::MirFunction& func, livevar_analyse::Livevar_Analyse& lva,
-      var_replace::Var_Replace& vp)
+      var_replace::Var_Replace& vp, bool offset)
       : func(func), lva(lva), vp(vp) {
     for (auto& blkpair : func.basic_blks) {
-      blk_op_map.insert({blkpair.first, BlockOps(blkpair.second)});
+      blk_op_map.insert({blkpair.first, BlockOps(blkpair.second, offset)});
     }
   }
 };
@@ -100,9 +133,10 @@ std::shared_ptr<Env> env;
 
 class Global_Expr_Mov : public backend::MirOptimizePass {
  public:
+  bool offset;
   const std::string name = "Global expression mov";
   std::string pass_name() const { return name; }
-
+  Global_Expr_Mov(bool offset = false) : offset(offset){};
   mir::types::LabelId find_common_live_blk(mir::inst::VarId lhs,
                                            mir::inst::VarId rhs) {
     auto lstart = env->vp.defpoint.at(lhs).first;
@@ -153,12 +187,12 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     return res;
   }
 
-  mir::types::LabelId bfs(int start, Op op) {
+  mir::types::LabelId bfs(int start, std::variant<Op, LoadOp> op) {
     auto prec = env->func.basic_blks.at(start).preceding;
     if (prec.size() == 0) {
       return start;
     }
-    std::set<int> res;
+    std::set<mir::types::LabelId> res;
     if (prec.size() == 1) {
       auto p = bfs(*prec.begin(), op);
       if (env->blk_op_map.at(p).has_op(op)) {
@@ -167,6 +201,26 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     } else {
       auto f = *prec.begin();
       res = get_precedings(f);
+      if (op.index() != 0) {
+        std::set<mir::types::LabelId> disabled_pre;
+        for (auto p : res) {
+          if (env->blk_op_map.at(p).disable_op(op)) {
+            if (disabled_pre.count(p)) {
+              continue;
+            }
+            disabled_pre.insert(p);
+            for (auto x : get_precedings(p)) {
+              disabled_pre.insert(x);
+            }
+          }
+        }
+        for (auto p : disabled_pre) {
+          if (res.count(p)) {
+            res.erase(p);
+          }
+        }
+      }
+
       prec.erase(prec.begin());
       for (auto p : prec) {
         auto precs = get_precedings(p);
@@ -189,13 +243,34 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
     if (func.type->is_extern) {
       return;
     }
-    livevar_analyse::Livevar_Analyse lva(func);
-    lva.build();
-    var_replace::Var_Replace vp(func);
-    env = std::make_shared<Env>(func, lva, vp);
+
     auto& startblk = func.basic_blks.begin()->second;
+    for (auto& blkpair : func.basic_blks) {
+      auto& blk = blkpair.second;
+      for (auto iter = blkpair.second.inst.begin();
+           iter != blkpair.second.inst.end();) {
+        auto& inst = *iter;
+        if (inst->inst_kind() == mir::inst::InstKind::Ref) {
+          auto& i = *inst;
+          auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
+          if (blk.id == startblk.id) {
+            break;
+          }
+          func.variables.at(inst->dest.id).is_temp_var = false;
+          startblk.inst.push_back(std::move(inst));
+          iter = blk.inst.erase(iter);
+        } else {
+          iter++;
+        }
+      }
+    }
+    int cnt = 0;
     while (true) {
       bool modify = false;
+      livevar_analyse::Livevar_Analyse lva(func);
+      lva.build();
+      var_replace::Var_Replace vp(func);
+      env = std::make_shared<Env>(func, lva, vp, offset);
       std::list<mir::types::LabelId> queue;
       std::set<mir::types::LabelId> visited;
       auto iter = func.basic_blks.end();
@@ -228,6 +303,7 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                   break;
                 }
                 int id = -1;
+                Op op(opInst->op, opInst->lhs, opInst->rhs);
                 if (!opInst->lhs.is_immediate() &&
                     !opInst->rhs.is_immediate()) {
                   auto lhs = std::get<mir::inst::VarId>(opInst->lhs);
@@ -236,49 +312,80 @@ class Global_Expr_Mov : public backend::MirOptimizePass {
                       !blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
                 } else if (!opInst->lhs.is_immediate()) {
                   auto lhs = std::get<mir::inst::VarId>(opInst->lhs);
                   if (!blv->live_vars_in->count(lhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
 
                 } else if (!opInst->rhs.is_immediate()) {
                   auto rhs = std::get<mir::inst::VarId>(opInst->rhs);
                   if (!blv->live_vars_in->count(rhs)) {
                     break;
                   }
-                  id = bfs(start, Op(opInst->op, opInst->lhs, opInst->rhs));
+                  id = bfs(start, op);
                 }
                 if (id == start) {
                   break;
                 }
-                vp.setdefpoint(inst->dest, start,
-                               func.basic_blks.at(id).inst.size());
-                func.variables.at(inst->dest.id).is_temp_var = false;
-                func.basic_blks.at(id).inst.push_back(std::move(inst));
-                iter = block.inst.erase(iter);
+                auto var = env->blk_op_map.at(id).ops.at(op);
+                if (func.variables.at(var.id).is_phi_var) {
+                  vp.setdefpoint(inst->dest, id,
+                                 func.basic_blks.at(id).inst.size());
+                  for (auto var : inst->useVars()) {
+                    auto& usepoints = vp.usepoints.at(var);
+                    std::pair<mir::types::LabelId, int> point = {
+                        blk.id, iter - block.inst.begin()};
+                    auto find_iter =
+                        std::find(usepoints.begin(), usepoints.end(), point);
+                    if (find_iter != usepoints.end()) {
+                      usepoints.erase(find_iter);
+                      usepoints.push_back(
+                          {id, func.basic_blks.at(id).inst.size()});
+                    }
+                  }
+                  func.basic_blks.at(id).inst.push_back(std::move(inst));
+                  inst = std::make_unique<mir::inst::AssignInst>(
+                      mir::inst::VarId(-1), -1);
+                } else {
+                  LOG(TRACE)
+                      << inst->dest << " is replaced to " << var << std::endl;
+                  vp.replace(inst->dest, var);
+                  // useless inst
+                  inst =
+                      std::make_unique<mir::inst::AssignInst>(inst->dest, -999);
+                }
+                func.variables.at(var).is_temp_var = false;
                 modify = true;
                 continue;
               }
-              case mir::inst::InstKind::Ref: {
-                auto refinst = dynamic_cast<mir::inst::RefInst*>(&i);
-                if (blk.id == startblk.id) {
+              case mir::inst::InstKind::Load: {
+                if (!offset) {
                   break;
                 }
-                vp.setdefpoint(inst->dest, start, startblk.inst.size());
-                func.variables.at(inst->dest.id).is_temp_var = false;
-                startblk.inst.push_back(std::move(inst));
-                iter = block.inst.erase(iter);
-                modify = true;
-                continue;
+                auto loadInst = dynamic_cast<mir::inst::LoadOffsetInst*>(&i);
+                LoadOp op = {{std::get<mir::inst::VarId>(loadInst->src),
+                              loadInst->offset},
+                             loadInst->dest};
+                auto id = bfs(start, op);
+                if (id == start) {
+                  break;
+                }
+                auto var = env->blk_op_map.at(id).loads.at(op.first);
+                if (!func.variables.at(var.id).is_phi_var) {
+                  vp.replace(inst->dest, var);
+                  // useless inst
+                  inst =
+                      std::make_unique<mir::inst::AssignInst>(inst->dest, -999);
+                  func.variables.at(var).is_temp_var = false;
+                  modify = true;
+                  continue;
+                } else {
+                  break;
+                }
               }
-              // case mir::inst::InstKind::Load: {
-              //   auto loadInst = dynamic_cast<mir::inst::LoadInst*>(&i);
-
-              //   break;
-              // }
               // case mir::inst::InstKind::Store: {
               //   auto storeInst = dynamic_cast<mir::inst::StoreInst*>(&i);
 
