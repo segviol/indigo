@@ -151,7 +151,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
-  backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
+  // backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 
 int main(int argc, const char** argv) {
