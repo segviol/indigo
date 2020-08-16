@@ -41,7 +41,7 @@ test:
         - mkdir -p output
         # - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/basic_test -r
         - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/functional_test -r
-        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r -t 90
     artifacts:
         when: always
         paths:
@@ -56,7 +56,7 @@ performance_test:
     image: docker.pkg.github.com/01010101lzy/indigo-runtime-environments/indigo-test:0.1.0
     script:
         - mkdir -p output
-        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 60 -z
+        - python3 scripts/test.py build/compiler test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 120 -z
     artifacts:
         when: always
         paths:
