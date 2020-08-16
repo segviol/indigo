@@ -79,6 +79,7 @@ class ComplexDceRunner {
         store_dependance.clear();
         invert_dependance.clear();
         var_dependance.clear();
+        LOG(INFO) << "In round " << cnt << " of complex DCE:" << std::endl;
       }
       LOG(TRACE) << "fn: " << f.name << std::endl;
       // scan_bb_dependance_vars();
@@ -297,8 +298,10 @@ void ComplexDceRunner::delete_excess_vars() {
 }
 
 void ComplexDceRunner::remove_excess_bb() {
+  auto begin_bb = f.basic_blks.begin()->first;
   for (auto& bb_entry : f.basic_blks) {
     auto bbid = bb_entry.first;
+    if (bbid == begin_bb) continue;
     auto& bb = bb_entry.second;
     if (bb.inst.size() == 0) {
       if (bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
@@ -314,12 +317,11 @@ void ComplexDceRunner::remove_excess_bb() {
           next_bb.preceding.insert(prec);
         }
         bb.preceding.clear();
-        next_bb.preceding.erase(bbid);
+        it_changed |= next_bb.preceding.erase(bbid);
         LOG(TRACE) << "Clearing all preceding in " << bbid << " (br)"
                    << std::endl;
         LOG(TRACE) << "Erasing " << bbid << " in " << bb.jump.bb_true << " (br)"
                    << std::endl;
-        it_changed = true;
       } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
         if (bb.jump.bb_true != bbid && bb.jump.bb_false != bbid) {
           auto& next_true_bb = f.basic_blks.at(bb.jump.bb_true);
@@ -373,7 +375,8 @@ void ComplexDceRunner::remove_excess_bb() {
     auto it = f.basic_blks.begin();
     auto begin_bb = it->first;
     while (it != f.basic_blks.end()) {
-      if (it->second.preceding.empty() && it->first != begin_bb) {
+      if (it->second.preceding.empty() && it->first != begin_bb &&
+          it->first != 1048576) {
         if (it->second.jump.kind == mir::inst::JumpInstructionKind::Br) {
           auto next_bb = f.basic_blks.find(it->second.jump.bb_true);
           if (next_bb != f.basic_blks.end()) {
