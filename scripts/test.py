@@ -299,7 +299,7 @@ def test_dir(dir, test_performance: bool, is_root: bool = True) -> TestResult:
                         std_output = f.read().replace("\r", "").strip()
 
                     limited_stdout = std_output[0:max_stdout]
-                    if len(limited_stdout) > max_stdout:
+                    if len(std_output) > max_stdout:
                         limited_stdout += "...(stripped)"
 
                     my_output_lines = [
