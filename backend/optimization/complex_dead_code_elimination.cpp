@@ -296,17 +296,20 @@ void ComplexDceRunner::remove_excess_bb() {
         auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
         for (auto prec : bb.preceding) {
           auto& prec_bb = f.basic_blks.at(prec);
+
           if (prec_bb.jump.bb_false == bbid)
             prec_bb.jump.bb_false = bb.jump.bb_true;
           if (prec_bb.jump.bb_true == bbid)
             prec_bb.jump.bb_true = bb.jump.bb_true;
-          next_bb.preceding.insert(prec);
+
           next_bb.preceding.erase(bbid);
+          next_bb.preceding.insert(prec);
         }
         bb.preceding.clear();
       } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
         if (bb.jump.bb_true != bbid && bb.jump.bb_false != bbid) {
-          auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
+          auto& next_true_bb = f.basic_blks.at(bb.jump.bb_true);
+          auto& next_false_bb = f.basic_blks.at(bb.jump.bb_false);
           auto it = bb.preceding.begin();
           while (it != bb.preceding.end()) {
             auto prec = *it;
@@ -318,8 +321,10 @@ void ComplexDceRunner::remove_excess_bb() {
               prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
               prec_bb.jump.kind = bb.jump.kind;
 
-              next_bb.preceding.insert(prec);
-              next_bb.preceding.erase(bbid);
+              next_true_bb.preceding.erase(bbid);
+              next_true_bb.preceding.insert(prec);
+              next_false_bb.preceding.erase(bbid);
+              next_false_bb.preceding.insert(prec);
               it = bb.preceding.erase(it);
             } else {
               it++;
