@@ -159,7 +159,7 @@ def format_function_diff_file_name(name: str):
 
 def dump_diff(name: str, diff: str):
     filename = format_function_diff_file_name(name)
-    with open(filename, "wb") as f:
+    with open(filename, "w") as f:
         f.write(diff)
 
 
