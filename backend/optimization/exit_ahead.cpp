@@ -92,6 +92,9 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
     end_iter->second.inst.clear();
   } else {
     for (auto pre : end_blk.preceding) {
+      if (pre == 85) {
+        std::cout << "a" << std::endl;
+      }
       auto& pre_blk = func.basic_blks.at(pre);
       for (auto& inst : pre_blk.inst) {
         if (phi_vars.count(inst->dest)) {
@@ -120,10 +123,10 @@ void Exit_Ahead::optimize_func(mir::inst::MirFunction& func) {
           }
         }
       }
-      end_iter->second.jump = mir::inst::JumpInstruction(
-          mir::inst::JumpInstructionKind::Undefined, -1, -1);
-      end_iter->second.inst.clear();
     }
+    end_iter->second.jump = mir::inst::JumpInstruction(
+        mir::inst::JumpInstructionKind::Undefined, -1, -1);
+    end_iter->second.inst.clear();
   }
 }
 
