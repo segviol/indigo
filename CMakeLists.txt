@@ -34,6 +34,8 @@ set(backend_files
     backend/optimization/cycle.hpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
+    backend/codegen/instruction_schedule.hpp
+    backend/codegen/instruction_schedule.cpp
     backend/codegen/bb_rearrange.cpp
     backend/codegen/align_code.cpp
     backend/codegen/reg_alloc.cpp

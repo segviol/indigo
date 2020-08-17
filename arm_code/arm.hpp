@@ -341,7 +341,7 @@ struct Inst : public prelude::Displayable {
 
 /// Pure Instruction that does not use any operand
 ///
-/// Valid opcode: Nop, Bx
+/// Valid opcode: Nop
 struct PureInst final : public Inst {
   PureInst(OpCode op, ConditionCode cond = ConditionCode::Always)
       : Inst(op, cond) {}
