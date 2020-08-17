@@ -115,11 +115,11 @@ stages = {
         "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-Ofast"
     ]],
     "clang_o3": [[
-        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
         "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
     ]],
     "clang_o2": [[
-        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
         "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
     ]]
 }
