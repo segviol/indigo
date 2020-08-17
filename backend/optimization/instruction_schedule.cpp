@@ -9,6 +9,11 @@ std::vector<ExePipeCode> allExePopeCodes = {
 const std::string WrongInstExceptionMsg =
     "non-supported arm instrution for instruction schedule";
 
+bool cmpNodeSharedPtr(const std::shared_ptr<DependencyDAGNode>& a,
+                      const std::shared_ptr<DependencyDAGNode>& b) {
+  return (*a < *b);
+};
+
 InstKind getInstKind(arm::Inst* inst) {
   switch (inst->op) {
     case arm::OpCode::B: {

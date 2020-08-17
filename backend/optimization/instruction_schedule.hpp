@@ -45,9 +45,7 @@ class DependencyDAGNode {
 };
 
 bool cmpNodeSharedPtr(const std::shared_ptr<DependencyDAGNode>& a,
-                      const std::shared_ptr<DependencyDAGNode>& b) {
-  return (*a < *b);
-};
+                      const std::shared_ptr<DependencyDAGNode>& b);
 
 class InstructionScheduler {
  public:
