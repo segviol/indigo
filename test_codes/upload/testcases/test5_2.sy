@@ -1,5 +1,5 @@
-int isPrime[100000005];
-int prime[10000005];  //绱犳暟涓嶈寮€澶ぇ 
+int isPrime[100005];
+int prime[10005];  //绱犳暟涓嶈寮€澶ぇ 
 
 int main()
 {
