@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <string>
 
 #include "../backend.hpp"
@@ -49,6 +50,27 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                                        opPtr->dest, mir::inst::Value(0),
                                        mir::inst::Value(opPtr->dest),
                                        mir::inst::Op::Sub));
+                      }
+                    } else {
+                      int highest_bit = std::log2(num);
+                      int remaining = num - (1 << highest_bit);
+                      if ((remaining & (remaining - 1)) == 0) {
+                        int secondbit = std::log2(remaining);
+                        auto tmp1 = getNewVar(mirFunction);
+                        auto tmp2 = getNewVar(mirFunction);
+                        opPtr->op = mir::inst::Op::Add;
+                        opPtr->lhs = mir::inst::VarId(tmp1);
+                        opPtr->rhs = mir::inst::VarId(tmp2);
+                        insertInst(blksIter->second.inst, i,
+                                   std::make_unique<mir::inst::OpInst>(
+                                       tmp1, mir::inst::Value(opPtr->lhs),
+                                       mir::inst::Value(highest_bit),
+                                       mir::inst::Op::Shl));
+                        insertInst(blksIter->second.inst, i + 1,
+                                   std::make_unique<mir::inst::OpInst>(
+                                       tmp2, mir::inst::Value(opPtr->lhs),
+                                       mir::inst::Value(secondbit),
+                                       mir::inst::Op::Shl));
                       }
                     }
                   }
