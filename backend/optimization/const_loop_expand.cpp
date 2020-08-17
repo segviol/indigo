@@ -177,7 +177,7 @@ void Const_Loop_Expand::optimize_mir(
     mir::inst::MirPackage& mir,
     std::map<std::string, std::any>& extra_data_repo) {
   for (auto& f : mir.functions) {
-    if (f.second.type->is_extern) continue;
+    if (f.second.type->is_extern || f.first == "$$5_main") continue;
     optimize_func(f.second);
   }
 }
