@@ -89,9 +89,16 @@ class Codegen final {
     }
     auto inline_hint = extra_data.find(optimization::inline_blks);
     if (inline_hint != extra_data.end()) {
+      LOG(TRACE) << "Found inline hint in extra data" << std::endl;
+
       this->inline_hint =
           std::any_cast<optimization::InlineBlksType&>(inline_hint->second)
               .at(func.name);
+
+      LOG(TRACE) << "Inline hint has " << this->inline_hint.size()
+                 << " items: ";
+      for (auto i : this->inline_hint) LOG(TRACE) << i << " ";
+      LOG(TRACE) << std::endl;
     }
     param_size = func.type->params.size();
   }

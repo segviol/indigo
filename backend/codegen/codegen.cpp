@@ -28,8 +28,10 @@ arm::Function Codegen::translate_function() {
     auto& bb = func.basic_blks.at(bb_id);
     translate_basic_block(bb);
 
-    if (inline_hint.find(bb_id) != inline_hint.end() && last_jump) {
+    if (inline_hint.find(bb_id) != inline_hint.end()) {
+      LOG(TRACE) << "Found inline hint for " << bb_id << std::endl;
       bool can_inline = true;
+      can_inline |= last_jump.has_value();
       for (auto& i : inst) {
         if (i->cond != arm::ConditionCode::Always) can_inline = false;
       }
