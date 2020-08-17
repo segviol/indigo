@@ -530,7 +530,7 @@ class JumpInstruction final : public prelude::Displayable {
   }
   virtual void display(std::ostream& o) const;
   virtual ~JumpInstruction() {}
-  JumpInstruction(const JumpInstruction&) = delete;
+  // JumpInstruction(const JumpInstruction&) = delete;
   JumpInstruction(JumpInstruction&&) = default;
   JumpInstruction& operator=(JumpInstruction&&) = default;
 };

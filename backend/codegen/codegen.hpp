@@ -40,6 +40,12 @@ inline std::string format_fn_end_label(std::string_view function_name) {
   return s.str();
 }
 
+struct LastJump {
+  arm::ConditionCode cond;
+  mir::types::LabelId bb_true;
+  mir::types::LabelId bb_false;
+};
+
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func, mir::inst::MirPackage& package,
@@ -81,6 +87,19 @@ class Codegen final {
         }
       }
     }
+    auto inline_hint = extra_data.find(optimization::inline_blks);
+    if (inline_hint != extra_data.end()) {
+      LOG(TRACE) << "Found inline hint in extra data" << std::endl;
+
+      this->inline_hint =
+          std::any_cast<optimization::InlineBlksType&>(inline_hint->second)
+              .at(func.name);
+
+      LOG(TRACE) << "Inline hint has " << this->inline_hint.size()
+                 << " items: ";
+      for (auto i : this->inline_hint) LOG(TRACE) << i << " ";
+      LOG(TRACE) << std::endl;
+    }
     param_size = func.type->params.size();
   }
 
@@ -105,6 +124,11 @@ class Codegen final {
   std::map<mir::inst::VarId, int32_t> stack_space_allocation;
 
   std::vector<uint32_t> bb_ordering;
+  std::set<uint32_t> inline_hint;
+
+  std::optional<arm::ConditionCode> second_last_condition_code;
+  std::optional<LastJump> last_jump;
+  std::optional<LastJump> this_jump;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
