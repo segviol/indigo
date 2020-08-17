@@ -95,17 +95,21 @@ def decode_stderr_timer(stderr: str) -> float:
 stages = {
     "mine": [[args.compiler_path, "-o", "out.s", "$input"],
              ["gcc", "out.s", "$link_lib", "-march=armv7-a", "-o", "tmp"]],
-    "gcc_o1":
-    [["gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-o", "tmp", "-O1"]],
-    "gcc_o2":
-    [["gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-o", "tmp", "-O2"]],
+    "gcc_o1": [[
+        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "tmp", "-O1"
+    ]],
+    "gcc_o2": [[
+        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "tmp", "-O2"
+    ]],
     "gcc_ofast": [[
-        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-o", "tmp",
-        "-Ofast"
+        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "tmp", "-Ofast"
     ]],
     "clang_o2": [[
-        "clang", "-xc", "$input", "$c_lib",
-        "--target=armv7-linux-unknown-gnueabihf", "-o", "tmp", "-O2"
+        "clang", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "tmp", "-O2"
     ]]
 }
 
