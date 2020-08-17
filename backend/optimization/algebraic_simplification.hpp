@@ -58,17 +58,18 @@ class AlgebraicSimplification : public backend::MirOptimizePass {
                         int secondbit = std::log2(remaining);
                         auto tmp1 = getNewVar(mirFunction);
                         auto tmp2 = getNewVar(mirFunction);
+                        auto lhs = opPtr->lhs;
                         opPtr->op = mir::inst::Op::Add;
                         opPtr->lhs = mir::inst::VarId(tmp1);
                         opPtr->rhs = mir::inst::VarId(tmp2);
                         insertInst(blksIter->second.inst, i,
                                    std::make_unique<mir::inst::OpInst>(
-                                       tmp1, mir::inst::Value(opPtr->lhs),
+                                       tmp1, mir::inst::Value(lhs),
                                        mir::inst::Value(highest_bit),
                                        mir::inst::Op::Shl));
                         insertInst(blksIter->second.inst, i + 1,
                                    std::make_unique<mir::inst::OpInst>(
-                                       tmp2, mir::inst::Value(opPtr->lhs),
+                                       tmp2, mir::inst::Value(lhs),
                                        mir::inst::Value(secondbit),
                                        mir::inst::Op::Shl));
                       }
