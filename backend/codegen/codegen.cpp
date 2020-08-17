@@ -23,7 +23,8 @@ arm::Function Codegen::translate_function() {
   scan();
   generate_startup();
   std::vector<std::unique_ptr<arm::Inst>> inst_sink = std::move(inst);
-  for (auto bb_id : bb_ordering) {
+  for (auto it = bb_ordering.begin(); it != bb_ordering.end(); it++) {
+    auto bb_id = *it;
     inst.clear();
     auto& bb = func.basic_blks.at(bb_id);
     translate_basic_block(bb);
@@ -41,15 +42,25 @@ arm::Function Codegen::translate_function() {
       if (can_inline) {
         // Calculate condition code to be used in this block
         ConditionCode cond;
-        if (bb_id == last_jump->bb_true)
+        if (bb_id == last_jump->bb_true) {
           cond = last_jump->cond;
-        else {
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
+            inst_sink.pop_back();
+            inst_sink.pop_back();
+          } else {
+          }
+        } else {
           cond = invert_cond(last_jump->cond);
           // since a conditional branch is always emitted in the fashion of
           // "bb_false, bb_true", we can safely pop the second-to-last branch
           // operation and add the condition to bb_true
-          inst_sink.erase(inst_sink.end() - 2);
-          inst_sink.back()->cond = last_jump->cond;
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
+            inst_sink.pop_back();
+            inst_sink.pop_back();
+          } else {
+            inst_sink.erase(inst_sink.end() - 2);
+            inst_sink.back()->cond = last_jump->cond;
+          }
         }
 
         for (auto& i : inst) {
