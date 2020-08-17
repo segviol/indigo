@@ -2,6 +2,9 @@
 
 namespace backend::instruction_schedule {
 
+extern std::vector<ExePipeCode> allExePopeCodes = {Branch,   Integer0, Integer1,
+                                                   IntegerM, Load,     Store};
+
 const std::string WrongInstExceptionMsg =
     "non-supported arm instrution for instruction schedule";
 
@@ -135,8 +138,145 @@ bool shiftByImmed(arm::Operand2& r2) {
 void InstructionScheduler::scheduleBaseBlock(
     std::vector<arm::Inst*>& blockInsts,
     std::vector<std::unique_ptr<arm::Inst>>& newInsts) {
-  std::vector<uint32_t> cands;
+  std::vector<std::shared_ptr<DependencyDAGNode>> cands;
+
   buildDependencyDAG(blockInsts);
+
+  for (auto& [index, node] : nodes) {
+    if (inDegrees[index] == 0) {
+      cands.push_back(node);
+    }
+  }
+
+  for (size_t i = 0; i < blockInsts.size(); i++) {
+    for (auto& code : allExePopeCodes) {
+      if (exePipeLatency[code] > 0) {
+        exePipeLatency[code]--;
+      }
+    }
+
+    if (emptyExePipeSchedule(newInsts, cands)) {
+    } else {
+      i--;
+    }
+  }
+};
+
+bool InstructionScheduler::emptyExePipeSchedule(
+    std::vector<std::unique_ptr<arm::Inst>>& newInsts,
+    std::vector<std::shared_ptr<DependencyDAGNode>>& cands) {
+  std::vector<std::shared_ptr<DependencyDAGNode>> pool;
+  bool r;
+
+  for (auto& cand : cands) {
+    switch (cand->instKind) {
+      case InstKind::Branch:
+      case InstKind::Call: {
+        if (exePipeLatency[ExePipeCode::Branch] == 0) {
+          pool.push_back(cand);
+        }
+        break;
+      }
+      case InstKind::Integer: {
+        if (exePipeLatency[ExePipeCode::Integer0] == 0 ||
+            exePipeLatency[ExePipeCode::Integer1] == 0) {
+          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
+              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
+                  cand) == 0) {
+            pool.push_back(cand);
+          }
+        }
+        break;
+      }
+      case InstKind::IntegerM: {
+        if (exePipeLatency[ExePipeCode::IntegerM] == 0) {
+          pool.push_back(cand);
+        }
+        break;
+      }
+      case InstKind::Load: {
+        if (exePipeLatency[ExePipeCode::Load] == 0) {
+          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
+              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
+                  cand) == 0) {
+            pool.push_back(cand);
+          }
+        }
+        break;
+      }
+      case InstKind::Store: {
+        if (exePipeLatency[ExePipeCode::Store] == 0) {
+          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
+              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
+                  cand) == 0) {
+            pool.push_back(cand);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  if (pool.empty()) {
+    r = false;
+  } else {
+    r = true;
+    if (pool.size() == 1) {
+      std::sort(pool.begin(), pool.end(), cmpNodeSharedPtr);
+    }
+
+    switch (pool.front()->instKind) {
+      case InstKind::Branch:
+      case InstKind::Call: {
+        exePipeLatency[ExePipeCode::Branch] = pool.front()->latency;
+        exePipeNode[ExePipeCode::Branch] = pool.front()->originIndex;
+        break;
+      }
+      case InstKind::Integer: {
+        if (exePipeLatency[ExePipeCode::Integer0] == 0) {
+          exePipeLatency[ExePipeCode::Integer0] = pool.front()->latency;
+          exePipeNode[ExePipeCode::Integer0] = pool.front()->originIndex;
+        } else {
+          exePipeLatency[ExePipeCode::Integer1] = pool.front()->latency;
+          exePipeNode[ExePipeCode::Integer1] = pool.front()->originIndex;
+        }
+        break;
+      }
+      case InstKind::IntegerM: {
+        exePipeLatency[ExePipeCode::IntegerM] = pool.front()->latency;
+        exePipeNode[ExePipeCode::IntegerM] = pool.front()->originIndex;
+        break;
+      }
+      case InstKind::Load: {
+        exePipeLatency[ExePipeCode::Load] = pool.front()->latency;
+        exePipeNode[ExePipeCode::Load] = pool.front()->originIndex;
+        break;
+      }
+      case InstKind::Store: {
+        exePipeLatency[ExePipeCode::Store] = pool.front()->latency;
+        exePipeNode[ExePipeCode::Store] = pool.front()->originIndex;
+        break;
+      }
+      default:
+        break;
+    }
+
+    newInsts.push_back(std::unique_ptr<arm::Inst>(pool.front()->inst));
+    updateCands(0, cands);
+  }
+  return r;
+};
+
+void InstructionScheduler::updateCands(
+    uint32_t indexOfCands,
+    std::vector<std::shared_ptr<DependencyDAGNode>>& cands) {
+  for (auto& successor : cands.at(indexOfCands)->successors) {
+    if (inDegrees[successor->originIndex] == 1) {
+      cands.push_back(successor);
+    }
+    inDegrees[successor->originIndex]--;
+  }
+  cands.erase(cands.begin() + indexOfCands);
 };
 
 void InstructionScheduler::buildDependencyDAG(
@@ -321,8 +461,10 @@ void InstructionScheduler::buildDependencyDAG(
 };
 
 void InstructionScheduler::addSuccessor(uint32_t father, uint32_t successor) {
-  nodes[father]->successors.insert(nodes[successor]);
-  inDegrees[successor]++;
+  if (nodes[father]->successors.count(nodes[successor]) == 0) {
+    nodes[father]->successors.insert(nodes[successor]);
+    inDegrees[successor]++;
+  }
 }
 
 void InstructionScheduler::addRegReadDependency(uint32_t successor,

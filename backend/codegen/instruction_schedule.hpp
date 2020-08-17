@@ -1,11 +1,15 @@
 #pragma once
 
+#include "algorithm"
+
 #include "../backend.hpp"
 
 namespace backend::instruction_schedule {
 extern const std::string WrongInstExceptionMsg;
 
 enum class ExePipeCode { Branch, Integer0, Integer1, IntegerM, Load, Store };
+
+extern std::vector<ExePipeCode> allExePopeCodes;
 
 enum class InstKind { Branch, Call, Integer, IntegerM, Load, Store };
 
@@ -41,12 +45,22 @@ class DependencyDAGNode {
  private:
 };
 
+bool cmpNodeSharedPtr(const std::shared_ptr<DependencyDAGNode>& a,
+                      const std::shared_ptr<DependencyDAGNode>& b) {
+  return (*a < *b);
+};
+
 class InstructionScheduler {
  public:
   InstructionScheduler() {
     lastMem = NullIndex;
     lastCmp = NullIndex;
     lastCall = NullIndex;
+
+    for (auto& code : allExePopeCodes)
+    {
+      exePipeLatency[code] = 0;
+    }
   };
 
   const uint32_t NullIndex = (1 << 20);
@@ -65,8 +79,16 @@ class InstructionScheduler {
   uint32_t lastCall;
 
   std::map<uint32_t, uint32_t> inDegrees;
+  std::map<ExePipeCode, uint32_t> exePipeLatency;
+  std::map<ExePipeCode, uint32_t> exePipeNode;
 
   void buildDependencyDAG(std::vector<arm::Inst*>& blockInsts);
+
+  bool emptyExePipeSchedule(
+      std::vector<std::unique_ptr<arm::Inst>>& newInsts,
+      std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
+  
+  void updateCands(uint32_t indexOfCands, std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
 
   void addSuccessor(uint32_t father, uint32_t successor);
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);
