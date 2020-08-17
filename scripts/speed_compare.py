@@ -96,20 +96,20 @@ stages = {
     "mine": [[args.compiler_path, "-o", "out.s", "$input"],
              ["gcc", "out.s", "$link_lib", "-march=armv7-a", "-o", "tmp"]],
     "gcc_o1": [[
-        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-O1"
     ]],
     "gcc_o2": [[
-        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-O2"
     ]],
     "gcc_ofast": [[
-        "gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-Ofast"
     ]],
     "clang_o2": [[
-        "clang", "-xc", "$input", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
-        "tmp", "-O2"
+        "clang", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11",
+        "-o", "tmp", "-O2"
     ]]
 }
 
@@ -134,6 +134,7 @@ def test_dir(
         elif file.split('.')[-1] == 'sy':
             prefix = file.split('.')[0]
             options["$input"] = new_path
+            options["$input_c"] = os.path.join(dir, prefix + ".c")
             job_result = {"file": file}
             for job in runner:
                 logger.info(f"Running {file} with {job}")
