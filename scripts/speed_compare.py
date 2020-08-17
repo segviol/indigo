@@ -186,6 +186,7 @@ def test_dir(
                         t = decode_stderr_timer(stderr)
                         if t != None:
                             job_result[job] = t
+                            logger.info(f"job taken {t}s")
                         else:
                             logger.error(f"Cannot find timer in {stderr}")
                 except:
