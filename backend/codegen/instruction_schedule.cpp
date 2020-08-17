@@ -2,7 +2,7 @@
 
 namespace backend::instruction_schedule {
 
-const char WrongInstExceptionMsg[] =
+const std::string WrongInstExceptionMsg =
     "non-supported arm instrution for instruction schedule";
 
 InstKind getInstKind(arm::Inst* inst) {
@@ -60,7 +60,7 @@ InstKind getInstKind(arm::Inst* inst) {
       break;
     }
     default: {
-      throw std::exception(WrongInstExceptionMsg);
+      throw std::exception(WrongInstExceptionMsg.c_str());
     }
   }
 };
@@ -120,7 +120,7 @@ uint32_t getInstExeLatency(arm::Inst* inst) {
       break;
     }
     default: {
-      throw std::exception(WrongInstExceptionMsg);
+      throw std::exception(WrongInstExceptionMsg.c_str());
     }
   }
 };
@@ -313,7 +313,7 @@ void InstructionScheduler::buildDependencyDAG(
         break;
       }
       default: {
-        throw std::exception(WrongInstExceptionMsg);
+        throw std::exception(WrongInstExceptionMsg.c_str());
       }
     }
   }
