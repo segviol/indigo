@@ -7,7 +7,7 @@ from tqdm import tqdm
 import logging
 import colorlog
 import signal
-import csv
+import json
 
 log_colors_config = {
     'DEBUG': 'white',  # cyan white
@@ -94,22 +94,33 @@ def decode_stderr_timer(stderr: str) -> float:
 
 stages = {
     "mine": [[args.compiler_path, "-o", "out.s", "$input"],
-             ["gcc", "out.s", "$link_lib", "-march=armv7-a", "-o", "tmp"]],
+             [
+                 "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+                 "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+             ]],
     "gcc_o1": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
-        "tmp", "-O1"
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O1"
     ]],
     "gcc_o2": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
-        "tmp", "-O2"
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
+    ]],
+    "gcc_o3": [[
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
     ]],
     "gcc_ofast": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
-        "tmp", "-Ofast"
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-Ofast"
+    ]],
+    "clang_o3": [[
+        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
     ]],
     "clang_o2": [[
-        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11",
-        "-o", "tmp", "-O2"
+        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
     ]]
 }
 
@@ -201,9 +212,4 @@ def test_dir(
 
 
 result = test_dir(root_path, stages, options)
-print(result)
-with open("result.csv", "w") as file:
-    writer = csv.DictWriter(file, ["file"].extend(list(stages)), restval="-")
-    writer.writeheader
-    for row in result:
-        writer.writerow(row)
+print(json.dumps(result))
