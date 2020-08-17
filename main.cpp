@@ -91,12 +91,12 @@ void add_passes(backend::Backend& backend) {
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(
       std::make_unique<optimization::loop_expand::Const_Loop_Expand>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::loop_unrolling::Loop_Unrolling>());
+  backend.add_pass(
+      std::make_unique<optimization::loop_unrolling::Loop_Unrolling>());
   // backend.add_pass(
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  // backend.add_pass(
-  //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(
+      std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
@@ -135,7 +135,7 @@ void add_passes(backend::Backend& backend) {
                    optimization::complex_dce::ComplexDeadCodeElimination>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  // backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
+  backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
   // backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
@@ -151,7 +151,7 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
-  backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
+  // backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 
 int main(int argc, const char** argv) {
