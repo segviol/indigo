@@ -86,6 +86,8 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
 
   std::vector<uint32_t> arrangement;
 
+  bool has_common_exit_blk = f.basic_blks.find(1048576) != f.basic_blks.end();
+
   for (auto& bb : f.basic_blks) {
     input_count.insert({bb.first, bb.second.preceding.size()});
   }
@@ -124,6 +126,9 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
     } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
       bfs.push_back(bb.jump.bb_true);
       bfs.push_back(bb.jump.bb_false);
+    } else if (bb.jump.kind == mir::inst::JumpInstructionKind::Return &&
+               has_common_exit_blk) {
+      bfs.push_back(1048576);
     }
   }
   auto cycle_start_set = std::set<uint32_t>();
