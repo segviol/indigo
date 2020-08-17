@@ -13,3 +13,5 @@ struct Options {
   std::optional<std::set<std::string>> run_pass;
   std::set<std::string> skip_pass;
 };
+
+extern Options global_options;
