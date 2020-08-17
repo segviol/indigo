@@ -94,9 +94,15 @@ class ComplexDceRunner {
       remove_excess_bb();
 
       if (global_options.show_code_after_each_pass && global_options.verbose) {
-        LOG(INFO) << "Code of function '" << f.name << "' after round " << cnt
-                  << " of complex DCE:" << std::endl;
-        std::cout << f << std::endl;
+        if (it_changed) {
+          LOG(INFO) << "Code of function '" << f.name << "' after round " << cnt
+                    << " of complex DCE:" << std::endl;
+          std::cout << f << std::endl;
+          LOG(INFO) << "Code of function '" << f.name
+                    << "' did not change after round " << cnt
+                    << " of complex DCE." << std::endl;
+        } else {
+        }
       }
     }
   }
