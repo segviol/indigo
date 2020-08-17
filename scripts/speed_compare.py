@@ -69,7 +69,7 @@ parser.add_argument('-r',
                     action="store_true")
 parser.add_argument('-t',
                     "--timeout",
-                    default=8,
+                    default=120,
                     help="Kill tests after specified time",
                     type=float)
 
@@ -145,7 +145,7 @@ def test_dir(
                         ]
                         compiler_output = subprocess.run(my_stage,
                                                          capture_output=True,
-                                                         timeout=15)
+                                                         timeout=60)
 
                         # compiler error
                         if compiler_output.returncode != 0:
