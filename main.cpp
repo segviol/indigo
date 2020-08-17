@@ -26,6 +26,7 @@
 #include "backend/optimization/global_var_to_local.hpp"
 #include "backend/optimization/graph_color.hpp"
 #include "backend/optimization/inline.hpp"
+#include "backend/optimization/instruction_schedule.hpp"
 #include "backend/optimization/loop_unrolling.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
 #include "backend/optimization/ref_count.hpp"
@@ -153,6 +154,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
+  backend.add_pass(
+      std::make_unique<backend::optimization::InstructionSchedule>());
   backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 

@@ -1,8 +1,7 @@
 #pragma once
 
-#include "algorithm"
-
 #include "../backend.hpp"
+#include "algorithm"
 
 namespace backend::instruction_schedule {
 extern const std::string WrongInstExceptionMsg;
@@ -57,8 +56,7 @@ class InstructionScheduler {
     lastCmp = NullIndex;
     lastCall = NullIndex;
 
-    for (auto& code : allExePopeCodes)
-    {
+    for (auto& code : allExePopeCodes) {
       exePipeLatency[code] = 0;
     }
   };
@@ -87,8 +85,9 @@ class InstructionScheduler {
   bool emptyExePipeSchedule(
       std::vector<std::unique_ptr<arm::Inst>>& newInsts,
       std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
-  
-  void updateCands(uint32_t indexOfCands, std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
+
+  void updateCands(uint32_t indexOfCands,
+                   std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
 
   void addSuccessor(uint32_t father, uint32_t successor);
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);
@@ -97,7 +96,7 @@ class InstructionScheduler {
 };
 };  // namespace backend::instruction_schedule
 
-namespace backend::codegen {
+namespace backend::optimization {
 class InstructionSchedule final : public backend::ArmOptimizePass {
  public:
   std::string pass_name() const override { return "instruction_schedule"; };
@@ -108,4 +107,4 @@ class InstructionSchedule final : public backend::ArmOptimizePass {
   void optimize_func(arm::Function& f,
                      std::map<std::string, std::any>& extraDataRepo);
 };
-};  // namespace backend::codegen
+};  // namespace backend::optimization

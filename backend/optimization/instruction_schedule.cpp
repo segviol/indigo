@@ -496,7 +496,7 @@ void InstructionScheduler::addRegReadDependency(uint32_t successor,
 
 };  // namespace backend::instruction_schedule
 
-namespace backend::codegen {
+namespace backend::optimization {
 void InstructionSchedule::optimize_arm(
     arm::ArmCode& armCode, std::map<std::string, std::any>& extraDataRepo) {
   for (auto& f : armCode.functions) {
@@ -511,7 +511,24 @@ void InstructionSchedule::optimize_func(
   for (size_t index = 0; index < f.inst.size(); index++) {
     arm::Inst* inst = f.inst.at(index).get();
     switch (inst->op) {
-      case arm::OpCode::B:
+      case arm::OpCode::B: {
+        if (blockInsts.empty()) {
+          inst_new.push_back(std::unique_ptr<arm::Inst>(inst));
+        } else if (blockInsts.size() < 2) {
+          for (auto& blockInst : blockInsts) {
+            inst_new.push_back(std::unique_ptr<arm::Inst>(blockInst));
+          }
+          inst_new.push_back(std::unique_ptr<arm::Inst>(inst));
+          blockInsts.clear();
+        } else {
+          blockInsts.push_back(inst);
+          instruction_schedule::InstructionScheduler scheduler =
+              instruction_schedule::InstructionScheduler();
+          scheduler.scheduleBaseBlock(blockInsts, inst_new);
+          blockInsts.clear();
+        }
+        break;
+      }
       case arm::OpCode::Bl:
       case arm::OpCode::Mov:
       case arm::OpCode::MovT:
@@ -530,11 +547,19 @@ void InstructionSchedule::optimize_func(
       case arm::OpCode::Cmp:
       case arm::OpCode::Cmn:
       case arm::OpCode::LdR:
-      case arm::OpCode::StR:
+      case arm::OpCode::StR: {
+        blockInsts.push_back(inst);
+        break;
+      }
       default: {
+        for (auto& blockInst : blockInsts) {
+          inst_new.push_back(std::unique_ptr<arm::Inst>(blockInst));
+        }
+        inst_new.push_back(std::unique_ptr<arm::Inst>(inst));
+        blockInsts.clear();
       }
     }
   }
   f.inst = std::move(inst_new);
 };
-};  // namespace backend::codegen
+};  // namespace backend::optimization
