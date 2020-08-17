@@ -2,6 +2,7 @@ import os
 import subprocess
 import argparse
 import re
+from typing import Dict, List
 from tqdm import tqdm
 import logging
 import colorlog
@@ -91,7 +92,7 @@ def decode_stderr_timer(stderr: str) -> float:
 
 
 stages = {
-    "mine": [[parser.compiler_path, "-o", "out.s", "$input"],
+    "mine": [[args.compiler_path, "-o", "out.s", "$input"],
              ["gcc", "out.s", "$link_lib", "-march=armv7-a", "-o", "tmp"]],
     "gcc_o1":
     [["gcc", "-xc", "$input", "$c_lib", "-march=armv7-a", "-o", "tmp", "-O1"]],
@@ -115,19 +116,15 @@ options = {
 
 def test_dir(
     dir: str,
-    runner: dict[str, list[list[str]]],
-    options: dict[str, str],
-    test_performance: bool,
-) -> list[dict]:
+    runner: dict,
+    options: dict,
+) -> List[dict]:
     result = []
     files = os.listdir(dir)
     for file in tqdm(files):
         new_path = os.path.join(dir, file)
         if os.path.isdir(new_path) and args.recursively:
-            child = test_dir(
-                new_path,
-                test_performance,
-            )
+            child = test_dir(new_path, runner, options)
             result.combine(child)
         elif file.split('.')[-1] == 'sy':
             prefix = file.split('.')[0]
@@ -136,8 +133,10 @@ def test_dir(
             for job in runner:
                 try:
                     for stage in runner[job]:
-                        my_stage = [(options[x] if options[x] != None else x)
-                                    for x in stage]
+                        my_stage = [
+                            (options[x] if options.get(x) != None else x)
+                            for x in stage
+                        ]
                         compiler_output = subprocess.run(my_stage,
                                                          capture_output=True,
                                                          timeout=15)
