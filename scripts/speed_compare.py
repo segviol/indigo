@@ -138,6 +138,7 @@ def test_dir(
             for job in runner:
                 logger.info(f"Running {file} with {job}")
                 try:
+                    abort = False
                     for stage in runner[job]:
                         my_stage = [
                             (options[x] if options.get(x) != None else x)
@@ -152,8 +153,9 @@ def test_dir(
                             logger.error(
                                 f"{new_path} encountered a compiler error:\n{compiler_output.stderr.decode('utf8')}"
                             )
-                            continue
-
+                            abort = True
+                            break
+                    if abort: continue
                 except subprocess.TimeoutExpired as t:
                     logger.error(
                         f"{prefix} compiler time out!(longer than {t.timeout} seconds)"

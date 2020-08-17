@@ -21,9 +21,9 @@ int getNumPos(int num, int pos){
 }
 
 void radixSort(int bitround, int a[], int l, int r){
-    int head[base] = {};
-    int tail[base] = {};
-    int cnt[base] = {};
+    int head[base];
+    int tail[base];
+    int cnt[base];
 
     if (bitround == -1 || l + 1 >= r) return;
 
