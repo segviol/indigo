@@ -3,7 +3,7 @@
 #include "../backend.hpp"
 
 namespace backend::instruction_schedule {
-  extern const char WrongInstExceptionMsg[];
+  extern const std::string WrongInstExceptionMsg;
 
   enum class ExePipeCode {
     Branch,
