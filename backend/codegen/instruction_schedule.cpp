@@ -2,8 +2,9 @@
 
 namespace backend::instruction_schedule {
 
-extern std::vector<ExePipeCode> allExePopeCodes = {Branch,   Integer0, Integer1,
-                                                   IntegerM, Load,     Store};
+std::vector<ExePipeCode> allExePopeCodes = {
+    ExePipeCode::Branch,   ExePipeCode::Integer0, ExePipeCode::Integer1,
+    ExePipeCode::IntegerM, ExePipeCode::Load,     ExePipeCode::Store};
 
 const std::string WrongInstExceptionMsg =
     "non-supported arm instrution for instruction schedule";
@@ -497,8 +498,43 @@ void InstructionScheduler::addRegReadDependency(uint32_t successor,
 
 namespace backend::codegen {
 void InstructionSchedule::optimize_arm(
-    arm::ArmCode& armCode, std::map<std::string, std::any>& extraDataRepo){};
+    arm::ArmCode& armCode, std::map<std::string, std::any>& extraDataRepo) {
+  for (auto& f : armCode.functions) {
+    optimize_func(*f, extraDataRepo);
+  }
+};
 
 void InstructionSchedule::optimize_func(
-    arm::Function& f, std::map<std::string, std::any>& extraDataRepo){};
+    arm::Function& f, std::map<std::string, std::any>& extraDataRepo) {
+  std::vector<std::unique_ptr<arm::Inst>> inst_new;
+  std::vector<arm::Inst*> blockInsts;
+  for (size_t index = 0; index < f.inst.size(); index++) {
+    arm::Inst* inst = f.inst.at(index).get();
+    switch (inst->op) {
+      case arm::OpCode::B:
+      case arm::OpCode::Bl:
+      case arm::OpCode::Mov:
+      case arm::OpCode::MovT:
+      case arm::OpCode::Mvn:
+      case arm::OpCode::Lsl:
+      case arm::OpCode::Lsr:
+      case arm::OpCode::Asr:
+      case arm::OpCode::Add:
+      case arm::OpCode::Sub:
+      case arm::OpCode::And:
+      case arm::OpCode::Orr:
+      case arm::OpCode::Eor:
+      case arm::OpCode::Bic:
+      case arm::OpCode::Mul:
+      case arm::OpCode::SMMul:
+      case arm::OpCode::Cmp:
+      case arm::OpCode::Cmn:
+      case arm::OpCode::LdR:
+      case arm::OpCode::StR:
+      default: {
+      }
+    }
+  }
+  f.inst = std::move(inst_new);
+};
 };  // namespace backend::codegen
