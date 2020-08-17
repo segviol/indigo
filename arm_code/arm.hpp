@@ -256,6 +256,8 @@ enum class OpCode {
   Mul,
   // Signed Most Significant Word Multiply
   SMMul,
+  // Multiply and accumulate
+  MlA,
   // Signed Divide
   SDiv,
   // And
