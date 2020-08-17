@@ -96,19 +96,19 @@ stages = {
     "mine": [[args.compiler_path, "-o", "out.s", "$input"],
              ["gcc", "out.s", "$link_lib", "-march=armv7-a", "-o", "tmp"]],
     "gcc_o1": [[
-        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-O1"
     ]],
     "gcc_o2": [[
-        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-O2"
     ]],
     "gcc_ofast": [[
-        "gcc", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11", "-o",
+        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11", "-o",
         "tmp", "-Ofast"
     ]],
     "clang_o2": [[
-        "clang", "-xc", "$input_c", "$c_lib", "-march=armv7-a", "-std=c11",
+        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a", "-std=c11",
         "-o", "tmp", "-O2"
     ]]
 }
@@ -195,14 +195,15 @@ def test_dir(
                 except:
                     logger.error(f"Error.")
                     pass
-
             result.append(job_result)
+
+    return result
 
 
 result = test_dir(root_path, stages, options)
 print(result)
 with open("result.csv", "w") as file:
-    writer = csv.DictWriter(file, ["file"].extend(list(stages)))
+    writer = csv.DictWriter(file, ["file"].extend(list(stages)), restval="-")
     writer.writeheader
     for row in result:
         writer.writerow(row)
