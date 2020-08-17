@@ -16,6 +16,10 @@ const std::string CYCLE_START_DATA_NAME = "cycle_start";
 
 using CycleStartType = std::unordered_map<std::string, std::set<uint32_t>>;
 
+const std::string inline_blks = "inline_blks";
+
+using InlineBlksType = std::unordered_map<std::string, std::set<uint32_t>>;
+
 const std::string MIR_VARIABLE_TO_ARM_VREG_DATA_NAME = "mir_variable_to_vreg";
 
 using MirVariableToArmVRegType =
