@@ -60,7 +60,7 @@ InstKind getInstKind(arm::Inst* inst) {
       break;
     }
     default: {
-      throw std::exception(WrongInstExceptionMsg.c_str());
+      throw WrongInstExceptionMsg;
     }
   }
 };
@@ -120,7 +120,7 @@ uint32_t getInstExeLatency(arm::Inst* inst) {
       break;
     }
     default: {
-      throw std::exception(WrongInstExceptionMsg.c_str());
+      throw WrongInstExceptionMsg;
     }
   }
 };
@@ -135,6 +135,7 @@ bool shiftByImmed(arm::Operand2& r2) {
 void InstructionScheduler::scheduleBaseBlock(
     std::vector<arm::Inst*>& blockInsts,
     std::vector<std::unique_ptr<arm::Inst>>& newInsts) {
+  std::vector<uint32_t> cands;
   buildDependencyDAG(blockInsts);
 };
 
@@ -313,7 +314,7 @@ void InstructionScheduler::buildDependencyDAG(
         break;
       }
       default: {
-        throw std::exception(WrongInstExceptionMsg.c_str());
+        throw WrongInstExceptionMsg;
       }
     }
   }
