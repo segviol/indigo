@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
@@ -98,10 +99,10 @@ class ComplexDceRunner {
           LOG(INFO) << "Code of function '" << f.name << "' after round " << cnt
                     << " of complex DCE:" << std::endl;
           std::cout << f << std::endl;
+        } else {
           LOG(INFO) << "Code of function '" << f.name
                     << "' did not change after round " << cnt
                     << " of complex DCE." << std::endl;
-        } else {
         }
       }
     }
@@ -313,6 +314,16 @@ void ComplexDceRunner::remove_excess_bb() {
     auto bbid = bb_entry.first;
     if (bbid == begin_bb) continue;
     auto& bb = bb_entry.second;
+
+    // Change `br $a, bbA, bbA` to `br bbA`
+    if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond &&
+        bb.jump.bb_true == bb.jump.bb_false) {
+      bb.jump.kind = mir::inst::JumpInstructionKind::Br;
+      bb.jump.cond_or_ret = std::nullopt;
+      it_changed = true;
+    }
+
+    // Remove empty basic blocks
     if (bb.inst.size() == 0) {
       if (bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
         auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
