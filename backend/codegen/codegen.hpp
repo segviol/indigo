@@ -126,7 +126,9 @@ class Codegen final {
   std::vector<uint32_t> bb_ordering;
   std::set<uint32_t> inline_hint;
 
+  std::optional<arm::ConditionCode> second_last_condition_code;
   std::optional<LastJump> last_jump;
+  std::optional<LastJump> this_jump;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
