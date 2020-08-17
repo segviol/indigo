@@ -80,7 +80,8 @@ output_folder_name = "output"
 
 
 def decode_stderr_timer(stderr: str) -> float:
-    time_match = re.search('TOTAL:\s*(\d+)H-(\d+)M-(\d+)S-(\d+)us\s*$', stderr)
+    time_match = re.search('TOTAL:\s*(\d+)H-(\d+)M-(\d+)S-(-?\d+)us\s*$',
+                           stderr)
     if time_match == None:
         return None
     else:
@@ -103,8 +104,8 @@ stages = {
         "-Ofast"
     ]],
     "clang_o2": [[
-        "clang", "-xc", "$input", "$c_lib", "--target=armv7-gnueabihf", "-o",
-        "tmp", "-O2"
+        "clang", "-xc", "$input", "$c_lib",
+        "--target=armv7-linux-unknown-gnueabihf", "-o", "tmp", "-O2"
     ]]
 }
 
@@ -129,8 +130,9 @@ def test_dir(
         elif file.split('.')[-1] == 'sy':
             prefix = file.split('.')[0]
             options["$input"] = new_path
-            job_result = {"file": new_path}
+            job_result = {"file": file}
             for job in runner:
+                logger.info(f"Running {file} with {job}")
                 try:
                     for stage in runner[job]:
                         my_stage = [
@@ -144,7 +146,8 @@ def test_dir(
                         # compiler error
                         if compiler_output.returncode != 0:
                             logger.error(
-                                f"{new_path} encountered a compiler error")
+                                f"{new_path} encountered a compiler error:\n{compiler_output.stderr.decode('utf8')}"
+                            )
                             continue
 
                 except subprocess.TimeoutExpired as t:
