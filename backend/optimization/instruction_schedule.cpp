@@ -381,7 +381,7 @@ void InstructionScheduler::buildDependencyDAG(
         uint32_t paraNum;
 
         paraNum = 0;
-        for (uint32_t bInstNum = 0; i - 1 - bInstNum >= 0; bInstNum++) {
+        for (uint32_t bInstNum = 0; i - bInstNum >= 1; bInstNum++) {
           if (i - 1 - bInstNum == lastCall) {
             break;
           }
