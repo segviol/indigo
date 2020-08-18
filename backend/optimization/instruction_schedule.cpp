@@ -530,7 +530,7 @@ void InstructionScheduler::setRegReadNode(uint32_t successor,
 };
 
 void InstructionScheduler::setRegReadNode(uint32_t successor, arm::Reg& reg) {
-  regReadNodes[reg] = successor;
+  regReadNodes[reg].insert(successor);
 };
 
 void InstructionScheduler::setRegReadNode(uint32_t successor,
@@ -545,6 +545,7 @@ void InstructionScheduler::setRegReadNode(uint32_t successor,
 
 void InstructionScheduler::setRegWriteNode(uint32_t successor, arm::Reg reg) {
   regDefNodes[reg] = successor;
+  regReadNodes[reg].clear();
 };
 
 void InstructionScheduler::addRegReadDependency(uint32_t successor,
@@ -578,8 +579,12 @@ void InstructionScheduler::addRegWriteDependency(uint32_t successor,
   if (regDefNodes.count(reg) > 0 && regDefNodes[reg] != successor) {
     addSuccessor(regDefNodes[reg], successor);
   }
-  if (regReadNodes.count(reg) > 0 && regReadNodes[reg] != successor) {
-    addSuccessor(regReadNodes[reg], successor);
+  if (regReadNodes.count(reg) > 0) {
+    for (auto& readNode : regReadNodes.at(reg)) {
+      if (readNode != successor) {
+        addSuccessor(readNode, successor);
+      }
+    }
   }
 };
 

@@ -72,7 +72,7 @@ class InstructionScheduler {
   std::map<uint32_t, std::shared_ptr<DependencyDAGNode>> nodes;
 
   std::map<arm::Reg, uint32_t> regDefNodes;
-  std::map<arm::Reg, uint32_t> regReadNodes;
+  std::map<arm::Reg, std::set<uint32_t>> regReadNodes;
   uint32_t lastMem;
   uint32_t lastCmp;
   uint32_t lastCall;
