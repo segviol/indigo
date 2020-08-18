@@ -378,52 +378,10 @@ void InstructionScheduler::buildDependencyDAG(
         break;
       }
       case arm::OpCode::Bl: {
-        uint32_t paraNum;
-
-        paraNum = 0;
-        for (uint32_t bInstNum = 0; i - bInstNum >= 1; bInstNum++) {
-          if (i - 1 - bInstNum == lastCall) {
-            break;
-          }
-          auto& bInst = blockInsts.at(i - 1 - bInstNum);
-          if (paraNum <= 3) {
-            if (bInst->op == arm::OpCode::Mov &&
-                ((arm::Arith2Inst*)bInst)->r1 == paraNum) {
-              addSuccessor(i - 1 - bInstNum, i);
-              paraNum++;
-              addRegWriteDependency(i, ((arm::Arith2Inst*)bInst)->r1);
-            }
-            // TODO: deal the movt pass param bug
-            else if (bInst->op == arm::OpCode::MovT &&
-                     ((arm::Arith2Inst*)bInst)->r1 == paraNum) {
-              addSuccessor(i - 1 - bInstNum, i);
-            } else {
-              break;
-            }
-          } else {
-            if (bInst->op == arm::OpCode::StR) {
-              arm::LoadStoreInst* storeInst = (arm::LoadStoreInst*)inst;
-              if (std::holds_alternative<arm::MemoryOperand>(storeInst->mem) &&
-                  std::get<arm::MemoryOperand>(storeInst->mem).r1 ==
-                      arm::REG_SP) {
-                arm::MemoryOperand& memOpd =
-                    std::get<arm::MemoryOperand>(storeInst->mem);
-                if (std::holds_alternative<int16_t>(memOpd.offset) &&
-                    std::get<int16_t>(memOpd.offset) == (paraNum - 4) * 4) {
-                  addSuccessor(i - 1 - bInstNum, i);
-                  paraNum++;
-                } else {
-                  break;
-                }
-              } else {
-                break;
-              }
-            } else {
-              break;
-            }
-          }
+        for (size_t j = 0; j < i; j++) {
+          addSuccessor(j, i);
         }
-
+        
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
