@@ -97,7 +97,7 @@ class Codegen final {
 
       LOG(TRACE) << "Inline hint has " << this->inline_hint.size()
                  << " items: ";
-      for (auto i : this->inline_hint) LOG(TRACE) << i << " ";
+      for (auto i : this->inline_hint) LOG(TRACE) << i.first << " ";
       LOG(TRACE) << std::endl;
     }
     param_size = func.type->params.size();
@@ -124,7 +124,7 @@ class Codegen final {
   std::map<mir::inst::VarId, int32_t> stack_space_allocation;
 
   std::vector<uint32_t> bb_ordering;
-  std::set<uint32_t> inline_hint;
+  std::map<uint32_t, arm::ConditionCode> inline_hint;
 
   std::optional<arm::ConditionCode> second_last_condition_code;
   std::optional<LastJump> last_jump;
