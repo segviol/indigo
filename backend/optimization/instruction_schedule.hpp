@@ -6,6 +6,8 @@
 namespace backend::instruction_schedule {
 extern const std::string WrongInstExceptionMsg;
 
+arm::Inst* copyInst(arm::Inst* inst);
+
 enum class ExePipeCode { Branch, Integer0, Integer1, IntegerM, Load, Store };
 
 extern std::vector<ExePipeCode> allExePopeCodes;
