@@ -82,6 +82,34 @@ void BasicBlkRearrange::optimize_mir(
                                    std::move(inline_map));
 }
 
+arm::ConditionCode op_to_cond(mir::inst::Op op) {
+  arm::ConditionCode cond;
+  switch (op) {
+    case mir::inst::Op::Gt:
+      cond = arm::ConditionCode::Gt;
+      break;
+    case mir::inst::Op::Gte:
+      cond = arm::ConditionCode::Ge;
+      break;
+    case mir::inst::Op::Lt:
+      cond = arm::ConditionCode::Lt;
+      break;
+    case mir::inst::Op::Lte:
+      cond = arm::ConditionCode::Le;
+      break;
+    case mir::inst::Op::Eq:
+      cond = arm::ConditionCode::Equal;
+      break;
+    case mir::inst::Op::Neq:
+      cond = arm::ConditionCode::NotEqual;
+      break;
+    default:
+      cond = arm::ConditionCode::NotEqual;
+      break;
+  }
+  return cond;
+}
+
 std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     mir::inst::MirFunction& f) {
   std::map<uint32_t, arm::ConditionCode> inline_blks;
@@ -102,29 +130,7 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
       for (auto& i : bb_prec.inst) {
         if (i->dest == cond_val) {
           if (auto x = dynamic_cast<mir::inst::OpInst*>(&*i)) {
-            switch (x->op) {
-              case mir::inst::Op::Gt:
-                cond = arm::ConditionCode::Gt;
-                break;
-              case mir::inst::Op::Gte:
-                cond = arm::ConditionCode::Ge;
-                break;
-              case mir::inst::Op::Lt:
-                cond = arm::ConditionCode::Lt;
-                break;
-              case mir::inst::Op::Lte:
-                cond = arm::ConditionCode::Le;
-                break;
-              case mir::inst::Op::Eq:
-                cond = arm::ConditionCode::Equal;
-                break;
-              case mir::inst::Op::Neq:
-                cond = arm::ConditionCode::NotEqual;
-                break;
-              default:
-                cond = arm::ConditionCode::NotEqual;
-                break;
-            }
+            cond = op_to_cond(x->op);
             if ((x->lhs.is_immediate() && !x->rhs.is_immediate()) ||
                 (!x->lhs.is_immediate() && !x->rhs.is_immediate() &&
                  x->lhs.has_shift() && !x->rhs.has_shift())) {
@@ -150,12 +156,22 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
           can_inline = false;
           break;
         }
-        if (it != bb.second.inst.end() - 1 &&
-            (x->op == mir::inst::Op::Gt || x->op == mir::inst::Op::Lt ||
-             x->op == mir::inst::Op::Gte || x->op == mir::inst::Op::Lt ||
-             x->op == mir::inst::Op::Eq || x->op == mir::inst::Op::Neq)) {
-          can_inline = false;
-          break;
+        if (x->op == mir::inst::Op::Gt || x->op == mir::inst::Op::Lt ||
+            x->op == mir::inst::Op::Gte || x->op == mir::inst::Op::Lt ||
+            x->op == mir::inst::Op::Eq || x->op == mir::inst::Op::Neq) {
+          if (it != bb.second.inst.end() - 1 ||
+              bb.second.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+            can_inline = false;
+            break;
+          } else {
+            auto my_cond = op_to_cond(x->op);
+            if (bb_prec.jump.bb_true == bb.first && my_cond != cond ||
+                bb_prec.jump.bb_false == bb.first &&
+                    my_cond != arm::invert_cond(cond)) {
+              can_inline = false;
+              break;
+            }
+          }
         }
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
         can_inline = false;
