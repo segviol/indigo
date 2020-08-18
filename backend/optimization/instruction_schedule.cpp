@@ -2,81 +2,70 @@
 
 namespace backend::instruction_schedule {
 
-arm::Inst* copyInst(arm::Inst* inst)
-{
-  switch (inst->op)
-  {
-  case arm::OpCode::Nop:
-  {
-    return new arm::PureInst(*((arm::PureInst*)inst));
-    break;
-  }
-  case arm::OpCode::B:
-  case arm::OpCode::Bl:
-  case arm::OpCode::Bx:
-  case arm::OpCode::Cbz:
-  case arm::OpCode::Cbnz:
-  {
-    return new arm::BrInst(*((arm::BrInst*)inst));
-    break;
-  }
-  case arm::OpCode::Mov:
-  case arm::OpCode::MovT:
-  case arm::OpCode::Mvn:
-  case arm::OpCode::Cmp:
-  case arm::OpCode::Cmn:
-  {
-    return new arm::Arith2Inst(*((arm::Arith2Inst*)inst));
-    break;
-  }
-  case arm::OpCode::Add:
-  case arm::OpCode::Sub:
-  case arm::OpCode::Rsb:
-  case arm::OpCode::Mul:
-  case arm::OpCode::SMMul:
-  case arm::OpCode::SDiv:
-  case arm::OpCode::And:
-  case arm::OpCode::Orr:
-  case arm::OpCode::Eor:
-  case arm::OpCode::Bic:
-  case arm::OpCode::Lsl:
-  case arm::OpCode::Lsr:
-  case arm::OpCode::Asr:
-  {
-    return new arm::Arith3Inst(*((arm::Arith3Inst*)inst));
-    break;
-  }
-  case arm::OpCode::LdR:
-  case arm::OpCode::StR:
-  {
-    return new arm::LoadStoreInst(*((arm::LoadStoreInst*)inst));
-    break;
-  }
-  case arm::OpCode::LdM:
-  case arm::OpCode::StM:
-  {
-    return new arm::MultLoadStoreInst(*((arm::MultLoadStoreInst*)inst));
-    break;
-  }
-  case arm::OpCode::Push:
-  case arm::OpCode::Pop:
-  {
-    return new arm::PushPopInst(*((arm::PushPopInst*)inst));
-    break;
-  }
-  case arm::OpCode::_Label:
-  {
-    return new arm::LabelInst(*((arm::LabelInst*)inst));
-    break;
-  }
-  case arm::OpCode::_Ctrl:
-  {
-    return new arm::CtrlInst(*((arm::CtrlInst*)inst));
-    break;
-  }
-  case arm::OpCode::_Mod:
-  default:
-    break;
+arm::Inst* copyInst(arm::Inst* inst) {
+  switch (inst->op) {
+    case arm::OpCode::Nop: {
+      return new arm::PureInst(*((arm::PureInst*)inst));
+      break;
+    }
+    case arm::OpCode::B:
+    case arm::OpCode::Bl:
+    case arm::OpCode::Bx:
+    case arm::OpCode::Cbz:
+    case arm::OpCode::Cbnz: {
+      return new arm::BrInst(*((arm::BrInst*)inst));
+      break;
+    }
+    case arm::OpCode::Mov:
+    case arm::OpCode::MovT:
+    case arm::OpCode::Mvn:
+    case arm::OpCode::Cmp:
+    case arm::OpCode::Cmn: {
+      return new arm::Arith2Inst(*((arm::Arith2Inst*)inst));
+      break;
+    }
+    case arm::OpCode::Add:
+    case arm::OpCode::Sub:
+    case arm::OpCode::Rsb:
+    case arm::OpCode::Mul:
+    case arm::OpCode::SMMul:
+    case arm::OpCode::SDiv:
+    case arm::OpCode::And:
+    case arm::OpCode::Orr:
+    case arm::OpCode::Eor:
+    case arm::OpCode::Bic:
+    case arm::OpCode::Lsl:
+    case arm::OpCode::Lsr:
+    case arm::OpCode::Asr: {
+      return new arm::Arith3Inst(*((arm::Arith3Inst*)inst));
+      break;
+    }
+    case arm::OpCode::LdR:
+    case arm::OpCode::StR: {
+      return new arm::LoadStoreInst(*((arm::LoadStoreInst*)inst));
+      break;
+    }
+    case arm::OpCode::LdM:
+    case arm::OpCode::StM: {
+      return new arm::MultLoadStoreInst(*((arm::MultLoadStoreInst*)inst));
+      break;
+    }
+    case arm::OpCode::Push:
+    case arm::OpCode::Pop: {
+      return new arm::PushPopInst(*((arm::PushPopInst*)inst));
+      break;
+    }
+    case arm::OpCode::_Label: {
+      return new arm::LabelInst(*((arm::LabelInst*)inst));
+      break;
+    }
+    case arm::OpCode::_Ctrl: {
+      return new arm::CtrlInst(*((arm::CtrlInst*)inst));
+      break;
+    }
+    case arm::OpCode::_Mod:
+    default:
+      break;
   }
 }
 
@@ -345,15 +334,15 @@ bool InstructionScheduler::emptyExePipeSchedule(
         break;
     }
 
-    newInsts.push_back(std::unique_ptr<arm::Inst>(copyInst(pool.front()->inst)));
+    newInsts.push_back(
+        std::unique_ptr<arm::Inst>(copyInst(pool.front()->inst)));
     updateCands(pool.front()->originIndex, cands);
   }
   return r;
 };
 
 void InstructionScheduler::updateCands(
-    uint32_t index,
-    std::set<std::shared_ptr<DependencyDAGNode>>& cands) {
+    uint32_t index, std::set<std::shared_ptr<DependencyDAGNode>>& cands) {
   for (auto& successor : nodes[index]->successors) {
     if (inDegrees[successor->originIndex] == 1) {
       cands.insert(successor);
@@ -596,12 +585,15 @@ void InstructionSchedule::optimize_func(
     switch (inst->op) {
       case arm::OpCode::B: {
         if (blockInsts.empty()) {
-          inst_new.push_back(std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+          inst_new.push_back(
+              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
         } else if (blockInsts.size() < 2) {
           for (auto& blockInst : blockInsts) {
-            inst_new.push_back(std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(blockInst)));
+            inst_new.push_back(std::unique_ptr<arm::Inst>(
+                instruction_schedule::copyInst(blockInst)));
           }
-          inst_new.push_back(std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+          inst_new.push_back(
+              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
           blockInsts.clear();
         } else {
           blockInsts.push_back(inst);
@@ -636,9 +628,11 @@ void InstructionSchedule::optimize_func(
       }
       default: {
         for (auto& blockInst : blockInsts) {
-          inst_new.push_back(std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(blockInst)));
+          inst_new.push_back(std::unique_ptr<arm::Inst>(
+              instruction_schedule::copyInst(blockInst)));
         }
-        inst_new.push_back(std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+        inst_new.push_back(
+            std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
         blockInsts.clear();
       }
     }
