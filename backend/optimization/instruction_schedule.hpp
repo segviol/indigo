@@ -84,10 +84,10 @@ class InstructionScheduler {
 
   bool emptyExePipeSchedule(
       std::vector<std::unique_ptr<arm::Inst>>& newInsts,
-      std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
+      std::set<std::shared_ptr<DependencyDAGNode>>& cands);
 
-  void updateCands(uint32_t indexOfCands,
-                   std::vector<std::shared_ptr<DependencyDAGNode>>& cands);
+  void updateCands(uint32_t index,
+                   std::set<std::shared_ptr<DependencyDAGNode>>& cands);
 
   void addSuccessor(uint32_t father, uint32_t successor);
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);

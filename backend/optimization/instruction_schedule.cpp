@@ -222,13 +222,13 @@ bool shiftByImmed(arm::Operand2& r2) {
 void InstructionScheduler::scheduleBaseBlock(
     std::vector<arm::Inst*>& blockInsts,
     std::vector<std::unique_ptr<arm::Inst>>& newInsts) {
-  std::vector<std::shared_ptr<DependencyDAGNode>> cands;
+  std::set<std::shared_ptr<DependencyDAGNode>> cands;
 
   buildDependencyDAG(blockInsts);
 
   for (auto& [index, node] : nodes) {
     if (inDegrees[index] == 0) {
-      cands.push_back(node);
+      cands.insert(node);
     }
   }
 
@@ -248,7 +248,7 @@ void InstructionScheduler::scheduleBaseBlock(
 
 bool InstructionScheduler::emptyExePipeSchedule(
     std::vector<std::unique_ptr<arm::Inst>>& newInsts,
-    std::vector<std::shared_ptr<DependencyDAGNode>>& cands) {
+    std::set<std::shared_ptr<DependencyDAGNode>>& cands) {
   std::vector<std::shared_ptr<DependencyDAGNode>> pool;
   bool r;
 
@@ -346,21 +346,21 @@ bool InstructionScheduler::emptyExePipeSchedule(
     }
 
     newInsts.push_back(std::unique_ptr<arm::Inst>(copyInst(pool.front()->inst)));
-    updateCands(0, cands);
+    updateCands(pool.front()->originIndex, cands);
   }
   return r;
 };
 
 void InstructionScheduler::updateCands(
-    uint32_t indexOfCands,
-    std::vector<std::shared_ptr<DependencyDAGNode>>& cands) {
-  for (auto& successor : cands.at(indexOfCands)->successors) {
+    uint32_t index,
+    std::set<std::shared_ptr<DependencyDAGNode>>& cands) {
+  for (auto& successor : nodes[index]->successors) {
     if (inDegrees[successor->originIndex] == 1) {
-      cands.push_back(successor);
+      cands.insert(successor);
     }
     inDegrees[successor->originIndex]--;
   }
-  cands.erase(cands.begin() + indexOfCands);
+  cands.erase(nodes[index]);
 };
 
 void InstructionScheduler::buildDependencyDAG(
