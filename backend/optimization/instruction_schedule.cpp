@@ -552,6 +552,7 @@ void InstructionScheduler::addRegReadDependency(uint32_t successor,
   if (regDefNodes.count(reg) > 0) {
     addSuccessor(regDefNodes[reg], successor);
   }
+  regReadNodes[reg] = successor;
 };
 
 void InstructionScheduler::addRegReadDependency(uint32_t successor,
@@ -568,6 +569,9 @@ void InstructionScheduler::addRegWriteDependency(uint32_t successor,
                                                  arm::Reg reg) {
   if (regDefNodes.count(reg) > 0) {
     addSuccessor(regDefNodes[reg], successor);
+  }
+  if (regReadNodes.count(reg) > 0) {
+    addSuccessor(regReadNodes[reg], successor);
   }
   regDefNodes[reg] = successor;
 };
