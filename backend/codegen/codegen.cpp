@@ -85,8 +85,6 @@ arm::Function Codegen::translate_function() {
           expected_bb = last_jump->bb_false;
           inverted = false;
           if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_false) {
-            inst_sink.pop_back();
-            inst_sink.pop_back();
           } else {
           }
         } else {
@@ -97,11 +95,9 @@ arm::Function Codegen::translate_function() {
           // "bb_false, bb_true", we can safely pop the second-to-last branch
           // operation and add the condition to bb_true
           if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
-            inst_sink.pop_back();
-            inst_sink.pop_back();
           } else {
-            inst_sink.erase(inst_sink.end() - 2);
-            inst_sink.back()->cond = last_jump->cond;
+            // inst_sink.erase(inst_sink.end() - 2);
+            // inst_sink.back()->cond = last_jump->cond;
           }
         }
 
@@ -110,6 +106,36 @@ arm::Function Codegen::translate_function() {
         }
 
         second_last_condition_code = cond;
+      }
+    }
+
+    // Delete this bb's jump instruction if the following is a conditional
+    // executed block
+    if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+      auto next_it = it + 1;
+      auto next_bb = *next_it;
+      uint32_t expected_end;
+      if (next_bb == bb.jump.bb_true) {
+        expected_end = bb.jump.bb_false;
+      } else {
+        expected_end = bb.jump.bb_true;
+      }
+      bool can_delete_jump = true;
+      std::optional<ConditionCode> expected_cond = {};
+      while (next_it != bb_ordering.end() && *next_it != expected_end) {
+        if (auto hint = inline_hint.find(*next_it); hint != inline_hint.end()) {
+          if (expected_cond && hint->second != *expected_cond)
+            can_delete_jump = false;
+          expected_cond = hint->second;
+        } else {
+          can_delete_jump = false;
+        }
+        next_it++;
+      }
+      can_delete_jump &= !(next_it == bb_ordering.end());
+      if (can_delete_jump) {
+        inst.pop_back();
+        inst.pop_back();
       }
     }
 
