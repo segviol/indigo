@@ -294,7 +294,7 @@ bool InstructionScheduler::emptyExePipeSchedule(
     r = false;
   } else {
     r = true;
-    if (pool.size() == 1) {
+    if (pool.size() > 1) {
       std::sort(pool.begin(), pool.end(), cmpNodeSharedPtr);
     }
 
