@@ -480,7 +480,8 @@ void InstructionScheduler::buildDependencyDAG(
           addRegReadDependency(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
         if (std::holds_alternative<std::string>(ldInst->mem)) {
-          for (auto& reg : arm::TEMP_REGS) {
+          for (auto reg : arm::TEMP_REGS) {
+            addRegReadDependency(i, reg);
             addRegWriteDependency(i, reg);
           }
         }
