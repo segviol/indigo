@@ -177,7 +177,7 @@ void Const_Loop_Expand::optimize_mir(
     mir::inst::MirPackage& mir,
     std::map<std::string, std::any>& extra_data_repo) {
   for (auto& f : mir.functions) {
-    if (f.second.type->is_extern) continue;
+    if (f.second.type->is_extern || f.first == "$$5_main") continue;
     optimize_func(f.second);
   }
 }
@@ -388,6 +388,9 @@ void Const_Loop_Expand::optimize_func(mir::inst::MirFunction& func) {
         func.basic_blks.at(func.basic_blks.at(info->loop_start).jump.bb_true);
 
     int times = info->get_times();
+    if (times >= 64) {
+      break;
+    }
     for (auto& inst : blk.inst) {
       if (inst->inst_kind() == mir::inst::InstKind::Phi) {
         continue;

@@ -54,7 +54,7 @@ using std::ofstream;
 using std::string;
 
 const bool debug = false;
-
+Options global_options;
 string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
@@ -123,12 +123,9 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
   backend.add_pass(
-      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(
       std::make_unique<optimization::global_expr_move::Global_Expr_Mov>(true));
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<
           optimization::algebraic_simplification::AlgebraicSimplification>());
@@ -140,13 +137,14 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
-  backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
+  // backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<
                    optimization::global_var_to_local::Global_Var_to_Local>());
+  backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
 
@@ -161,6 +159,7 @@ void add_passes(backend::Backend& backend) {
 
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
+  global_options = options;
 
   if (options.dry_run) {
     // Only show which passes will be run

@@ -22,11 +22,87 @@ arm::Function Codegen::translate_function() {
   scan_stack();
   scan();
   generate_startup();
-  for (auto bb_id : bb_ordering) {
+  std::vector<std::unique_ptr<arm::Inst>> inst_sink = std::move(inst);
+  for (auto it = bb_ordering.begin(); it != bb_ordering.end(); it++) {
+    auto bb_id = *it;
+    inst.clear();
     auto& bb = func.basic_blks.at(bb_id);
     translate_basic_block(bb);
+
+    std::optional<arm::ConditionCode> second_last_cond =
+        std::move(second_last_condition_code);
+    second_last_condition_code = {};
+    if (inline_hint.find(bb_id) != inline_hint.end()) {
+      LOG(TRACE) << "Found inline hint for " << bb_id << std::endl;
+      bool can_inline = last_jump.has_value();
+
+      if (can_inline) {
+        for (auto& i : inst) {
+          if (i->cond != arm::ConditionCode::Always) {
+            can_inline = false;
+            LOG(TRACE) << "Inline ruined by a conditional execution"
+                       << std::endl;
+            break;
+          }
+        }
+        if (bb_id != last_jump->bb_true && bb_id != last_jump->bb_false) {
+          can_inline = false;
+          LOG(TRACE) << "Inline ruined by not next to source basic block"
+                     << std::endl;
+        } else if (second_last_cond &&
+                   ((bb_id == last_jump->bb_true &&
+                     (*second_last_cond) != last_jump->cond) ||
+                    (bb_id == last_jump->bb_false &&
+                     (*second_last_cond) != invert_cond(last_jump->cond)))) {
+          can_inline = false;
+          LOG(TRACE) << "Inline ruined by second last condition: ";
+          display_cond(*second_last_cond, LOG(TRACE));
+          LOG(TRACE) << " which conflicts with current one: ";
+          display_cond(last_jump->cond, LOG(TRACE));
+          LOG(TRACE) << std::endl;
+        }
+      }
+      if (can_inline) {
+        // Calculate condition code to be used in this block
+        ConditionCode cond;
+        if (bb_id == last_jump->bb_true) {
+          cond = last_jump->cond;
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
+            inst_sink.pop_back();
+            inst_sink.pop_back();
+          } else {
+          }
+        } else {
+          cond = invert_cond(last_jump->cond);
+          // since a conditional branch is always emitted in the fashion of
+          // "bb_false, bb_true", we can safely pop the second-to-last branch
+          // operation and add the condition to bb_true
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
+            inst_sink.pop_back();
+            inst_sink.pop_back();
+          } else {
+            inst_sink.erase(inst_sink.end() - 2);
+            inst_sink.back()->cond = last_jump->cond;
+          }
+        }
+
+        for (auto& i : inst) {
+          i->cond = cond;
+        }
+
+        second_last_condition_code = cond;
+      }
+    }
+
+    for (auto& i : inst) {
+      inst_sink.push_back(std::move(i));
+    }
   }
+  inst.clear();
   generate_return_and_cleanup();
+  for (auto& i : inst) {
+    inst_sink.push_back(std::move(i));
+  }
 
   {
 #pragma region passShow
@@ -54,7 +130,7 @@ arm::Function Codegen::translate_function() {
     map.insert({func.name, std::move(this->reg_map)});
   }
 
-  return arm::Function(func.name, func.type, std::move(this->inst),
+  return arm::Function(func.name, func.type, std::move(inst_sink),
                        std::move(this->consts), stack_size);
 }
 
@@ -778,6 +854,8 @@ void Codegen::emit_phi_move(std::unordered_set<mir::inst::VarId>& i) {
 }
 
 void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
+  last_jump = std::move(this_jump);
+  this_jump = std::nullopt;
   switch (j.kind) {
     case mir::inst::JumpInstructionKind::Br:
       inst.push_back(std::make_unique<BrInst>(
@@ -802,6 +880,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         }
       }
       if (cond) {
+        this_jump = LastJump{cond.value(), j.bb_true, j.bb_false};
         inst.pop_back();
         inst.pop_back();
         inst.push_back(std::make_unique<BrInst>(
@@ -810,6 +889,7 @@ void Codegen::translate_branch(mir::inst::JumpInstruction& j) {
         inst.push_back(std::make_unique<BrInst>(
             OpCode::B, format_bb_label(func.name, j.bb_true)));
       } else {
+        this_jump = LastJump{ConditionCode::NotEqual, j.bb_true, j.bb_false};
         inst.push_back(std::make_unique<Arith2Inst>(
             OpCode::Cmp, translate_var_reg(j.cond_or_ret.value()),
             Operand2(0)));

@@ -140,6 +140,8 @@ class RegAllocator {
   bool bb_reset = true;
   bool is_leaf_func = true;
 
+  ConditionCode cur_cond = ConditionCode::Always;
+
 #pragma region Read Write Stuff
   void add_reg_read(Operand2 &reg, unsigned int point) {
     if (auto x = std::get_if<RegisterOperand>(&reg)) {
@@ -580,7 +582,7 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
     // TODO: move this into a separate function
     inst_sink.push_back(std::make_unique<LoadStoreInst>(
         OpCode::StR, spill_phys,
-        MemoryOperand(REG_SP, spill_pos + stack_offset)));
+        MemoryOperand(REG_SP, spill_pos + stack_offset), cur_cond));
 
     auto &trace = LOG(TRACE);
     trace << "Spilling: ";
@@ -651,7 +653,8 @@ void RegAllocator::replace_read(Reg &r, int i,
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
         if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
             x_->op == arm::OpCode::StR && x_->rd == rd &&
-            (*x__) == MemoryOperand(REG_SP, spill_pos + stack_offset)) {
+            (*x__) == MemoryOperand(REG_SP, spill_pos + stack_offset) &&
+            x->cond == cur_cond) {
           del = true;
         }
       }
@@ -661,7 +664,8 @@ void RegAllocator::replace_read(Reg &r, int i,
       delayed_store = {{r, rd}};
     } else {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
-          OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset)));
+          OpCode::LdR, rd, MemoryOperand(REG_SP, spill_pos + stack_offset),
+          cur_cond));
     }
     disp_reg();
     LOG(TRACE) << "spill " << spill_pos << "with rd=" << rd << std::endl;
@@ -774,6 +778,7 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
       if (auto x_ = dynamic_cast<LoadStoreInst *>(&*x)) {
         if (auto x__ = std::get_if<MemoryOperand>(&x_->mem);
             x_->op == arm::OpCode::StR && x__->r1 == rd &&
+            x_->cond == cur_cond &&
             (*x__) == MemoryOperand(REG_SP, pos + stack_offset)) {
           del = true;
         }
@@ -781,7 +786,8 @@ void RegAllocator::replace_write(ReplaceWriteAction r, int i) {
     }
     if (!del) {
       inst_sink.push_back(std::make_unique<LoadStoreInst>(
-          OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset)));
+          OpCode::StR, rd, MemoryOperand(REG_SP, pos + stack_offset),
+          cur_cond));
     }
     wrote_to.erase(r.from);
     disp_reg();
@@ -806,7 +812,8 @@ void RegAllocator::force_free(Reg r, bool also_erase_map, bool write_back) {
         int stack_pos = get_or_alloc_spill_pos(y.first);
         if (write_back)
           inst_sink.push_back(std::make_unique<LoadStoreInst>(
-              OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset)));
+              OpCode::StR, r, MemoryOperand(REG_SP, stack_pos + stack_offset),
+              cur_cond));
         spilled_regs.insert({y.first, x->second});
         trace << " " << y.first << " " << y.second << " @"
               << (stack_pos + stack_offset) << std::endl;
@@ -917,6 +924,7 @@ void RegAllocator::perform_load_stores() {
   for (int i = 0; i < f.inst.size(); i++) {
     auto inst_ = &*f.inst[i];
     LOG(TRACE) << " " << std::endl << *inst_ << std::endl;
+    cur_cond = inst_->cond;
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       replace_read(x->r1, i);
       replace_read(x->r2, i);

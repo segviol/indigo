@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "../../opt.hpp"
 #include "aixlog.hpp"
 
 namespace optimization::complex_dce {
@@ -23,6 +24,9 @@ class ComplexDceRunner {
   {}
   MirFunction& f;
   // std::vector<LabelId>& reverse_postorder;
+
+  /// Does the pass change anything about function?
+  bool it_changed = true;
 
   std::unordered_set<VarId> do_not_delete;
   std::unordered_set<VarId> ref_vars;
@@ -60,18 +64,47 @@ class ComplexDceRunner {
   // void scan_bb_dependance_vars();
   void calc_remained_vars();
   void delete_excess_vars();
+  void remove_excess_bb();
 
   void optimize_func() {
-    LOG(TRACE) << "fn: " << f.name << std::endl;
-    // scan_bb_dependance_vars();
-    scan_dependant_vars();
-    display_dependance_maps();
-    calc_remained_vars();
-    LOG(TRACE) << "Result:" << std::endl;
-    for (auto x : do_not_delete) {
-      LOG(TRACE) << x << std::endl;
+    int cnt = 0;
+    while (it_changed) {
+      cnt++;
+      it_changed = false;
+      {
+        do_not_delete.clear();
+        ref_vars.clear();
+        backup_ref_vars.clear();
+        bb_var_dependance.clear();
+        store_dependance.clear();
+        invert_dependance.clear();
+        var_dependance.clear();
+        LOG(INFO) << "In round " << cnt << " of complex DCE:" << std::endl;
+      }
+      LOG(TRACE) << "fn: " << f.name << std::endl;
+      // scan_bb_dependance_vars();
+      scan_dependant_vars();
+      display_dependance_maps();
+      calc_remained_vars();
+      LOG(TRACE) << "Result:" << std::endl;
+      for (auto x : do_not_delete) {
+        LOG(TRACE) << x << std::endl;
+      }
+      delete_excess_vars();
+      remove_excess_bb();
+
+      if (global_options.show_code_after_each_pass && global_options.verbose) {
+        if (it_changed) {
+          LOG(INFO) << "Code of function '" << f.name << "' after round " << cnt
+                    << " of complex DCE:" << std::endl;
+          std::cout << f << std::endl;
+          LOG(INFO) << "Code of function '" << f.name
+                    << "' did not change after round " << cnt
+                    << " of complex DCE." << std::endl;
+        } else {
+        }
+      }
     }
-    delete_excess_vars();
   }
 
   void display_dependance_maps() {
@@ -266,9 +299,134 @@ void ComplexDceRunner::delete_excess_vars() {
     for (auto& inst : bb.second.inst) {
       if (do_not_delete.find(inst->dest) != do_not_delete.end()) {
         new_inst.push_back(std::move(inst));
+      } else {
+        it_changed = true;
       }
     }
     bb.second.inst = std::move(new_inst);
+  }
+}
+
+void ComplexDceRunner::remove_excess_bb() {
+  auto begin_bb = f.basic_blks.begin()->first;
+  for (auto& bb_entry : f.basic_blks) {
+    auto bbid = bb_entry.first;
+    if (bbid == begin_bb) continue;
+    auto& bb = bb_entry.second;
+    if (bb.inst.size() == 0) {
+      if (bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+        auto& next_bb = f.basic_blks.at(bb.jump.bb_true);
+        for (auto prec : bb.preceding) {
+          auto& prec_bb = f.basic_blks.at(prec);
+
+          if (prec_bb.jump.bb_false == bbid)
+            prec_bb.jump.bb_false = bb.jump.bb_true;
+          if (prec_bb.jump.bb_true == bbid)
+            prec_bb.jump.bb_true = bb.jump.bb_true;
+
+          next_bb.preceding.insert(prec);
+        }
+        bb.preceding.clear();
+        it_changed |= next_bb.preceding.erase(bbid);
+        LOG(TRACE) << "Clearing all preceding in " << bbid << " (br)"
+                   << std::endl;
+        LOG(TRACE) << "Erasing " << bbid << " in " << bb.jump.bb_true << " (br)"
+                   << std::endl;
+      } else if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+        if (bb.jump.bb_true != bbid && bb.jump.bb_false != bbid) {
+          auto& next_true_bb = f.basic_blks.at(bb.jump.bb_true);
+          auto& next_false_bb = f.basic_blks.at(bb.jump.bb_false);
+          auto it = bb.preceding.begin();
+          while (it != bb.preceding.end()) {
+            auto prec = *it;
+            auto& prec_bb = f.basic_blks.at(prec);
+            if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+              prec_bb.jump.jump_kind = bb.jump.jump_kind;
+              prec_bb.jump.bb_true = bb.jump.bb_true;
+              prec_bb.jump.bb_false = bb.jump.bb_false;
+              prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
+              prec_bb.jump.kind = bb.jump.kind;
+
+              next_true_bb.preceding.insert(prec);
+              next_false_bb.preceding.insert(prec);
+              it = bb.preceding.erase(it);
+              LOG(TRACE) << "Erasing " << *it << " in " << bbid << " (br_cond)"
+                         << std::endl;
+              it_changed = true;
+            } else {
+              it++;
+            }
+          }
+        }
+      } else if (bb.jump.kind == mir::inst::JumpInstructionKind::Return) {
+        auto it = bb.preceding.begin();
+        while (it != bb.preceding.end()) {
+          auto prec = *it;
+          auto& prec_bb = f.basic_blks.at(prec);
+          if (prec_bb.jump.kind == mir::inst::JumpInstructionKind::Br) {
+            prec_bb.jump.jump_kind = bb.jump.jump_kind;
+            prec_bb.jump.bb_true = bb.jump.bb_true;
+            prec_bb.jump.bb_false = bb.jump.bb_false;
+            prec_bb.jump.cond_or_ret = bb.jump.cond_or_ret;
+            prec_bb.jump.kind = bb.jump.kind;
+            // TODO: bb1048576 still requires every returning basic block to be
+            // preceding it;
+            if (bbid == 1048576) {
+              // do nothing; this basic block should not be erased from its
+              // preceeders
+              it++;
+            } else {
+              it = bb.preceding.erase(it);
+              if (auto end = f.basic_blks.find(1048576);
+                  end != f.basic_blks.end()) {
+                end->second.preceding.insert(prec);
+              }
+            }
+            LOG(TRACE) << "Erasing " << *it << " in " << bbid << " (ret)"
+                       << std::endl;
+            it_changed = true;
+          } else {
+            it++;
+          }
+        }
+      }
+    }
+  }
+
+  {
+    auto it = f.basic_blks.begin();
+    auto begin_bb = it->first;
+    while (it != f.basic_blks.end()) {
+      if (it->second.preceding.empty() && it->first != begin_bb &&
+          it->first != 1048576) {
+        if (it->second.jump.kind == mir::inst::JumpInstructionKind::Br) {
+          auto next_bb = f.basic_blks.find(it->second.jump.bb_true);
+          if (next_bb != f.basic_blks.end()) {
+            next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br/clean)" << std::endl;
+          }
+        } else if (it->second.jump.kind ==
+                   mir::inst::JumpInstructionKind::BrCond) {
+          auto next_bb = f.basic_blks.find(it->second.jump.bb_true);
+          if (next_bb != f.basic_blks.end()) {
+            next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br_cond/clean/true)" << std::endl;
+          }
+          next_bb = f.basic_blks.find(it->second.jump.bb_false);
+          if (next_bb != f.basic_blks.end()) {
+            next_bb->second.preceding.erase(it->first);
+            LOG(TRACE) << "Erasing " << it->first << " in " << next_bb->first
+                       << " (br_cond/clean/false)" << std::endl;
+          }
+        }
+        it = f.basic_blks.erase(it);
+        it_changed = true;
+      } else {
+        it++;
+      }
+    }
   }
 }
 
