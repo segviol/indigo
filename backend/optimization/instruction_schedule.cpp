@@ -371,7 +371,7 @@ void InstructionScheduler::buildDependencyDAG(
 
     switch (inst->op) {
       case arm::OpCode::B: {
-        for (size_t j = 0; j < i; i++) {
+        for (size_t j = 0; j < i; j++) {
           addSuccessor(j, i);
         }
 
