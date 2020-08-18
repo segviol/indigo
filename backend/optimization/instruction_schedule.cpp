@@ -561,7 +561,6 @@ void InstructionScheduler::addRegReadDependency(uint32_t successor,
   if (regDefNodes.count(reg) > 0 && regDefNodes[reg] != successor) {
     addSuccessor(regDefNodes[reg], successor);
   }
-  regReadNodes[reg] = successor;
 };
 
 void InstructionScheduler::addRegReadDependency(uint32_t successor,
@@ -582,7 +581,6 @@ void InstructionScheduler::addRegWriteDependency(uint32_t successor,
   if (regReadNodes.count(reg) > 0 && regReadNodes[reg] != successor) {
     addSuccessor(regReadNodes[reg], successor);
   }
-  regDefNodes[reg] = successor;
 };
 
 };  // namespace backend::instruction_schedule
