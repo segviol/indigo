@@ -381,7 +381,7 @@ void InstructionScheduler::buildDependencyDAG(
         for (size_t j = 0; j < i; j++) {
           addSuccessor(j, i);
         }
-        
+
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
@@ -555,28 +555,6 @@ void InstructionSchedule::optimize_func(
   for (size_t index = 0; index < f.inst.size(); index++) {
     arm::Inst* inst = f.inst.at(index).get();
     switch (inst->op) {
-      case arm::OpCode::B: {
-        if (blockInsts.empty()) {
-          inst_new.push_back(
-              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
-        } else if (blockInsts.size() < 2) {
-          for (auto& blockInst : blockInsts) {
-            inst_new.push_back(std::unique_ptr<arm::Inst>(
-                instruction_schedule::copyInst(blockInst)));
-          }
-          inst_new.push_back(
-              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
-          blockInsts.clear();
-        } else {
-          blockInsts.push_back(inst);
-          instruction_schedule::InstructionScheduler scheduler =
-              instruction_schedule::InstructionScheduler();
-          scheduler.scheduleBaseBlock(blockInsts, inst_new);
-          blockInsts.clear();
-        }
-        break;
-      }
-      case arm::OpCode::Bl:
       case arm::OpCode::Mov:
       case arm::OpCode::MovT:
       case arm::OpCode::Mvn:
@@ -598,14 +576,28 @@ void InstructionSchedule::optimize_func(
         blockInsts.push_back(inst);
         break;
       }
+      case arm::OpCode::B:
+      case arm::OpCode::Bl:
       default: {
-        for (auto& blockInst : blockInsts) {
-          inst_new.push_back(std::unique_ptr<arm::Inst>(
-              instruction_schedule::copyInst(blockInst)));
+        if (blockInsts.empty()) {
+          inst_new.push_back(
+              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+        } else if (blockInsts.size() < 2) {
+          for (auto& blockInst : blockInsts) {
+            inst_new.push_back(std::unique_ptr<arm::Inst>(
+                instruction_schedule::copyInst(blockInst)));
+          }
+          inst_new.push_back(
+              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+          blockInsts.clear();
+        } else {
+          instruction_schedule::InstructionScheduler scheduler =
+              instruction_schedule::InstructionScheduler();
+          scheduler.scheduleBaseBlock(blockInsts, inst_new);
+          inst_new.push_back(
+              std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
+          blockInsts.clear();
         }
-        inst_new.push_back(
-            std::unique_ptr<arm::Inst>(instruction_schedule::copyInst(inst)));
-        blockInsts.clear();
       }
     }
   }
