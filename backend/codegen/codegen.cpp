@@ -23,10 +23,12 @@ arm::Function Codegen::translate_function() {
   scan();
   generate_startup();
   std::vector<std::unique_ptr<arm::Inst>> inst_sink = std::move(inst);
+  std::set<uint32_t> vis;
   for (auto it = bb_ordering.begin(); it != bb_ordering.end(); it++) {
     auto bb_id = *it;
     inst.clear();
     auto& bb = func.basic_blks.at(bb_id);
+    vis.insert(bb_id);
     translate_basic_block(bb);
 
     std::optional<arm::ConditionCode> second_last_cond =
@@ -51,7 +53,7 @@ arm::Function Codegen::translate_function() {
                      << std::endl;
         }
         auto next_bb = *(it + 1);
-        if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond)
+        if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
           if (auto next_hint = inline_hint.find(next_bb);
               hint != inline_hint.end() && hint->second != next_hint->second) {
             can_inline = false;
@@ -61,6 +63,15 @@ arm::Function Codegen::translate_function() {
             display_cond(next_hint->second, LOG(TRACE));
             LOG(TRACE) << std::endl;
           }
+          // if (vis.find(bb.jump.bb_true) != vis.end() ||
+          //     vis.find(bb.jump.bb_false) != vis.end()) {
+          //   can_inline = false;
+          //   LOG(TRACE)
+          //       << "Inline ruined by finding successor block in visited set"
+          //       << std::endl;
+          // }
+        }
+
         // else if (second_last_cond &&
         //            ((bb_id == last_jump->bb_true &&
         //              (*second_last_cond) != last_jump->cond) ||
