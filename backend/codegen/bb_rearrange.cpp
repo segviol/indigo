@@ -82,23 +82,66 @@ void BasicBlkRearrange::optimize_mir(
                                    std::move(inline_map));
 }
 
-std::tuple<std::vector<uint32_t>, std::set<uint32_t>, std::set<uint32_t>>
-BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
-  auto cycles = CycleSolver(f).solve();
-  std::set<int> visited;
-  std::set<uint32_t> inline_blks;
-  std::deque<int> bfs;
-  std::map<int, int> input_count;
-
-  std::vector<uint32_t> arrangement;
-
-  bool has_common_exit_blk = f.basic_blks.find(1048576) != f.basic_blks.end();
-
+std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
+    mir::inst::MirFunction& f) {
+  std::map<uint32_t, arm::ConditionCode> inline_blks;
   for (auto& bb : f.basic_blks) {
-    if (bb.second.inst.size() > 8) continue;
+    if (bb.second.inst.size() > 6) continue;
     if (bb.second.preceding.size() != 1) continue;
-    if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br) continue;
+    if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br &&
+        bb.second.jump.kind != mir::inst::JumpInstructionKind::BrCond)
+      continue;
+    auto prec = *bb.second.preceding.begin();
+    auto& bb_prec = f.basic_blks.at(prec);
+    if (bb_prec.jump.kind != mir::inst::JumpInstructionKind::BrCond) continue;
+
+    arm::ConditionCode cond;
+
+    {
+      auto cond_val = bb_prec.jump.cond_or_ret.value();
+      for (auto& i : bb_prec.inst) {
+        if (i->dest == cond_val) {
+          if (auto x = dynamic_cast<mir::inst::OpInst*>(&*i)) {
+            switch (x->op) {
+              case mir::inst::Op::Gt:
+                cond = arm::ConditionCode::Gt;
+                break;
+              case mir::inst::Op::Gte:
+                cond = arm::ConditionCode::Ge;
+                break;
+              case mir::inst::Op::Lt:
+                cond = arm::ConditionCode::Lt;
+                break;
+              case mir::inst::Op::Lte:
+                cond = arm::ConditionCode::Le;
+                break;
+              case mir::inst::Op::Eq:
+                cond = arm::ConditionCode::Equal;
+                break;
+              case mir::inst::Op::Neq:
+                cond = arm::ConditionCode::NotEqual;
+                break;
+              default:
+                cond = arm::ConditionCode::NotEqual;
+                break;
+            }
+            if ((x->lhs.is_immediate() && !x->rhs.is_immediate()) ||
+                (!x->lhs.is_immediate() && !x->rhs.is_immediate() &&
+                 x->lhs.has_shift() && !x->rhs.has_shift())) {
+              cond = arm::reverse_cond(cond);
+            }
+          } else {
+            cond = arm::ConditionCode::NotEqual;
+          }
+        }
+      }
+      if (bb_prec.jump.bb_false == bb.first) {
+        cond = arm::invert_cond(cond);
+      }
+    }
+
     bool can_inline = true;
+
     for (auto it = bb.second.inst.begin(); it != bb.second.inst.end(); it++) {
       auto& inst = *it;
       auto& i = *inst;
@@ -117,20 +160,36 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
         can_inline = false;
         break;
-      } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
-      } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::AssignInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::LoadInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::StoreInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::LoadOffsetInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::RefInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::PhiInst*>(&i)) {
+        // } else if (auto x = dynamic_cast<mir::inst::PtrOffsetInst*>(&i)) {
       } else {
-        throw new std::bad_cast();
+        // throw new std::bad_cast();
       }
     }
-    if (can_inline) inline_blks.insert(bb.first);
+    if (can_inline) inline_blks.insert({bb.first, cond});
   }
+
+  return std::move(inline_blks);
+}
+
+std::tuple<std::vector<uint32_t>, std::set<uint32_t>,
+           std::map<uint32_t, arm::ConditionCode>>
+BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
+  auto cycles = CycleSolver(f).solve();
+  std::set<int> visited;
+  std::deque<int> bfs;
+  std::map<int, int> input_count;
+
+  std::vector<uint32_t> arrangement;
+  std::map<uint32_t, arm::ConditionCode> inline_blks = gen_func_inline_hints(f);
+
+  bool has_common_exit_blk = f.basic_blks.find(1048576) != f.basic_blks.end();
 
   for (auto& bb : f.basic_blks) {
     input_count.insert({bb.first, bb.second.preceding.size()});
