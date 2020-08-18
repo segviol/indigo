@@ -391,7 +391,7 @@ void InstructionScheduler::buildDependencyDAG(
                 ((arm::Arith2Inst*)bInst)->r1 == paraNum) {
               addSuccessor(i - 1 - bInstNum, i);
               paraNum++;
-              regDefNodes[((arm::Arith2Inst*)bInst)->r1] = i;
+              addRegWriteDependency(i, ((arm::Arith2Inst*)bInst)->r1);
             }
             // TODO: deal the movt pass param bug
             else if (bInst->op == arm::OpCode::MovT &&
@@ -447,13 +447,13 @@ void InstructionScheduler::buildDependencyDAG(
         }
 
         addRegReadDependency(i, movInst->r2);
-        regDefNodes[movInst->r1] = i;
+        addRegWriteDependency(i, movInst->r1);
         break;
       }
       case arm::OpCode::MovT: {
         arm::Arith2Inst* movtInst = (arm::Arith2Inst*)inst;
 
-        regDefNodes[movtInst->r1] = i;
+        addRegWriteDependency(i, movtInst->r1);
         break;
       }
       case arm::OpCode::Lsl:
@@ -478,8 +478,7 @@ void InstructionScheduler::buildDependencyDAG(
 
         addRegReadDependency(i, aluInst->r1);
         addRegReadDependency(i, aluInst->r2);
-        regDefNodes[aluInst->rd] = i;
-
+        addRegWriteDependency(i, aluInst->rd);
         break;
       }
       case arm::OpCode::Cmp:
@@ -507,8 +506,7 @@ void InstructionScheduler::buildDependencyDAG(
         if (std::holds_alternative<arm::MemoryOperand>(ldInst->mem)) {
           addRegReadDependency(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
-        regDefNodes[ldInst->rd] = i;
-
+        addRegWriteDependency(i, ldInst->rd);
         break;
       }
       case arm::OpCode::StR: {
@@ -564,6 +562,14 @@ void InstructionScheduler::addRegReadDependency(uint32_t successor,
 
     addRegReadDependency(successor, reg);
   }
+};
+
+void InstructionScheduler::addRegWriteDependency(uint32_t successor,
+                                                 arm::Reg reg) {
+  if (regDefNodes.count(reg) > 0) {
+    addSuccessor(regDefNodes[reg], successor);
+  }
+  regDefNodes[reg] = successor;
 };
 
 };  // namespace backend::instruction_schedule

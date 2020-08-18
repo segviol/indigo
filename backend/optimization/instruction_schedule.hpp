@@ -93,6 +93,7 @@ class InstructionScheduler {
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);
   void addRegReadDependency(uint32_t successor, arm::Reg& reg);
   void addRegReadDependency(uint32_t successor, arm::MemoryOperand& mem);
+  void addRegWriteDependency(uint32_t successor, arm::Reg reg);
 };
 };  // namespace backend::instruction_schedule
 
