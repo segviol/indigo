@@ -479,6 +479,11 @@ void InstructionScheduler::buildDependencyDAG(
         if (std::holds_alternative<arm::MemoryOperand>(ldInst->mem)) {
           addRegReadDependency(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
+        if (std::holds_alternative<std::string>(ldInst->mem)) {
+          for (auto& reg : arm::TEMP_REGS) {
+            addRegWriteDependency(i, reg);
+          }
+        }
         addRegWriteDependency(i, ldInst->rd);
 
         if (std::holds_alternative<arm::MemoryOperand>(ldInst->mem)) {
