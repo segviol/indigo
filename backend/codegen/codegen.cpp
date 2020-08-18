@@ -51,15 +51,16 @@ arm::Function Codegen::translate_function() {
                      << std::endl;
         }
         auto next_bb = *(it + 1);
-        if (auto next_hint = inline_hint.find(next_bb);
-            hint == inline_hint.end() || hint->second != next_hint->second) {
-          can_inline = false;
-          LOG(TRACE) << "Inline ruined by hint not matching (this: ";
-          display_cond(hint->second, LOG(TRACE));
-          LOG(TRACE) << ", next: ";
-          display_cond(next_hint->second, LOG(TRACE));
-          LOG(TRACE) << std::endl;
-        }
+        if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond)
+          if (auto next_hint = inline_hint.find(next_bb);
+              hint != inline_hint.end() && hint->second != next_hint->second) {
+            can_inline = false;
+            LOG(TRACE) << "Inline ruined by hint not matching (this: ";
+            display_cond(hint->second, LOG(TRACE));
+            LOG(TRACE) << ", next: ";
+            display_cond(next_hint->second, LOG(TRACE));
+            LOG(TRACE) << std::endl;
+          }
         // else if (second_last_cond &&
         //            ((bb_id == last_jump->bb_true &&
         //              (*second_last_cond) != last_jump->cond) ||
