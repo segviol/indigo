@@ -427,6 +427,9 @@ void InstructionScheduler::buildDependencyDAG(
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
+        if (lastCmp != NullIndex) {
+          addSuccessor(lastCall, i);
+        }
         if (lastCall != NullIndex) {
           addSuccessor(lastCall, i);
         }
