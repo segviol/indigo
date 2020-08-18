@@ -90,6 +90,11 @@ class InstructionScheduler {
   void updateCands(uint32_t index,
                    std::set<std::shared_ptr<DependencyDAGNode>>& cands);
 
+  void setRegReadNode(uint32_t successor, arm::Operand2& operand2);
+  void setRegReadNode(uint32_t successor, arm::Reg& reg);
+  void setRegReadNode(uint32_t successor, arm::MemoryOperand& mem);
+  void setRegWriteNode(uint32_t successor, arm::Reg reg);
+
   void addSuccessor(uint32_t father, uint32_t successor);
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);
   void addRegReadDependency(uint32_t successor, arm::Reg& reg);

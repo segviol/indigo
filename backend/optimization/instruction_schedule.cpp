@@ -410,12 +410,17 @@ void InstructionScheduler::buildDependencyDAG(
 
         addRegReadDependency(i, movInst->r2);
         addRegWriteDependency(i, movInst->r1);
+
+        setRegReadNode(i, movInst->r2);
+        setRegWriteNode(i, movInst->r1);
         break;
       }
       case arm::OpCode::MovT: {
         arm::Arith2Inst* movtInst = (arm::Arith2Inst*)inst;
 
         addRegWriteDependency(i, movtInst->r1);
+
+        setRegWriteNode(i, movtInst->r1);
         break;
       }
       case arm::OpCode::Lsl:
@@ -441,6 +446,10 @@ void InstructionScheduler::buildDependencyDAG(
         addRegReadDependency(i, aluInst->r1);
         addRegReadDependency(i, aluInst->r2);
         addRegWriteDependency(i, aluInst->rd);
+
+        setRegReadNode(i, aluInst->r1);
+        setRegReadNode(i, aluInst->r2);
+        setRegWriteNode(i, aluInst->rd);
         break;
       }
       case arm::OpCode::Cmp:
@@ -455,6 +464,8 @@ void InstructionScheduler::buildDependencyDAG(
         addRegReadDependency(i, cmpInst->r1);
         addRegReadDependency(i, cmpInst->r2);
 
+        setRegReadNode(i, cmpInst->r1);
+        setRegReadNode(i, cmpInst->r2);
         break;
       }
       case arm::OpCode::LdR: {
@@ -469,6 +480,11 @@ void InstructionScheduler::buildDependencyDAG(
           addRegReadDependency(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
         addRegWriteDependency(i, ldInst->rd);
+
+        if (std::holds_alternative<arm::MemoryOperand>(ldInst->mem)) {
+          setRegReadNode(i, std::get<arm::MemoryOperand>(ldInst->mem));
+        }
+        setRegWriteNode(i, ldInst->rd);
         break;
       }
       case arm::OpCode::StR: {
@@ -484,6 +500,10 @@ void InstructionScheduler::buildDependencyDAG(
         }
         addRegReadDependency(i, stInst->rd);
 
+        if (std::holds_alternative<arm::MemoryOperand>(stInst->mem)) {
+          setRegReadNode(i, std::get<arm::MemoryOperand>(stInst->mem));
+        }
+        setRegReadNode(i, stInst->rd);
         break;
       }
       default: {
@@ -498,7 +518,34 @@ void InstructionScheduler::addSuccessor(uint32_t father, uint32_t successor) {
     nodes[father]->successors.insert(nodes[successor]);
     inDegrees[successor]++;
   }
-}
+};
+
+void InstructionScheduler::setRegReadNode(uint32_t successor,
+                                          arm::Operand2& operand2) {
+  if (std::holds_alternative<arm::RegisterOperand>(operand2)) {
+    arm::Reg& r2 = std::get<arm::RegisterOperand>(operand2).reg;
+
+    setRegReadNode(successor, r2);
+  }
+};
+
+void InstructionScheduler::setRegReadNode(uint32_t successor, arm::Reg& reg) {
+  regReadNodes[reg] = successor;
+};
+
+void InstructionScheduler::setRegReadNode(uint32_t successor,
+                                          arm::MemoryOperand& mem) {
+  setRegReadNode(successor, mem.r1);
+  if (std::holds_alternative<arm::RegisterOperand>(mem.offset)) {
+    arm::Reg& reg = std::get<arm::RegisterOperand>(mem.offset).reg;
+
+    setRegReadNode(successor, reg);
+  }
+};
+
+void InstructionScheduler::setRegWriteNode(uint32_t successor, arm::Reg reg) {
+  regDefNodes[reg] = successor;
+};
 
 void InstructionScheduler::addRegReadDependency(uint32_t successor,
                                                 arm::Operand2& operand2) {
