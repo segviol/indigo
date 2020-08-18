@@ -32,48 +32,66 @@ arm::Function Codegen::translate_function() {
     std::optional<arm::ConditionCode> second_last_cond =
         std::move(second_last_condition_code);
     second_last_condition_code = {};
-    if (inline_hint.find(bb_id) != inline_hint.end()) {
+    if (auto hint = inline_hint.find(bb_id); hint != inline_hint.end()) {
       LOG(TRACE) << "Found inline hint for " << bb_id << std::endl;
       bool can_inline = last_jump.has_value();
 
       if (can_inline) {
-        for (auto& i : inst) {
-          if (i->cond != arm::ConditionCode::Always) {
-            can_inline = false;
-            LOG(TRACE) << "Inline ruined by a conditional execution"
-                       << std::endl;
-            break;
-          }
-        }
+        // for (auto& i : inst) {
+        //   if (i->cond != arm::ConditionCode::Always) {
+        //     can_inline = false;
+        //     LOG(TRACE) << "Inline ruined by a conditional execution"
+        //                << std::endl;
+        //     break;
+        //   }
+        // }
         if (bb_id != last_jump->bb_true && bb_id != last_jump->bb_false) {
           can_inline = false;
           LOG(TRACE) << "Inline ruined by not next to source basic block"
                      << std::endl;
-        } else if (second_last_cond &&
-                   ((bb_id == last_jump->bb_true &&
-                     (*second_last_cond) != last_jump->cond) ||
-                    (bb_id == last_jump->bb_false &&
-                     (*second_last_cond) != invert_cond(last_jump->cond)))) {
+        }
+        auto next_bb = *(it + 1);
+        if (auto next_hint = inline_hint.find(next_bb);
+            hint == inline_hint.end() || hint->second != next_hint->second) {
           can_inline = false;
-          LOG(TRACE) << "Inline ruined by second last condition: ";
-          display_cond(*second_last_cond, LOG(TRACE));
-          LOG(TRACE) << " which conflicts with current one: ";
-          display_cond(last_jump->cond, LOG(TRACE));
+          LOG(TRACE) << "Inline ruined by hint not matching (this: ";
+          display_cond(hint->second, LOG(TRACE));
+          LOG(TRACE) << ", next: ";
+          display_cond(next_hint->second, LOG(TRACE));
           LOG(TRACE) << std::endl;
         }
+        // else if (second_last_cond &&
+        //            ((bb_id == last_jump->bb_true &&
+        //              (*second_last_cond) != last_jump->cond) ||
+        //             (bb_id == last_jump->bb_false &&
+        //              (*second_last_cond) != invert_cond(last_jump->cond))))
+        //              {
+        //   can_inline = false;
+        //   LOG(TRACE) << "Inline ruined by second last condition: ";
+        //   display_cond(*second_last_cond, LOG(TRACE));
+        //   LOG(TRACE) << " which conflicts with current one: ";
+        //   display_cond(last_jump->cond, LOG(TRACE));
+        //   LOG(TRACE) << std::endl;
+        // }
       }
       if (can_inline) {
         // Calculate condition code to be used in this block
         ConditionCode cond;
+        mir::types::LabelId expected_bb;
+        bool inverted;
         if (bb_id == last_jump->bb_true) {
           cond = last_jump->cond;
-          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
+          expected_bb = last_jump->bb_false;
+          inverted = false;
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_false) {
             inst_sink.pop_back();
             inst_sink.pop_back();
           } else {
           }
         } else {
           cond = invert_cond(last_jump->cond);
+          expected_bb = last_jump->bb_true;
+          inverted = true;
           // since a conditional branch is always emitted in the fashion of
           // "bb_false, bb_true", we can safely pop the second-to-last branch
           // operation and add the condition to bb_true
@@ -150,8 +168,8 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
     }
   }
   inst.push_back(std::make_unique<LabelInst>(label));
-  // HACK: To make comparison closer to branch, `emit_phi_move` runs before the
-  // HACK: first comparison
+  // HACK: To make comparison closer to branch, `emit_phi_move` runs before
+  // the HACK: first comparison
   bool met_cmp = false;
   std::unordered_set<mir::inst::VarId> use_vars;
 
