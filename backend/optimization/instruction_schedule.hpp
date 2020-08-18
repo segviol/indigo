@@ -100,6 +100,8 @@ class InstructionScheduler {
   void addRegReadDependency(uint32_t successor, arm::Reg& reg);
   void addRegReadDependency(uint32_t successor, arm::MemoryOperand& mem);
   void addRegWriteDependency(uint32_t successor, arm::Reg reg);
+
+  bool exePipeConflict(const std::shared_ptr<DependencyDAGNode>& cand, ExePipeCode exePipeCode);
 };
 };  // namespace backend::instruction_schedule
 

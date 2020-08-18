@@ -221,19 +221,24 @@ void InstructionScheduler::scheduleBaseBlock(
     }
   }
 
-  for (size_t i = 0; i < blockInsts.size(); i++) {
+  for (size_t i = 0; i < blockInsts.size();) {
     for (auto& code : allExePopeCodes) {
       if (exePipeLatency[code] > 0) {
         exePipeLatency[code]--;
       }
     }
 
-    if (emptyExePipeSchedule(newInsts, cands)) {
-    } else {
-      i--;
+    while (emptyExePipeSchedule(newInsts, cands)) {
+      i++;
     }
   }
 };
+
+bool InstructionScheduler::exePipeConflict(
+    const std::shared_ptr<DependencyDAGNode>& cand, ExePipeCode exePipeCode) {
+  return (exePipeLatency[exePipeCode] > 0 &&
+          nodes[exePipeNode[exePipeCode]]->successors.count(cand) > 0);
+}
 
 bool InstructionScheduler::emptyExePipeSchedule(
     std::vector<std::unique_ptr<arm::Inst>>& newInsts,
@@ -253,9 +258,10 @@ bool InstructionScheduler::emptyExePipeSchedule(
       case InstKind::Integer: {
         if (exePipeLatency[ExePipeCode::Integer0] == 0 ||
             exePipeLatency[ExePipeCode::Integer1] == 0) {
-          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
-              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
-                  cand) == 0) {
+          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
+              !exePipeConflict(cand, ExePipeCode::Integer1) &&
+              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
+              !exePipeConflict(cand, ExePipeCode::Load)) {
             pool.push_back(cand);
           }
         }
@@ -263,15 +269,21 @@ bool InstructionScheduler::emptyExePipeSchedule(
       }
       case InstKind::IntegerM: {
         if (exePipeLatency[ExePipeCode::IntegerM] == 0) {
-          pool.push_back(cand);
+          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
+              !exePipeConflict(cand, ExePipeCode::Integer1) &&
+              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
+              !exePipeConflict(cand, ExePipeCode::Load)) {
+            pool.push_back(cand);
+          }
         }
         break;
       }
       case InstKind::Load: {
         if (exePipeLatency[ExePipeCode::Load] == 0) {
-          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
-              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
-                  cand) == 0) {
+          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
+              !exePipeConflict(cand, ExePipeCode::Integer1) &&
+              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
+              !exePipeConflict(cand, ExePipeCode::Load)) {
             pool.push_back(cand);
           }
         }
@@ -279,9 +291,10 @@ bool InstructionScheduler::emptyExePipeSchedule(
       }
       case InstKind::Store: {
         if (exePipeLatency[ExePipeCode::Store] == 0) {
-          if (exePipeLatency[ExePipeCode::IntegerM] == 0 ||
-              nodes[exePipeNode[ExePipeCode::IntegerM]]->successors.count(
-                  cand) == 0) {
+          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
+              !exePipeConflict(cand, ExePipeCode::Integer1) &&
+              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
+              !exePipeConflict(cand, ExePipeCode::Load)) {
             pool.push_back(cand);
           }
         }
