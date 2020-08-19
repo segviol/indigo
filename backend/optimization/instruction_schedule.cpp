@@ -499,8 +499,8 @@ void InstructionScheduler::buildDependencyDAG(
           addRegReadDependency(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
         if (std::holds_alternative<std::string>(ldInst->mem)) {
-          for (size_t j = 0; j < i; j++) {
-            addSuccessor(j, i);
+          for (auto& tmpReg : arm::TEMP_REGS) {
+            addRegWriteDependency(i, tmpReg);
           }
         }
         addRegWriteDependency(i, ldInst->rd);
@@ -609,9 +609,11 @@ void InstructionScheduler::addRegWriteDependency(uint32_t successor,
     addSuccessor(regDefNodes[reg], successor);
   }
   if (regReadNodes.count(reg) > 0) {
-    for (auto& readNode : regReadNodes.at(reg)) {
-      if (readNode != successor) {
-        addSuccessor(readNode, successor);
+    std::set<uint32_t>& readNodes = regReadNodes.at(reg);
+    for (auto readNode = readNodes.begin(); readNode != readNodes.end();
+         readNode++) {
+      if (*readNode != successor) {
+        addSuccessor(*readNode, successor);
       }
     }
   }
