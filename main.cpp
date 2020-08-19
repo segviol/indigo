@@ -116,9 +116,10 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   backend.add_pass(std::make_unique<optimization::cast_inst::Cast_Inst>());
-  backend.add_pass(
-      std::make_unique<
-          optimization::memvar_propagation::Memory_Var_Propagation>(true));
+  // transpose will error
+  // backend.add_pass(
+  //     std::make_unique<
+  //         optimization::memvar_propagation::Memory_Var_Propagation>(true));
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
   backend.add_pass(
@@ -141,8 +142,9 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
-  backend.add_pass(std::make_unique<
-                   optimization::global_var_to_local::Global_Var_to_Local>());
+  // fft will error
+  // backend.add_pass(std::make_unique<
+  //                  optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
