@@ -49,7 +49,8 @@ struct LastJump {
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func, mir::inst::MirPackage& package,
-          std::map<std::string, std::any>& extra_data)
+          std::map<std::string, std::any>& extra_data,
+          bool enable_cond_exec = true)
       : func(func),
         package(package),
         extra_data(extra_data),
@@ -57,7 +58,8 @@ class Codegen final {
         reg_map(),
         fixed_vars(),
         var_collapse(),
-        bb_ordering() {
+        bb_ordering(),
+        enable_cond_exec(enable_cond_exec) {
     {
       // Calculate ordering
       auto any_ordering =
@@ -134,6 +136,7 @@ class Codegen final {
   uint32_t vreg_vd_counter = 0;
   uint32_t vreg_vq_counter = 0;
   uint32_t const_counter = 0;
+  bool enable_cond_exec;
 
   int param_size;
   uint32_t stack_size = 0;
