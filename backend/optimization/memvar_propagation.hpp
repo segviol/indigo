@@ -162,7 +162,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                   if (it->second.index() == 1) {
                     del_index.push_back(index);
                   }
-                } /*else {
+                } else {
                   std::variant<int32_t, mir::inst::VarId> value;
                   value.emplace<1>(x->dest);
                   if (x->src.index() == 1) {
@@ -171,7 +171,7 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
                                  std::variant<int32_t, mir::inst::VarId>>::
                             value_type(std::get<1>(x->src), value));
                   }
-                }*/
+                }
               }
             }
           }
@@ -602,9 +602,9 @@ class Memory_Var_Propagation : public backend::MirOptimizePass {
             }
           }
           if (auto x = dynamic_cast<mir::inst::StoreOffsetInst*>(&i)) {
-            if (x->dest == (*k).id) {
+
               call_index.push_back(index);
-            }
+            
           }
           index++;
         }
