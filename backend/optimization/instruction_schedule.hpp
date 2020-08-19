@@ -29,17 +29,7 @@ class DependencyDAGNode {
 
   bool operator<(const DependencyDAGNode& other) const {
     bool r;
-    if (latency < other.latency) {
-      r = false;
-    } else if (latency > other.latency) {
-      r = true;
-    } else {
-      if (originIndex < other.originIndex) {
-        r = true;
-      } else {
-        r = false;
-      }
-    }
+    r = (originIndex < other.originIndex);
     return r;
   }
 
