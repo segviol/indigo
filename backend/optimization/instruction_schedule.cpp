@@ -402,10 +402,8 @@ void InstructionScheduler::buildDependencyDAG(
         }
         lastMem = i;
 
-        if (lastCmp != NullIndex) {
-          addSuccessor(lastCmp, i);
-        }
-        lastCmp = i;
+        addCmpReadDependency(i);
+        addCmpWriteDependency(i);
 
         if (lastCall != NullIndex) {
           addSuccessor(lastCall, i);
@@ -419,6 +417,8 @@ void InstructionScheduler::buildDependencyDAG(
           addRegWriteDependency(i, tmpReg);
         }
 
+        setCmpReadNode(i);
+        setCmpWriteNode(i);
         for (auto tmpReg : arm::TEMP_REGS) {
           setRegReadNode(i, tmpReg);
         }
@@ -432,13 +432,15 @@ void InstructionScheduler::buildDependencyDAG(
         arm::Arith2Inst* movInst = (arm::Arith2Inst*)inst;
 
         if (movInst->cond != arm::ConditionCode::Always) {
-          if (lastCmp != NullIndex) {
-            addSuccessor(lastCmp, i);
-          }
+          addCmpReadDependency(i);
         }
 
         addRegReadDependency(i, movInst->r2);
         addRegWriteDependency(i, movInst->r1);
+
+        if (movInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
 
         setRegReadNode(i, movInst->r2);
         setRegWriteNode(i, movInst->r1);
@@ -448,12 +450,14 @@ void InstructionScheduler::buildDependencyDAG(
         arm::Arith2Inst* movtInst = (arm::Arith2Inst*)inst;
 
         if (movtInst->cond != arm::ConditionCode::Always) {
-          if (lastCmp != NullIndex) {
-            addSuccessor(lastCmp, i);
-          }
+          addCmpReadDependency(i);
         }
 
         addRegWriteDependency(i, movtInst->r1);
+
+        if (movtInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
 
         setRegWriteNode(i, movtInst->r1);
         break;
@@ -479,14 +483,16 @@ void InstructionScheduler::buildDependencyDAG(
         }
 
         if (aluInst->cond != arm::ConditionCode::Always) {
-          if (lastCmp != NullIndex) {
-            addSuccessor(lastCmp, i);
-          }
+          addCmpReadDependency(i);
         }
 
         addRegReadDependency(i, aluInst->r1);
         addRegReadDependency(i, aluInst->r2);
         addRegWriteDependency(i, aluInst->rd);
+
+        if (aluInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
 
         setRegReadNode(i, aluInst->r1);
         setRegReadNode(i, aluInst->r2);
@@ -497,13 +503,18 @@ void InstructionScheduler::buildDependencyDAG(
       case arm::OpCode::Cmn: {
         arm::Arith2Inst* cmpInst = (arm::Arith2Inst*)inst;
 
-        if (lastCmp != NullIndex) {
-          addSuccessor(lastCmp, i);
+        if (cmpInst->cond != arm::ConditionCode::Always) {
+          addCmpReadDependency(i);
         }
-        lastCmp = i;
+        addCmpWriteDependency(i);
 
         addRegReadDependency(i, cmpInst->r1);
         addRegReadDependency(i, cmpInst->r2);
+
+        if (cmpInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
+        setCmpWriteNode(i);
 
         setRegReadNode(i, cmpInst->r1);
         setRegReadNode(i, cmpInst->r2);
@@ -513,9 +524,7 @@ void InstructionScheduler::buildDependencyDAG(
         arm::LoadStoreInst* ldInst = (arm::LoadStoreInst*)inst;
 
         if (ldInst->cond != arm::ConditionCode::Always) {
-          if (lastCmp != NullIndex) {
-            addSuccessor(lastCmp, i);
-          }
+          addCmpReadDependency(i);
         }
 
         if (lastMem != NullIndex) {
@@ -533,6 +542,9 @@ void InstructionScheduler::buildDependencyDAG(
         }
         addRegWriteDependency(i, ldInst->rd);
 
+        if (ldInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
         if (std::holds_alternative<arm::MemoryOperand>(ldInst->mem)) {
           setRegReadNode(i, std::get<arm::MemoryOperand>(ldInst->mem));
         }
@@ -548,9 +560,7 @@ void InstructionScheduler::buildDependencyDAG(
         arm::LoadStoreInst* stInst = (arm::LoadStoreInst*)inst;
 
         if (stInst->cond != arm::ConditionCode::Always) {
-          if (lastCmp != NullIndex) {
-            addSuccessor(lastCmp, i);
-          }
+          addCmpReadDependency(i);
         }
 
         if (lastMem != NullIndex) {
@@ -563,6 +573,9 @@ void InstructionScheduler::buildDependencyDAG(
         }
         addRegReadDependency(i, stInst->rd);
 
+        if (stInst->cond != arm::ConditionCode::Always) {
+          setCmpReadNode(i);
+        }
         if (std::holds_alternative<arm::MemoryOperand>(stInst->mem)) {
           setRegReadNode(i, std::get<arm::MemoryOperand>(stInst->mem));
         }
@@ -581,6 +594,32 @@ void InstructionScheduler::addSuccessor(uint32_t father, uint32_t successor) {
     nodes[father]->successors.insert(nodes[successor]);
     inDegrees[successor]++;
   }
+};
+
+void InstructionScheduler::addCmpReadDependency(uint32_t successor) {
+  if (lastCmp != NullIndex && lastCmp != successor) {
+    addSuccessor(lastCmp, successor);
+  }
+};
+
+void InstructionScheduler::addCmpWriteDependency(uint32_t successor) {
+  if (lastCmp != NullIndex && lastCmp != successor) {
+    addSuccessor(lastCmp, successor);
+  }
+  for (auto& node : readCmpNodes) {
+    if (node != successor) {
+      addSuccessor(node, successor);
+    }
+  }
+};
+
+void InstructionScheduler::setCmpReadNode(uint32_t successor) {
+  readCmpNodes.insert(successor);
+};
+
+void InstructionScheduler::setCmpWriteNode(uint32_t successor) {
+  lastCmp = successor;
+  readCmpNodes.clear();
 };
 
 void InstructionScheduler::setRegReadNode(uint32_t successor,

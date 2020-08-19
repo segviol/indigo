@@ -75,6 +75,7 @@ class InstructionScheduler {
   std::map<arm::Reg, std::set<uint32_t>> regReadNodes;
   uint32_t lastMem;
   uint32_t lastCmp;
+  std::set<uint32_t> readCmpNodes;
   uint32_t lastCall;
 
   std::map<uint32_t, uint32_t> inDegrees;
@@ -89,6 +90,9 @@ class InstructionScheduler {
 
   void updateCands(uint32_t index,
                    std::set<std::shared_ptr<DependencyDAGNode>>& cands);
+  
+  void setCmpReadNode(uint32_t successor);
+  void setCmpWriteNode(uint32_t successor);
 
   void setRegReadNode(uint32_t successor, arm::Operand2& operand2);
   void setRegReadNode(uint32_t successor, arm::Reg& reg);
@@ -96,6 +100,10 @@ class InstructionScheduler {
   void setRegWriteNode(uint32_t successor, arm::Reg reg);
 
   void addSuccessor(uint32_t father, uint32_t successor);
+
+  void addCmpReadDependency(uint32_t successor);
+  void addCmpWriteDependency(uint32_t successor);
+
   void addRegReadDependency(uint32_t successor, arm::Operand2& operand2);
   void addRegReadDependency(uint32_t successor, arm::Reg& reg);
   void addRegReadDependency(uint32_t successor, arm::MemoryOperand& mem);
