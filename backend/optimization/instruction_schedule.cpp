@@ -709,6 +709,7 @@ void InstructionSchedule::optimize_func(
   for (size_t index = 0; index < f.inst.size(); index++) {
     arm::Inst* inst = f.inst.at(index).get();
     switch (inst->op) {
+      case arm::OpCode::Bl:
       case arm::OpCode::Mov:
       case arm::OpCode::MovT:
       case arm::OpCode::Mvn:
@@ -731,7 +732,6 @@ void InstructionSchedule::optimize_func(
         break;
       }
       case arm::OpCode::B:
-      case arm::OpCode::Bl:
       default: {
         if (blockInsts.empty()) {
           inst_new.push_back(
