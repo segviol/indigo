@@ -89,8 +89,8 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::const_propagation::Const_Propagation>());
   // backend.add_pass(
   //     std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
-  backend.add_pass(
-      std::make_unique<optimization::loop_expand::Const_Loop_Expand>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::loop_expand::Const_Loop_Expand>());
   // backend.add_pass(
   //     std::make_unique<optimization::loop_unrolling::Loop_Unrolling>());
   // backend.add_pass(
@@ -138,11 +138,11 @@ void add_passes(backend::Backend& backend) {
   // backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
   // backend.add_pass(std::make_unique<optimization::exit_ahead::Exit_Ahead>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
-  backend.add_pass(
-      std::make_unique<optimization::func_array_global::Func_Array_Global>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
-  backend.add_pass(std::make_unique<
-                   optimization::global_var_to_local::Global_Var_to_Local>());
+  // backend.add_pass(std::make_unique<
+  //                  optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
