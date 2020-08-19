@@ -34,7 +34,8 @@ arm::Function Codegen::translate_function() {
     std::optional<arm::ConditionCode> second_last_cond =
         std::move(second_last_condition_code);
     second_last_condition_code = {};
-    if (auto hint = inline_hint.find(bb_id); hint != inline_hint.end()) {
+    if (auto hint = inline_hint.find(bb_id);
+        enable_cond_exec && hint != inline_hint.end()) {
       LOG(TRACE) << "Found inline hint for " << bb_id << std::endl;
       bool can_inline = last_jump.has_value();
 
