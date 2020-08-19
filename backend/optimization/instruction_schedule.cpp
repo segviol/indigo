@@ -256,12 +256,18 @@ bool InstructionScheduler::emptyExePipeSchedule(
         break;
       }
       case InstKind::Integer: {
-        if (exePipeLatency[ExePipeCode::Integer0] == 0 ||
-            exePipeLatency[ExePipeCode::Integer1] == 0) {
-          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
-              !exePipeConflict(cand, ExePipeCode::Integer1) &&
+        if (exePipeLatency[ExePipeCode::Integer0] == 0) {
+          if (!exePipeConflict(cand, ExePipeCode::Integer1) &&
               !exePipeConflict(cand, ExePipeCode::IntegerM) &&
-              !exePipeConflict(cand, ExePipeCode::Load)) {
+              !exePipeConflict(cand, ExePipeCode::Load) &&
+              !exePipeConflict(cand, ExePipeCode::Store)) {
+            pool.push_back(cand);
+          }
+        } else if (exePipeLatency[ExePipeCode::Integer1] == 0) {
+          if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
+              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
+              !exePipeConflict(cand, ExePipeCode::Load) &&
+              !exePipeConflict(cand, ExePipeCode::Store)) {
             pool.push_back(cand);
           }
         }
@@ -271,8 +277,8 @@ bool InstructionScheduler::emptyExePipeSchedule(
         if (exePipeLatency[ExePipeCode::IntegerM] == 0) {
           if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
               !exePipeConflict(cand, ExePipeCode::Integer1) &&
-              !exePipeConflict(cand, ExePipeCode::IntegerM) &&
-              !exePipeConflict(cand, ExePipeCode::Load)) {
+              !exePipeConflict(cand, ExePipeCode::Load) &&
+              !exePipeConflict(cand, ExePipeCode::Store)) {
             pool.push_back(cand);
           }
         }
@@ -283,7 +289,7 @@ bool InstructionScheduler::emptyExePipeSchedule(
           if (!exePipeConflict(cand, ExePipeCode::Integer0) &&
               !exePipeConflict(cand, ExePipeCode::Integer1) &&
               !exePipeConflict(cand, ExePipeCode::IntegerM) &&
-              !exePipeConflict(cand, ExePipeCode::Load)) {
+              !exePipeConflict(cand, ExePipeCode::Store)) {
             pool.push_back(cand);
           }
         }
