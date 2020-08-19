@@ -67,7 +67,8 @@ void Backend::do_mir_to_arm_transform() {
   auto code = arm::ArmCode();
   for (auto& f : package.functions) {
     if (f.second.type->is_extern) continue;
-    auto cg = codegen::Codegen(f.second, package, extra_data);
+    auto cg = codegen::Codegen(f.second, package, extra_data,
+                               options.allow_conditional_exec);
     auto arm_f = cg.translate_function();
     code.functions.push_back(std::make_unique<arm::Function>(std::move(arm_f)));
   }
