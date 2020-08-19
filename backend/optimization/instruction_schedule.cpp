@@ -397,10 +397,6 @@ void InstructionScheduler::buildDependencyDAG(
         break;
       }
       case arm::OpCode::Bl: {
-        for (size_t j = 0; j < i; j++) {
-          addSuccessor(j, i);
-        }
-
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
@@ -414,6 +410,13 @@ void InstructionScheduler::buildDependencyDAG(
         }
         lastCall = i;
 
+        for (auto& tmpReg : arm::TEMP_REGS) {
+          addRegWriteDependency(i, tmpReg);
+        }
+
+        for (auto& tmpReg : arm::TEMP_REGS) {
+          setRegWriteNode(i, tmpReg);
+        }
         break;
       }
       case arm::OpCode::Mov:
@@ -424,7 +427,6 @@ void InstructionScheduler::buildDependencyDAG(
           if (lastCmp != NullIndex) {
             addSuccessor(lastCmp, i);
           }
-          lastCmp = i;
         }
 
         addRegReadDependency(i, movInst->r2);
@@ -636,6 +638,7 @@ void InstructionSchedule::optimize_func(
   for (size_t index = 0; index < f.inst.size(); index++) {
     arm::Inst* inst = f.inst.at(index).get();
     switch (inst->op) {
+      case arm::OpCode::Bl:
       case arm::OpCode::Mov:
       case arm::OpCode::MovT:
       case arm::OpCode::Mvn:
@@ -658,7 +661,6 @@ void InstructionSchedule::optimize_func(
         break;
       }
       case arm::OpCode::B:
-      case arm::OpCode::Bl:
       default: {
         if (blockInsts.empty()) {
           inst_new.push_back(
