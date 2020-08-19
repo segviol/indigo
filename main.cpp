@@ -13,6 +13,7 @@
 #include "backend/optimization/algebraic_simplification.hpp"
 #include "backend/optimization/block_merge.hpp"
 #include "backend/optimization/cast_inst.hpp"
+#include "backend/optimization/check.hpp"
 #include "backend/optimization/common_expression_delete.hpp"
 #include "backend/optimization/complex_dead_code_elimination.hpp"
 #include "backend/optimization/const_loop_expand.hpp"
@@ -59,6 +60,7 @@ string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
 void add_passes(backend::Backend& backend) {
+  backend.add_pass(std::make_unique<optimization::sanity_check::SanityCheck>());
   backend.add_pass(
       std::make_unique<optimization::remove_temp_var::Remove_Temp_Var>());
   backend.add_pass(
@@ -160,6 +162,11 @@ void add_passes(backend::Backend& backend) {
 
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
+
+  // ***************
+  options.allow_conditional_exec = false;
+  // ***************
+
   global_options = options;
 
   if (options.dry_run) {
