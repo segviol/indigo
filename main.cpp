@@ -145,8 +145,7 @@ void add_passes(backend::Backend& backend) {
   // backend.add_pass(std::make_unique<
   //                  optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
-  backend.add_pass(
-      std::make_unique<optimization::graph_color::Graph_Color>(5, true));
+  backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(5));
 
   // ARM Passes
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
