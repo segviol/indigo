@@ -30,18 +30,12 @@ class Conflict_Map {
   std::map<u_int, std::set<mir::inst::VarId>> edge_vars;
   std::stack<mir::inst::VarId> remove_Nodes;
   std::shared_ptr<Color_Map> color_map;
-  std::shared_ptr<std::set<int>> unused_colors;
-  std::map<mir::inst::VarId, int> priority_map;
   mir::inst::MirFunction& func;
   int varId;
   u_int color_num = 8;
   Conflict_Map(std::shared_ptr<Color_Map> color_map,
                mir::inst::MirFunction& func, u_int color_num = 8)
       : color_num(color_num), color_map(color_map), func(func) {
-    unused_colors = std::make_shared<std::set<int>>();
-    for (int i = 0; i < color_num; i++) {
-      unused_colors->insert(i);
-    }
     if (func.variables.size()) {
       auto end_iter = func.variables.end();
       end_iter--;
@@ -70,39 +64,15 @@ class Conflict_Map {
           for (auto var : inst->useVars()) {
             merge(var, new_VarId);
           }
-          // LOG(TRACE) << new_VarId << " : ";
-          // for (auto var : inst->useVars()) {
-          //   LOG(TRACE) << var << ", ";
-          // }
-          // LOG(TRACE) << std::endl;
         }
       }
     }
-    for (auto& pair : merged_Map) {
-      LOG(TRACE) << pair.first << " representes these vars : ";
-      for (auto var : pair.second) {
-        LOG(TRACE) << var << ", ";
-      }
-      LOG(TRACE) << std::endl;
-    }
-  }
-
-  int get_priority(mir::inst::VarId var) {
-    int pri;
-    if (func.variables.count(var.id)) {
-      pri = func.variables.at(var.id).priority;
-    } else {
-      pri = priority_map.at(var);
-    }
-    // assert(pri == 0);
-    return pri;
   }
 
   void merge(mir::inst::VarId var1, mir::inst::VarId var2) {
     if (!merged_Map.count(var2)) {
       merged_Map[var2] = std::set<mir::inst::VarId>();
     }
-    int priority = func.variables.at(var1.id).priority;
     if (merged_var_Map.count(var1)) {
       auto old_merged_var = merged_var_Map.at(var1);
       if (old_merged_var == var2) {
@@ -111,14 +81,11 @@ class Conflict_Map {
       for (auto& var : merged_Map.at(old_merged_var)) {
         merged_var_Map[var] = var2;
         merged_Map[var2].insert(var);
-        priority += func.variables.at(var.id).priority;
       }
-      priority_map.insert({var2, priority});
       merged_Map.erase(old_merged_var);
     } else {
       merged_var_Map[var1] = var2;
       merged_Map[var2].insert(var1);
-      priority_map.insert({var2, priority});
     }
   }
 
@@ -135,10 +102,6 @@ class Conflict_Map {
     for (auto useVar : useVars) {
       if (merged_var_Map.count(useVar)) {
         useVar = merged_var_Map.at(useVar);
-      }
-      if (defVar.id == 66059 && useVar.id == 66061 ||
-          useVar.id == 66059 && defVar.id == 66061) {
-        std::cout << "find it " << std::endl;
       }
       if (defVar == useVar) {
         continue;
@@ -240,24 +203,11 @@ class Conflict_Map {
     if (!edge_vars.size()) {
       return;
     }
-    int priority = 9999999;
-    // mir::inst::VarId var;
-    // for (auto& pair : dynamic_Map) {
-    //   if (get_priority(pair.first) < priority) {
-    //     var = pair.first;
-    //   }
-    // }
-    mir::inst::VarId var;
-    for (auto& edgepair : edge_vars) {
-      for (auto var1 : edgepair.second) {
-        auto pri1 = get_priority(var1);
-        if (pri1 < priority) {
-          priority = pri1;
-          var = var1;
-        }
-      }
-    }
-    remove_node(var, false);
+    auto min_edge_iter = edge_vars.begin();
+    auto min_edge = min_edge_iter->first;
+    assert(min_edge >= color_num);
+    auto iter = min_edge_iter->second.begin();
+    remove_node(*iter, false);
   }
 
   bool empty() { return dynamic_Map.empty(); }
@@ -269,9 +219,6 @@ class Conflict_Map {
     }
     for (int i = 0; i < color_num; i++) {
       if (colors[i]) {
-        if (unused_colors->count(i)) {
-          unused_colors->erase(i);
-        }
         return i;
       }
     }
@@ -318,17 +265,13 @@ class Graph_Color : public backend::MirOptimizePass {
  public:
   u_int color_num = 8;
   const std::string name = "graph_color";
-  bool enable;
   std::map<mir::types::LabelId,
            std::shared_ptr<livevar_analyse::Livevar_Analyse>>
       blk_livevar_analyse;
 
   std::unordered_map<std::string, std::shared_ptr<Color_Map>> func_color_map;
-  std::unordered_map<std::string, std::shared_ptr<std::set<int>>>
-      func_unused_colors;
   std::map<std::string, std::shared_ptr<Conflict_Map>> func_conflict_map;
-  Graph_Color(u_int color_num, bool enable = true)
-      : color_num(color_num), enable(enable) {}
+  Graph_Color(u_int color_num) : color_num(color_num) {}
   std::string pass_name() const { return name; }
   std::map<mir::inst::VarId, std::set<mir::types::LabelId>> var_blks;
 
@@ -346,13 +289,9 @@ class Graph_Color : public backend::MirOptimizePass {
                          std::set<mir::inst::VarId>& cross_blk_vars) {
     auto& block = blv->block;
     for (auto iter = block.inst.begin(); iter != block.inst.end(); ++iter) {
-      if (iter->get()->inst_kind() == mir::inst::InstKind::Phi) {
-        continue;
-      }
       auto defVar = iter->get()->dest;
       if (blv->queryTy(defVar) == mir::types::TyKind::Void ||
-          !cross_blk_vars.count(defVar) &&
-              !conflict_map->merged_var_Map.count(defVar)) {
+          !cross_blk_vars.count(defVar)) {
         continue;
       }
       int idx = iter - block.inst.begin();
@@ -368,67 +307,40 @@ class Graph_Color : public backend::MirOptimizePass {
         conflict_map->add_conflict(var, std::set<mir::inst::VarId>());
       }
     }
-    // LOG(TRACE) << "conflict map : " << std::endl;
-    // for (auto pair : conflict_map->dynamic_Map) {
-    //   LOG(TRACE) << pair.first << " : ";
-    //   for (auto var : pair.second) {
-    //     LOG(TRACE) << var << ", ";
-    //   }
-    //   LOG(TRACE) << std::endl;
-    // }
   }
 
   void optimize_func(std::string funcId, mir::inst::MirFunction& func) {
     if (func.type->is_extern) {
       return;
     }
-    LOG(TRACE) << "Running graph coloring for" << func.name << std::endl;
     std::set<mir::inst::VarId> cross_blk_vars;
     auto map = std::make_shared<Color_Map>(std::map<mir::inst::VarId, color>());
     func_color_map.insert({funcId, map});
     func_conflict_map[funcId] = std::make_shared<Conflict_Map>(
         Conflict_Map(func_color_map[funcId], func, color_num));
     auto conflict_map = func_conflict_map[funcId];
-    func_unused_colors.insert({funcId, conflict_map->unused_colors});
-    livevar_analyse::Livevar_Analyse lva(func, true);
+    livevar_analyse::Livevar_Analyse lva(func);
     lva.build();
     for (auto iter = lva.livevars.begin(); iter != lva.livevars.end(); ++iter) {
       init_cross_blk_vars(iter->second, cross_blk_vars);
     }
-    LOG(TRACE) << " Conflict map :" << std::endl;
-
-    if (enable) {
-      for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
-           ++iter) {
-        init_conflict_map(lva.livevars[iter->first], conflict_map,
-                          cross_blk_vars);
-      }
-      conflict_map->init_edge_vars();
-      for (auto& pair : conflict_map->dynamic_Map) {
-        LOG(TRACE) << pair.first << " conflicts with : ";
-        for (auto var : pair.second) {
-          LOG(TRACE) << var << ", ";
-        }
-        LOG(TRACE) << std::endl;
-      }
-      while (!conflict_map->dynamic_Map.empty()) {
-        conflict_map->remove_edge_less_colors();
-        conflict_map->remove_edge_larger_colors();
-      }
-      conflict_map->rebuild();
+    for (auto iter = func.basic_blks.begin(); iter != func.basic_blks.end();
+         ++iter) {
+      init_conflict_map(lva.livevars[iter->first], conflict_map,
+                        cross_blk_vars);
     }
-
+    conflict_map->init_edge_vars();
+    while (!conflict_map->dynamic_Map.empty()) {
+      conflict_map->remove_edge_less_colors();
+      conflict_map->remove_edge_larger_colors();
+    }
+    conflict_map->rebuild();
     for (auto& var : cross_blk_vars) {
       if (!conflict_map->color_map->count(var)) {
         conflict_map->color_map->insert(std::make_pair(var, -1));
       }
     }
     LOG(TRACE) << func.name << " coloring result : " << std::endl;
-    LOG(TRACE) << "unused colors : ";
-    for (auto c : *conflict_map->unused_colors) {
-      LOG(TRACE) << c << " ";
-    }
-    LOG(TRACE) << std::endl;
     for (auto iter = conflict_map->color_map->begin();
          iter != conflict_map->color_map->end(); iter++) {
       LOG(TRACE) << "variable " << iter->first << " color: " << iter->second
@@ -444,7 +356,6 @@ class Graph_Color : public backend::MirOptimizePass {
       optimize_func(iter->first, iter->second);
     }
     extra_data_repo[name] = func_color_map;
-    extra_data_repo["unused_colors"] = func_unused_colors;
   }
 };
 
