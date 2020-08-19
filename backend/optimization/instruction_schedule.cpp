@@ -397,23 +397,34 @@ void InstructionScheduler::buildDependencyDAG(
         break;
       }
       case arm::OpCode::Bl: {
-        for (size_t j = 0; j < i; j++) {
-          addSuccessor(j, i);
-        }
-
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
         lastMem = i;
+
         if (lastCmp != NullIndex) {
           addSuccessor(lastCmp, i);
         }
         lastCmp = i;
+
         if (lastCall != NullIndex) {
           addSuccessor(lastCall, i);
         }
         lastCall = i;
 
+        for (auto tmpReg : arm::TEMP_REGS) {
+          addRegReadDependency(i, tmpReg);
+        }
+        for (auto& tmpReg : arm::TEMP_REGS) {
+          addRegWriteDependency(i, tmpReg);
+        }
+
+        for (auto tmpReg : arm::TEMP_REGS) {
+          setRegReadNode(i, tmpReg);
+        }
+        for (auto& tmpReg : arm::TEMP_REGS) {
+          setRegWriteNode(i, tmpReg);
+        }
         break;
       }
       case arm::OpCode::Mov:
@@ -424,7 +435,6 @@ void InstructionScheduler::buildDependencyDAG(
           if (lastCmp != NullIndex) {
             addSuccessor(lastCmp, i);
           }
-          lastCmp = i;
         }
 
         addRegReadDependency(i, movInst->r2);
@@ -436,6 +446,12 @@ void InstructionScheduler::buildDependencyDAG(
       }
       case arm::OpCode::MovT: {
         arm::Arith2Inst* movtInst = (arm::Arith2Inst*)inst;
+
+        if (movtInst->cond != arm::ConditionCode::Always) {
+          if (lastCmp != NullIndex) {
+            addSuccessor(lastCmp, i);
+          }
+        }
 
         addRegWriteDependency(i, movtInst->r1);
 
@@ -460,6 +476,12 @@ void InstructionScheduler::buildDependencyDAG(
             addSuccessor(lastCall, i);
           }
           lastCall = i;
+        }
+
+        if (aluInst->cond != arm::ConditionCode::Always) {
+          if (lastCmp != NullIndex) {
+            addSuccessor(lastCmp, i);
+          }
         }
 
         addRegReadDependency(i, aluInst->r1);
@@ -490,6 +512,12 @@ void InstructionScheduler::buildDependencyDAG(
       case arm::OpCode::LdR: {
         arm::LoadStoreInst* ldInst = (arm::LoadStoreInst*)inst;
 
+        if (ldInst->cond != arm::ConditionCode::Always) {
+          if (lastCmp != NullIndex) {
+            addSuccessor(lastCmp, i);
+          }
+        }
+
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
         }
@@ -518,6 +546,12 @@ void InstructionScheduler::buildDependencyDAG(
       }
       case arm::OpCode::StR: {
         arm::LoadStoreInst* stInst = (arm::LoadStoreInst*)inst;
+
+        if (stInst->cond != arm::ConditionCode::Always) {
+          if (lastCmp != NullIndex) {
+            addSuccessor(lastCmp, i);
+          }
+        }
 
         if (lastMem != NullIndex) {
           addSuccessor(lastMem, i);
