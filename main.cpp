@@ -156,6 +156,11 @@ void add_passes(backend::Backend& backend) {
 
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
+
+  // ***************
+  options.allow_conditional_exec = false;
+  // ***************
+
   global_options = options;
 
   if (options.dry_run) {
