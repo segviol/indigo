@@ -282,9 +282,12 @@ void RegAllocator::alloc_regs() {
 
   LOG(TRACE, "color_map") << "Color map:" << std::endl;
   for (auto x : color_map) {
-    auto mapped_reg = mir_to_arm.at(x.first);
     LOG(TRACE, "color_map") << x.first << " -> ";
-    display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
+    try {
+      auto mapped_reg = mir_to_arm.at(x.first);
+      display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
+    } catch (std::exception &x_) {
+    }
     LOG(TRACE, "color_map") << ": " << x.second << std::endl;
   }
 
