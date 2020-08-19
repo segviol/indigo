@@ -31,6 +31,7 @@
 #include "backend/optimization/ref_count.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "backend/optimization/remove_temp_var.hpp"
+#include "backend/optimization/sanity_check.hpp"
 #include "backend/optimization/value_shift_collapse.hpp"
 #include "backend/optimization/var_mir_fold.hpp"
 #include "frontend/ir_generator.hpp"
@@ -60,12 +61,15 @@ Options parse_options(int argc, const char** argv);
 void add_passes_master(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  backend.add_pass(std::make_unique<optimization::sanity_check::SanityCheck>());
   // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
   backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+  backend.add_pass(std::make_unique<optimization::sanity_check::SanityCheck>());
   // backend.add_pass(
   //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(7));
+  backend.add_pass(std::make_unique<optimization::sanity_check::SanityCheck>());
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
