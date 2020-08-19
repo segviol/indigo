@@ -1279,28 +1279,6 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
-      for (int i = 0; i < order.size(); i++) {
-        map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
-        mir::types::LabelId id = iit->first;
-        for (int j = 1; j < iit->second->inst.size() - 1; j++) {
-          shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
-          if (inst->inst_kind() == mir::inst::InstKind::Phi) {
-            shared_ptr<mir::inst::PhiInst> in =
-                static_pointer_cast<mir::inst::PhiInst>(inst);
-            vector<int> dele;
-            for (int iii = 0; iii < in->vars.size(); iii++) {
-              vector<uint32_t>::iterator fi =
-                  find(defined.begin(), defined.end(), in->vars[iii]);
-              if (fi == defined.end()) {
-                dele.push_back(iii);
-              }
-            }
-            for (int iii = dele.size() - 1; iii >= 0; iii--) {
-              in->vars.erase(in->vars.begin() + dele[iii]);
-            }
-          }
-        }
-      }
       map<mir::inst::VarId, mir::inst::VarId>::iterator iet;
       for (iet = redundantphi.begin(); iet != redundantphi.end(); iet++) {
         map<mir::inst::VarId, mir::inst::VarId>::iterator iet1;
@@ -1384,6 +1362,29 @@ void gen_ssa(map<string, vector<front::irGenerator::Instruction>> f,
           }
         }
       }
+      for (int i = 0; i < order.size(); i++) {
+        map<int, BasicBlock*>::iterator iit = nodes.find(order[i]);
+        mir::types::LabelId id = iit->first;
+        for (int j = 1; j < iit->second->inst.size() - 1; j++) {
+          shared_ptr<mir::inst::Inst> inst = get<0>(iit->second->inst[j]);
+          if (inst->inst_kind() == mir::inst::InstKind::Phi) {
+            shared_ptr<mir::inst::PhiInst> in =
+                static_pointer_cast<mir::inst::PhiInst>(inst);
+            vector<int> dele;
+            for (int iii = 0; iii < in->vars.size(); iii++) {
+              vector<uint32_t>::iterator fi =
+                  find(defined.begin(), defined.end(), in->vars[iii]);
+              if (fi == defined.end()) {
+                dele.push_back(iii);
+              }
+            }
+            for (int iii = dele.size() - 1; iii >= 0; iii--) {
+              in->vars.erase(in->vars.begin() + dele[iii]);
+            }
+          }
+        }
+      }
+      
       bool change = true;
       while (change) {
         change = false;
