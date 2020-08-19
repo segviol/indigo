@@ -71,8 +71,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
 
-  backend.add_pass(
-      std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::global_expr_move::Global_Expr_Mov>());
 
   // delete common exprs new created and replace not phi vars
   backend.add_pass(
@@ -121,8 +121,8 @@ void add_passes(backend::Backend& backend) {
           optimization::memvar_propagation::Memory_Var_Propagation>(true));
   backend.add_pass(
       std::make_unique<optimization::common_expr_del::Common_Expr_Del>(true));
-  backend.add_pass(
-      std::make_unique<optimization::global_expr_move::Global_Expr_Mov>(true));
+  // backend.add_pass(
+  //     std::make_unique<optimization::global_expr_move::Global_Expr_Mov>(true));
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   backend.add_pass(
@@ -131,8 +131,8 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<
                    optimization::value_shift_collapse::ValueShiftCollapse>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
-  backend.add_pass(std::make_unique<
-                   optimization::complex_dce::ComplexDeadCodeElimination>());
+  // backend.add_pass(std::make_unique<
+  //                  optimization::complex_dce::ComplexDeadCodeElimination>());
   backend.add_pass(
       std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
   // backend.add_pass(std::make_unique<optimization::cycle::Cycle>());
