@@ -279,15 +279,6 @@ class RegAllocator {
 
 void RegAllocator::alloc_regs() {
   construct_reg_map();
-
-  LOG(TRACE, "color_map") << "Color map:" << std::endl;
-  for (auto x : color_map) {
-    auto mapped_reg = mir_to_arm.at(x.first);
-    LOG(TRACE, "color_map") << x.first << " -> ";
-    display_reg_name(LOG(TRACE, "color_map"), mapped_reg);
-    LOG(TRACE, "color_map") << ": " << x.second << std::endl;
-  }
-
   calc_live_intervals();
 
   LOG(TRACE, "bb_reg_use") << "BB starting point" << std::endl;
