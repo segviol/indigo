@@ -57,6 +57,20 @@ Options global_options;
 string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
+void add_passes_master(backend::Backend& backend) {
+  backend.add_pass(
+      std::make_unique<optimization::remove_dead_code::Remove_Dead_Code>());
+  // backend.add_pass(std::make_unique<optimization::inlineFunc::Inline_Func>());
+  backend.add_pass(std::make_unique<optimization::mergeBlocks::Merge_Block>());
+  // backend.add_pass(
+  //     std::make_unique<optimization::common_expr_del::Common_Expr_Del>());
+  backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
+  backend.add_pass(std::make_unique<optimization::graph_color::Graph_Color>(7));
+  backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
+  backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
+  backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
+}
+
 void add_passes(backend::Backend& backend) {
   backend.add_pass(
       std::make_unique<optimization::remove_temp_var::Remove_Temp_Var>());
@@ -162,7 +176,7 @@ int main(int argc, const char** argv) {
     // Only show which passes will be run
     auto pkg = mir::inst::MirPackage();
     backend::Backend backend(pkg, options);
-    add_passes(backend);
+    add_passes_master(backend);
     backend.show_passes(std::cout);
     return 0;
   } else {
@@ -215,7 +229,7 @@ int main(int argc, const char** argv) {
     // ==== Backend ====
 
     backend::Backend backend(package, options);
-    add_passes(backend);
+    add_passes_master(backend);
     auto code = backend.generate_code();
     if (options.verbose) {
       LOG(TRACE) << "CODE:" << std::endl;
