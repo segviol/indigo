@@ -17,7 +17,7 @@ struct GlobalVarManager {
   GlobalVarManager(mir::inst::MirPackage& mir) : mir(mir) {}
   std::string add_global_var(std::string func, mir::inst::VarId var,
                              arm::ConstValue val) {
-    std::string s = "$$6_" + func + "_" + std::to_string(var.id);
+    std::string s = "a_" + func + "_" + std::to_string(var.id);
     mir.global_values.insert({s, val});
     return s;
   }
