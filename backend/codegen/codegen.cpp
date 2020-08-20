@@ -108,8 +108,8 @@ arm::Function Codegen::translate_function() {
           expected_bb = last_jump->bb_false;
           inverted = false;
           if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_false) {
-            inst_sink.pop_back();
-            inst_sink.pop_back();
+            // inst_sink.pop_back();
+            // inst_sink.pop_back();
           } else {
           }
         } else {
@@ -119,13 +119,19 @@ arm::Function Codegen::translate_function() {
           // since a conditional branch is always emitted in the fashion of
           // "bb_false, bb_true", we can safely pop the second-to-last branch
           // operation and add the condition to bb_true
-          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true) {
-            inst_sink.pop_back();
-            inst_sink.pop_back();
+          if (it + 1 != bb_ordering.end() && *(it + 1) == last_jump->bb_true &&
+              inline_hint.find(*(it - 1)) != inline_hint.end()) {
+            // inst_sink.pop_back();
+            // inst_sink.pop_back();
           } else {
             inst_sink.erase(inst_sink.end() - 2);
             inst_sink.back()->cond = last_jump->cond;
           }
+        }
+
+        if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
+          inst_sink.pop_back();
+          inst_sink.pop_back();
         }
 
         for (auto& i : inst) {
