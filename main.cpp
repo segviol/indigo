@@ -58,7 +58,7 @@ Options global_options;
 string read_input(std::string&);
 Options parse_options(int argc, const char** argv);
 
-std::string file_header;
+extern std::string file_header;
 
 void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<optimization::sanity_check::SanityCheck>());
@@ -400,4 +400,4 @@ std::string file_header =
 	.eabi_attribute	18, 4	@ Tag_ABI_PCS_wchar_t\
 	.eabi_attribute	26, 2	@ Tag_ABI_enum_size\
 	.eabi_attribute	14, 0	@ Tag_ABI_PCS_R9_use\
-"
+";
