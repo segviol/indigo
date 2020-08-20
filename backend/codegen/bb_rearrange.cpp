@@ -214,14 +214,14 @@ void filter_inline_blks(mir::inst::MirFunction& f,
       } else if (last_inline == this_inline) {
         inlined_blks.push_back(node);
         continuous_inline += f.basic_blks.at(node).inst.size();
-        while (continuous_inline > threshold) {
+        while (continuous_inline > threshold && !inlined_blks.empty()) {
           auto front = inlined_blks.front();
           inlined_blks.pop_front();
           continuous_inline -= f.basic_blks.at(node).inst.size();
           inline_hint.erase(front);
         }
       } else {
-        while (continuous_inline > 0) {
+        while (continuous_inline > 0 && !inlined_blks.empty()) {
           auto front = inlined_blks.front();
           inlined_blks.pop_front();
           continuous_inline -= f.basic_blks.at(node).inst.size();
