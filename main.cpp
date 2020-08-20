@@ -144,8 +144,8 @@ void add_passes(backend::Backend& backend) {
       std::make_unique<optimization::func_array_global::Func_Array_Global>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   // fft will error
-  backend.add_pass(std::make_unique<
-                   optimization::global_var_to_local::Global_Var_to_Local>());
+  // backend.add_pass(std::make_unique<
+  //                  optimization::global_var_to_local::Global_Var_to_Local>());
   backend.add_pass(std::make_unique<optimization::ref_count::Ref_Count>());
   backend.add_pass(
       std::make_unique<optimization::graph_color::Graph_Color>(7, true));
@@ -154,14 +154,14 @@ void add_passes(backend::Backend& backend) {
   backend.add_pass(std::make_unique<backend::codegen::MathOptimization>());
   backend.add_pass(std::make_unique<backend::codegen::RegAllocatePass>());
   backend.add_pass(std::make_unique<backend::optimization::ExcessRegDelete>());
-  backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
+  // backend.add_pass(std::make_unique<backend::codegen::CodeAlignOptimization>());
 }
 
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
 
   // ***************
-  options.allow_conditional_exec = false;
+  options.allow_conditional_exec = true;
   // ***************
 
   global_options = options;

@@ -1,6 +1,7 @@
 #include "bb_rearrange.hpp"
 
 #include <deque>
+#include <optional>
 #include <vector>
 
 #include "../../include/aixlog.hpp"
@@ -194,6 +195,40 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
   return std::move(inline_blks);
 }
 
+void filter_inline_blks(mir::inst::MirFunction& f,
+                        std::map<uint32_t, arm::ConditionCode>& inline_hint,
+                        std::vector<uint32_t>& bb_arr) {
+  const int threshold = 6;
+
+  int continuous_inline = 0;
+  std::deque<uint32_t> inlined_blks = {};
+  std::optional<arm::ConditionCode> last_inline;
+  for (auto node : bb_arr) {
+    auto hint = inline_hint.find(node);
+    if (hint != inline_hint.end()) {
+      auto this_inline = hint->second;
+      if (!last_inline.has_value()) {
+        continuous_inline = f.basic_blks.at(node).inst.size();
+        inlined_blks.clear();
+        inlined_blks.push_back(node);
+      } else if (last_inline == this_inline) {
+        inlined_blks.push_back(node);
+        continuous_inline += f.basic_blks.at(node).inst.size();
+        while (continuous_inline > threshold) {
+          auto front = inlined_blks.front();
+          inlined_blks.pop_front();
+          continuous_inline -= f.basic_blks.at(node).inst.size();
+          inline_hint.erase(front);
+        }
+      }
+      last_inline = hint->second;
+    } else {
+      last_inline = {};
+      continuous_inline = 0;
+    }
+  }
+}
+
 std::tuple<std::vector<uint32_t>, std::set<uint32_t>,
            std::map<uint32_t, arm::ConditionCode>>
 BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
@@ -260,6 +295,7 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
   for (auto c : cycles) {
     if (c.second != 0) cycle_start_set.insert(c.first);
   }
+  filter_inline_blks(f, inline_blks, arrangement);
   return {std::move(arrangement), std::move(cycle_start_set),
           std::move(inline_blks)};
 }
