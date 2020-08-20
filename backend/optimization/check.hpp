@@ -17,10 +17,6 @@ class SanityCheck final : public backend::MirOptimizePass {
                     std::map<std::string, std::any> &extra_data_repo) override {
     for (auto &f : mir.functions) {
       if (!f.second.type->is_extern) {
-        if (f.first == "f__main") {
-          if (global_options.in_file.find("fft") != std::string::npos)
-            exit(f.second.basic_blks.begin()->first);
-        }
         optimize_func(f.second);
       }
     }

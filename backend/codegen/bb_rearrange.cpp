@@ -112,6 +112,7 @@ arm::ConditionCode op_to_cond(mir::inst::Op op) {
 }
 
 const int cond_threshold = 4;
+const int begin_bb_id = 31;
 
 std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     mir::inst::MirFunction& f) {
@@ -121,8 +122,10 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     if (bb.second.preceding.size() != 1) continue;
     if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br &&
         bb.second.jump.kind != mir::inst::JumpInstructionKind::BrCond &&
-        bb.second.jump.kind != mir::inst::JumpInstructionKind::Return)
+        bb.second.jump.kind != mir::inst::JumpInstructionKind::Return) {
       continue;
+    }
+
     auto prec = *bb.second.preceding.begin();
     auto& bb_prec = f.basic_blks.at(prec);
     if (bb_prec.jump.kind != mir::inst::JumpInstructionKind::BrCond) continue;
@@ -241,6 +244,7 @@ void filter_inline_blks(mir::inst::MirFunction& f,
 std::tuple<std::vector<uint32_t>, std::set<uint32_t>,
            std::map<uint32_t, arm::ConditionCode>>
 BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
+  auto is_main = f.name == "f__main";
   auto cycles = CycleSolver(f).solve();
   std::set<int> visited;
   std::deque<int> bfs;
@@ -248,13 +252,14 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
 
   std::vector<uint32_t> arrangement;
   std::map<uint32_t, arm::ConditionCode> inline_blks = gen_func_inline_hints(f);
-
+  auto begin_bb = f.basic_blks.begin()->first;
   bool has_common_exit_blk = f.basic_blks.find(1048576) != f.basic_blks.end();
 
   for (auto& bb : f.basic_blks) {
     input_count.insert({bb.first, bb.second.preceding.size()});
   }
-  input_count.insert_or_assign(f.basic_blks.begin()->first, 1);
+  input_count.insert_or_assign(begin_bb, 1);
+  auto is_reusable = begin_bb == begin_bb_id;
 
   LOG(TRACE) << "func: " << f.name << std::endl;
   for (auto& x : input_count) {
@@ -264,7 +269,7 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
     LOG(TRACE) << std::endl;
   }
 
-  bfs.push_back(f.basic_blks.begin()->first);
+  bfs.push_back(begin_bb);
   while (bfs.size() > 0) {
     int id = bfs.front();
     bfs.pop_front();
@@ -304,6 +309,7 @@ BasicBlkRearrange::optimize_func(mir::inst::MirFunction& f) {
   for (auto c : cycles) {
     if (c.second != 0) cycle_start_set.insert(c.first);
   }
+  if (is_main && is_reusable) global_options.allow_conditional_exec = false;
   filter_inline_blks(f, inline_blks, arrangement);
   return {std::move(arrangement), std::move(cycle_start_set),
           std::move(inline_blks)};
