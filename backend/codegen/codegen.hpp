@@ -183,6 +183,7 @@ class Codegen final {
   void translate_inst(mir::inst::RefInst& i);
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
+  void translate_inst(mir::inst::OpAccInst& i);
 
   void emit_phi_move(std::unordered_set<mir::inst::VarId>& i);
   void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,

@@ -195,6 +195,10 @@ void ComplexDceRunner::scan_dependant_vars() {
       if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
         add_dependance(x->dest, x->lhs);
         add_dependance(x->dest, x->rhs);
+      } else if (auto x = dynamic_cast<mir::inst::OpAccInst*>(&i)) {
+        add_dependance(x->dest, x->lhs);
+        add_dependance(x->dest, x->rhs);
+        add_dependance(x->dest, x->acc);
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
         for (auto v : x->params) add_dependance(x->dest, v);
         do_not_delete.insert(x->dest);

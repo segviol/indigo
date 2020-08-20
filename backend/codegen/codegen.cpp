@@ -196,6 +196,10 @@ void Codegen::translate_basic_block(mir::inst::BasicBlk& blk) {
       }
       use_vars.insert(i.dest);
       translate_inst(*x);
+    } else if (auto x = dynamic_cast<mir::inst::OpAccInst*>(&i)) {
+      use_vars.insert(i.dest);
+      met_cmp = false;
+      translate_inst(*x);
     } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
       use_vars.insert(i.dest);
       met_cmp = false;
@@ -845,6 +849,23 @@ void Codegen::translate_inst(mir::inst::OpInst& i) {
       break;
     case mir::inst::Op::Neq:
       emit_compare(i.dest, lhs, rhs, ConditionCode::NotEqual, reverse_params);
+      break;
+  }
+}
+
+void Codegen::translate_inst(mir::inst::OpAccInst& i) {
+  switch (i.op) {
+    case mir::inst::OpAcc::MulAdd:
+      inst.push_back(std::make_unique<Arith4Inst>(
+          arm::OpCode::Mla, translate_var_reg(i.dest),
+          translate_value_to_reg(i.lhs), translate_value_to_reg(i.rhs),
+          translate_var_reg(i.acc)));
+      break;
+    case mir::inst::OpAcc::MulShAdd:
+      inst.push_back(std::make_unique<Arith4Inst>(
+          arm::OpCode::SMMla, translate_var_reg(i.dest),
+          translate_value_to_reg(i.lhs), translate_value_to_reg(i.rhs),
+          translate_var_reg(i.acc)));
       break;
   }
 }

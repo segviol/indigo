@@ -29,6 +29,7 @@
 #include "backend/optimization/inline.hpp"
 #include "backend/optimization/loop_unrolling.hpp"
 #include "backend/optimization/memvar_propagation.hpp"
+#include "backend/optimization/mla.hpp"
 #include "backend/optimization/ref_count.hpp"
 #include "backend/optimization/remove_dead_code.hpp"
 #include "backend/optimization/remove_temp_var.hpp"
@@ -132,6 +133,7 @@ void add_passes(backend::Backend& backend) {
           optimization::algebraic_simplification::AlgebraicSimplification>());
   backend.add_pass(std::make_unique<
                    optimization::value_shift_collapse::ValueShiftCollapse>());
+  backend.add_pass(std::make_unique<optimization::mla::MlaPass>());
   backend.add_pass(std::make_unique<backend::codegen::BasicBlkRearrange>());
   backend.add_pass(std::make_unique<
                    optimization::complex_dce::ComplexDeadCodeElimination>());
