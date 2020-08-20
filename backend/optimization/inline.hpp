@@ -403,7 +403,7 @@ class Inline_Func : public backend::MirOptimizePass {
     }
     std::set<std::string> allInlinedFuncs;
     uninlined_funcs.insert("main");
-    uninlined_funcs.insert("$$5_main");
+    uninlined_funcs.insert("f__main");
     for (auto& pair : package.functions) {
       if (pair.second.type->is_extern) continue;
       if (!uninlined_funcs.count(pair.first) &&
