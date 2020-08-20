@@ -111,7 +111,7 @@ arm::ConditionCode op_to_cond(mir::inst::Op op) {
   return cond;
 }
 
-const int cond_threshold = 5;
+const int cond_threshold = 4;
 
 std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     mir::inst::MirFunction& f) {
