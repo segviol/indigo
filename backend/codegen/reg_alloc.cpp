@@ -371,6 +371,11 @@ void RegAllocator::calc_live_intervals() {
     auto inst_ = &*f.inst[i];
     if (auto x = dynamic_cast<PureInst *>(inst_)) {
       //   noop
+    } else if (auto x = dynamic_cast<Arith4Inst *>(inst_)) {
+      add_reg_read(x->r1, i);
+      add_reg_read(x->r2, i);
+      add_reg_read(x->r3, i);
+      add_reg_write(x->rd, i);
     } else if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       add_reg_read(x->r1, i);
       add_reg_read(x->r2, i);
@@ -919,6 +924,15 @@ void RegAllocator::perform_load_stores() {
     if (auto x = dynamic_cast<Arith3Inst *>(inst_)) {
       replace_read(x->r1, i);
       replace_read(x->r2, i);
+      invalidate_read(i);
+      wrote_to.insert(x->rd);
+      auto prw = pre_replace_write(x->rd, i);
+      inst_sink.push_back(std::move(f.inst[i]));
+      replace_write(prw, i);
+    } else if (auto x = dynamic_cast<Arith4Inst *>(inst_)) {
+      replace_read(x->r1, i);
+      replace_read(x->r2, i);
+      replace_read(x->r3, i);
       invalidate_read(i);
       wrote_to.insert(x->rd);
       auto prw = pre_replace_write(x->rd, i);
