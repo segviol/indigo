@@ -220,11 +220,19 @@ void filter_inline_blks(mir::inst::MirFunction& f,
           continuous_inline -= f.basic_blks.at(node).inst.size();
           inline_hint.erase(front);
         }
+      } else {
+        while (continuous_inline > 0) {
+          auto front = inlined_blks.front();
+          inlined_blks.pop_front();
+          continuous_inline -= f.basic_blks.at(node).inst.size();
+          inline_hint.erase(front);
+        }
       }
       last_inline = hint->second;
     } else {
       last_inline = {};
       continuous_inline = 0;
+      inlined_blks.clear();
     }
   }
 }
