@@ -360,7 +360,7 @@ struct PureInst final : public Inst {
 struct Arith4Inst final : public Inst {
   Arith4Inst(OpCode op, Reg rd, Reg r1, Reg r2, Reg r3,
              ConditionCode cond = ConditionCode::Always)
-      : Inst(op, cond), rd(rd), r1(r1), r2(r2) {}
+      : Inst(op, cond), rd(rd), r1(r1), r2(r2), r3(r3) {}
 
   Reg rd;
   Reg r1;
