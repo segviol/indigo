@@ -111,11 +111,13 @@ arm::ConditionCode op_to_cond(mir::inst::Op op) {
   return cond;
 }
 
+const int cond_threshold = 5;
+
 std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     mir::inst::MirFunction& f) {
   std::map<uint32_t, arm::ConditionCode> inline_blks;
   for (auto& bb : f.basic_blks) {
-    if (bb.second.inst.size() > 6) continue;
+    if (bb.second.inst.size() > 5) continue;
     if (bb.second.preceding.size() != 1) continue;
     if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br &&
         bb.second.jump.kind != mir::inst::JumpInstructionKind::BrCond)
@@ -198,8 +200,6 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
 void filter_inline_blks(mir::inst::MirFunction& f,
                         std::map<uint32_t, arm::ConditionCode>& inline_hint,
                         std::vector<uint32_t>& bb_arr) {
-  const int threshold = 6;
-
   int continuous_inline = 0;
   std::deque<uint32_t> inlined_blks = {};
   std::optional<arm::ConditionCode> last_inline;
@@ -214,14 +214,14 @@ void filter_inline_blks(mir::inst::MirFunction& f,
       } else if (last_inline == this_inline) {
         inlined_blks.push_back(node);
         continuous_inline += f.basic_blks.at(node).inst.size();
-        while (continuous_inline > threshold && !inlined_blks.empty()) {
+        while (continuous_inline > cond_threshold && !inlined_blks.empty()) {
           auto front = inlined_blks.front();
           inlined_blks.pop_front();
           continuous_inline -= f.basic_blks.at(node).inst.size();
           inline_hint.erase(front);
         }
       } else {
-        while (continuous_inline > 0 && !inlined_blks.empty()) {
+        while (!inlined_blks.empty()) {
           auto front = inlined_blks.front();
           inlined_blks.pop_front();
           continuous_inline -= f.basic_blks.at(node).inst.size();
