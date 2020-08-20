@@ -101,7 +101,10 @@ class RegAllocator {
         color_map(color_map),
         mir_to_arm(mir_to_arm),
         bb_used_regs(),
-        inst_sink() {}
+        inst_sink() {
+    globals = std::list<Reg>(GLOB_REGS.cbegin(), GLOB_REGS.cend());
+    temps = std::list<Reg>(TEMP_REGS.cbegin(), TEMP_REGS.cend());
+  }
   arm::Function &f;
   ColorMap &color_map;
   optimization::MirVariableToArmVRegType::mapped_type &mir_to_arm;
@@ -132,6 +135,9 @@ class RegAllocator {
   std::unordered_set<Reg> wrote_to = {};
 
   std::set<std::pair<Reg, int>> write_back_regs;
+
+  std::list<Reg> globals;
+  std::list<Reg> temps;
 
   int stack_size;
   int stack_offset = 0;
@@ -515,23 +521,37 @@ Reg RegAllocator::alloc_transient_reg(Interval i, std::optional<Reg> orig) {
   }
   auto alloc_using_temp = [&]() {
     if (r == -1) {
-      for (auto reg : TEMP_REGS) {
+      auto it = temps.begin();
+      while (it != temps.end()) {
+        auto reg = *it;
         if (active.find(reg) == active.end()) {
           r = reg;
           break;
         }
+        it++;
+      }
+      if (r != -1) {
+        temps.erase(it);
+        temps.push_back(r);
       }
     }
   };
   auto alloc_using_glob = [&]() {
     if (r == -1) {
-      for (auto reg : GLOB_REGS) {
+      auto it = globals.begin();
+      while (it != globals.end()) {
+        auto reg = *it;
         if (active.find(reg) == active.end() &&
             used_regs.find(reg) == used_regs.end()) {
           r = reg;
           used_regs_temp.insert(reg);
           break;
         }
+        it++;
+      }
+      if (r != -1) {
+        globals.erase(it);
+        globals.push_back(r);
       }
     }
   };
