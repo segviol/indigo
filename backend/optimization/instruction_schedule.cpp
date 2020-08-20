@@ -228,7 +228,7 @@ void InstructionScheduler::scheduleBaseBlock(
       }
     }
 
-    while (emptyExePipeSchedule(newInsts, cands)) {
+    if (emptyExePipeSchedule(newInsts, cands)) {
       i++;
     }
   }
