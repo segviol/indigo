@@ -350,27 +350,56 @@ void SyntaxAnalyze::gm_var_def() {
   }
   symbolTable.push_symbol(symbol);
 
-  if (inGlobalLayer() && symbol->kind() == SymbolKind::Array) {
-    bool isConst = true;
-    std::vector<int32_t> constValues;
+  if (!init_values.empty()) {
+    if (inGlobalLayer()) {
+      if (symbol->kind() == SymbolKind::Array) {
+        bool isConst = true;
+        std::vector<int32_t> constValues;
 
-    for (auto &value : init_values) {
-      if (value->_type == NodeType::CNS) {
-        constValues.push_back(value->_value);
-      } else {
-        isConst = false;
-        break;
+        for (auto &value : init_values) {
+          if (value->_type == NodeType::CNS) {
+            constValues.push_back(value->_value);
+          } else {
+            isConst = false;
+            break;
+          }
+        }
+
+        if (isConst) {
+          std::shared_ptr<optimization::bmir_variable_table::VarArray>
+              varArray =
+                  std::make_shared<optimization::bmir_variable_table::VarArray>(
+                      isConst);
+
+          varArray->initValues.assign(constValues.begin(), constValues.end());
+          bmirVariableTable.insertVarArray(
+              irGenerator.getVarName(symbol->getName(), symbol->getId()),
+              varArray);
+        }
+      } else if (symbol->kind() == SymbolKind::INT) {
+        bool isConst = true;
+        int32_t constValue;
+
+        for (auto &value : init_values) {
+          if (value->_type == NodeType::CNS) {
+            constValue = value->_value;
+          } else {
+            isConst = false;
+            break;
+          }
+        }
+
+        if (isConst) {
+          std::shared_ptr<optimization::bmir_variable_table::VarSingle>
+              varSingle = std::make_shared<
+                  optimization::bmir_variable_table::VarSingle>(isConst);
+
+          varSingle->initValue = constValue;
+          bmirVariableTable.insertVarSingle(
+              irGenerator.getVarName(symbol->getName(), symbol->getId()),
+              varSingle);
+        }
       }
-    }
-
-    if (isConst) {
-      std::shared_ptr<optimization::bmir_variable_table::VarArray> varArray =
-          std::make_shared<optimization::bmir_variable_table::VarArray>(
-              isConst);
-
-      varArray->initValues.assign(constValues.begin(), constValues.end());
-      bmirVariableTable.insertVarArray(
-          irGenerator.getVarName(symbol->getName(), symbol->getId()), varArray);
     }
   }
 }
@@ -865,6 +894,16 @@ SharedExNdPtr SyntaxAnalyze::gm_l_val(ValueMode mode) {
 
             irGenerator.ir_load(value->_name, addr->_name);
             node = value;
+          }
+        }
+
+        if (mode == ValueMode::left) {
+          if (bmirVariableTable.hasVarSingle(
+                  irGenerator.getVarName(var->getName(), var->getId()))) {
+            bmirVariableTable
+                .getVarSingle(
+                    irGenerator.getVarName(var->getName(), var->getId()))
+                ->changed = true;
           }
         }
       }
