@@ -164,10 +164,6 @@ void add_passes(backend::Backend& backend) {
 int main(int argc, const char** argv) {
   auto options = parse_options(argc, argv);
 
-  // ***************
-  options.allow_conditional_exec = true;
-  // ***************
-
   global_options = options;
 
   if (options.dry_run) {
@@ -275,6 +271,10 @@ Options parse_options(int argc, const char** argv) {
       .help("Emit assembly code (no effect)")
       .implicit_value(true)
       .default_value(false);
+  parser.add_argument("--no-cond-exec")
+      .help("No condition execution")
+      .implicit_value(true)
+      .default_value(false);
   parser.add_argument("-O", "--optimize")
       .help("Optimize code (no effect)")
       .implicit_value(true)
@@ -311,6 +311,7 @@ Options parse_options(int argc, const char** argv) {
 
   options.show_code_after_each_pass = parser.get<bool>("--pass-diff");
   options.dry_run = parser.get<bool>("--dry-run");
+  options.allow_conditional_exec = !parser.get<bool>("--no-cond-exec");
 
   if (parser.present("--run-pass")) {
     auto out = parser.get<std::string>("--run-pass");

@@ -93,11 +93,55 @@ def decode_stderr_timer(stderr: str) -> float:
 
 
 stages = {
-    "mine": [[args.compiler_path, "-o", "out.s", "$input"],
+    "ours": [[args.compiler_path, "-o", "out.s", "$input"],
              [
                  "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
                  "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
              ]],
+    "ours_skip_common_expr": [  #
+        [
+            args.compiler_path, "-o", "out.s", "$input", "-s",
+            "Common expression delete"
+        ],
+        [
+            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+        ]
+    ],
+    "ours_skip_complex_cde": [  #
+        [args.compiler_path, "-o", "out.s", "$input", "-s", "complex_cde"],
+        [
+            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+        ]
+    ],
+    "ours_skip_maths": [  #
+        [
+            args.compiler_path, "-o", "out.s", "$input", "-s",
+            "AlgebraicSimplification"
+        ],
+        [
+            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+        ]
+    ],
+    "ours_skip_memvar": [  #
+        [
+            args.compiler_path, "-o", "out.s", "$input", "-s",
+            "MemoryVarPropagation"
+        ],
+        [
+            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+        ]
+    ],
+    "ours_skip_cond_exec": [  #
+        [args.compiler_path, "-o", "out.s", "$input", "--no-cond-exec"],
+        [
+            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+        ]
+    ],
     "gcc_o1": [[
         "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
         "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O1"
