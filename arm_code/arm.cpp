@@ -631,17 +631,17 @@ void Function::display(std::ostream &o) const {
 }
 
 void ArmCode::display(std::ostream &o) const {
+  o << ".text" << std::endl;
+  for (auto &f : functions) {
+    o << *f << std::endl;
+  }
+
   o << ".data" << std::endl;
   for (auto &v : this->consts) {
     o << v.first << ":" << std::endl;
     o << v.second << std::endl;
   }
   o << std::endl;
-
-  o << ".text" << std::endl;
-  for (auto &f : functions) {
-    o << *f << std::endl;
-  }
 }
 
 }  // namespace arm
