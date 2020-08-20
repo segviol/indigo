@@ -32,6 +32,7 @@ set(backend_files
     backend/optimization/memvar_propagation.hpp
     backend/optimization/value_shift_collapse.cpp
     backend/optimization/cycle.hpp
+    backend/optimization/mla.cpp
     backend/codegen/codegen.hpp
     backend/codegen/codegen.cpp
     backend/codegen/bb_rearrange.cpp
