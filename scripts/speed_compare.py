@@ -98,18 +98,18 @@ stages = {
                  "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
                  "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
              ]],
-    "ours_skip_common_expr": [  #
-        [
-            args.compiler_path, "-o", "out.s", "$input", "-s",
-            "Common expression delete"
-        ],
-        [
-            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
-            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
-        ]
-    ],
+    # "ours_skip_common_expr": [  #
+    #     [
+    #         args.compiler_path, "-o", "out.s", "$input", "-s",
+    #         "Common expression delete"
+    #     ],
+    #     [
+    #         "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+    #         "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+    #     ]
+    # ],
     "ours_skip_complex_cde": [  #
-        [args.compiler_path, "-o", "out.s", "$input", "-s", "complex_cde"],
+        [args.compiler_path, "-o", "out.s", "$input", "-s", "complex_dce"],
         [
             "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
             "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
@@ -125,47 +125,47 @@ stages = {
             "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
         ]
     ],
-    "ours_skip_memvar": [  #
-        [
-            args.compiler_path, "-o", "out.s", "$input", "-s",
-            "MemoryVarPropagation"
-        ],
-        [
-            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
-            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
-        ]
-    ],
-    "ours_skip_cond_exec": [  #
-        [args.compiler_path, "-o", "out.s", "$input", "--no-cond-exec"],
-        [
-            "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
-            "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
-        ]
-    ],
-    "gcc_o1": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O1"
-    ]],
-    "gcc_o2": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
-    ]],
-    "gcc_o3": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
-    ]],
-    "gcc_ofast": [[
-        "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-Ofast"
-    ]],
-    "clang_o3": [[
-        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
-    ]],
-    "clang_o2": [[
-        "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
-        "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
-    ]]
+    # "ours_skip_memvar": [  #
+    #     [
+    #         args.compiler_path, "-o", "out.s", "$input", "-s",
+    #         "MemoryVarPropagation"
+    #     ],
+    #     [
+    #         "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+    #         "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+    #     ]
+    # ],
+    # "ours_skip_cond_exec": [  #
+    #     [args.compiler_path, "-o", "out.s", "$input", "--no-cond-exec"],
+    #     [
+    #         "gcc", "out.s", "$link_lib", "-march=armv7-a+neon-vfpv4",
+    #         "-mcpu=cortex-a7", "-mfpu=neon", "-o", "tmp"
+    #     ]
+    # ],
+    # "gcc_o1": [[
+    #     "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O1"
+    # ]],
+    # "gcc_o2": [[
+    #     "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
+    # ]],
+    # "gcc_o3": [[
+    #     "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
+    # ]],
+    # "gcc_ofast": [[
+    #     "gcc", "$c_lib", "-xc", "$input_c", "-march=armv7-a+neon-vfpv4",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-Ofast"
+    # ]],
+    # "clang_o3": [[
+    #     "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O3"
+    # ]],
+    # "clang_o2": [[
+    #     "clang", "$c_lib", "-xc", "$input_c", "-march=armv7-a",
+    #     "-mcpu=cortex-a7", "-mfpu=neon", "-std=c11", "-o", "tmp", "-O2"
+    # ]]
 }
 
 options = {
