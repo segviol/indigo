@@ -120,7 +120,7 @@ void OpInst::display(std::ostream& o) const {
 void OpAccInst::display(std::ostream& o) const {
   o << dest << " = ";
   display_op(o, op);
-  o << lhs << ", " << rhs << ", " << acc;
+  o << " " << lhs << ", " << rhs << ", " << acc;
 }
 
 void CallInst::display(std::ostream& o) const {
