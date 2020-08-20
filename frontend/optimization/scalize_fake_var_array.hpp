@@ -25,6 +25,7 @@ class ScalizeFakeVarArray final
       bmir_variable_table::BmirVariableTable& bmirVariableTable,
       std::vector<irGenerator::Instruction>& insts) {
     std::map<uint32_t, std::pair<std::string, uint32_t>> tmpVarId2Offset;
+    std::map<uint32_t, std::string> tmpVarId2VarSingleName;
     for (auto instructionIter = insts.begin(); instructionIter != insts.end();
          instructionIter++) {
       if (instructionIter->index() == 0) {
@@ -38,6 +39,9 @@ class ScalizeFakeVarArray final
               if (bmirVariableTable.hasNameKey(varName) &&
                   !bmirVariableTable.getVarArray(varName)->changed) {
                 tmpVarId2Offset[refInst->dest] = {varName, 0};
+              } else if (bmirVariableTable.hasVarSingle(varName) &&
+                         !bmirVariableTable.getVarSingle(varName)->changed) {
+                tmpVarId2VarSingleName[refInst->dest] = varName;
               }
             }
             break;
@@ -57,6 +61,18 @@ class ScalizeFakeVarArray final
                                   .getVarArray(tmpVarId2Offset[src].first)
                                   ->initValues.at(tmpVarId2Offset[src].second /
                                                   mir::types::INT_SIZE)))));
+              insts.erase(insts.begin() + index + 1);
+            } else if (tmpVarId2VarSingleName.count(src) > 0) {
+              size_t index = instructionIter - insts.begin();
+              insts.insert(
+                  insts.begin() + index,
+                  std::shared_ptr<mir::inst::AssignInst>(
+                      new mir::inst::AssignInst(
+                          loadInst->dest,
+                          mir::inst::Value(
+                              bmirVariableTable
+                                  .getVarSingle(tmpVarId2VarSingleName[src])
+                                  ->initValue))));
               insts.erase(insts.begin() + index + 1);
             }
             break;
