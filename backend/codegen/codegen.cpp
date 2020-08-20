@@ -53,9 +53,9 @@ arm::Function Codegen::translate_function() {
           LOG(TRACE) << "Inline ruined by not next to source basic block"
                      << std::endl;
         }
-        auto next_bb = *(it + 1);
+        auto next_bb_id = *(it + 1);
         if (bb.jump.kind == mir::inst::JumpInstructionKind::BrCond) {
-          if (auto next_hint = inline_hint.find(next_bb);
+          if (auto next_hint = inline_hint.find(next_bb_id);
               hint != inline_hint.end() && hint->second != next_hint->second) {
             can_inline = false;
             LOG(TRACE) << "Inline ruined by hint not matching (this: ";
@@ -63,6 +63,17 @@ arm::Function Codegen::translate_function() {
             LOG(TRACE) << ", next: ";
             display_cond(next_hint->second, LOG(TRACE));
             LOG(TRACE) << std::endl;
+          } else {
+            auto& next_bb = func.basic_blks.at(next_bb_id);
+            if (bb.jump.bb_false != next_bb.jump.bb_false &&
+                bb.jump.bb_false != next_bb.jump.bb_true &&
+                bb.jump.bb_true != next_bb.jump.bb_false &&
+                bb.jump.bb_true != next_bb.jump.bb_true) {
+              can_inline = false;
+              LOG(TRACE) << "Inline ruined by next bb not jumping to the same "
+                            "bb as this one"
+                         << std::endl;
+            }
           }
           // if (vis.find(bb.jump.bb_true) != vis.end() ||
           //     vis.find(bb.jump.bb_false) != vis.end()) {
