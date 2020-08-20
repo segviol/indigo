@@ -37,6 +37,11 @@ enum class Op {
   ShrA
 };
 
+enum class OpAcc {
+  MulAdd,
+  MulShAdd,
+};
+
 enum class ValueKind { Imm, Void, Variable };
 
 enum class JumpInstructionKind { Undefined, Return, BrCond, Br, Unreachable };
@@ -271,6 +276,42 @@ class OpInst final : public Inst {
     });
   }
   Inst* deep_copy() { return new OpInst(dest, lhs, rhs, op); }
+};
+
+/// Operator and accumulate instruction. `$dest = $lhs op $rhs`
+class OpAccInst final : public Inst {
+ public:
+  Value lhs;
+  Value rhs;
+  VarId acc;
+  OpAcc op;
+
+  OpAccInst(VarId _dest, Value _lhs, Value _rhs, VarId _acc, OpAcc _op)
+      : Inst(_dest), lhs(_lhs), rhs(_rhs), acc(_acc), op(_op) {}
+  virtual InstKind inst_kind() { return InstKind::Op; }
+  virtual void display(std::ostream& o) const;
+  virtual ~OpAccInst() {}
+  std::set<VarId> useVars() const {
+    auto s = std::set<VarId>();
+    if (lhs.index() == 1) {
+      s.insert(std::get<VarId>(lhs));
+    }
+    if (rhs.index() == 1) {
+      s.insert(std::get<VarId>(rhs));
+    }
+    s.insert(acc);
+    return s;
+  }
+  void replace(VarId from, VarId to) {
+    lhs.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
+    rhs.map_if_varid([&](Value& self, VarId& id) {
+      if (id == from) id = to;
+    });
+    if (acc == from) acc = to;
+  }
+  Inst* deep_copy() { return new OpAccInst(dest, lhs, rhs, acc, op); }
 };
 
 /// Call instruction. `$dest = call $func(...$params)`
@@ -530,7 +571,7 @@ class JumpInstruction final : public prelude::Displayable {
   }
   virtual void display(std::ostream& o) const;
   virtual ~JumpInstruction() {}
-  JumpInstruction(const JumpInstruction&) = delete;
+  // JumpInstruction(const JumpInstruction&) = delete;
   JumpInstruction(JumpInstruction&&) = default;
   JumpInstruction& operator=(JumpInstruction&&) = default;
 };

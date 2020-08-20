@@ -17,7 +17,7 @@ struct GlobalVarManager {
   GlobalVarManager(mir::inst::MirPackage& mir) : mir(mir) {}
   std::string add_global_var(std::string func, mir::inst::VarId var,
                              arm::ConstValue val) {
-    std::string s = "$$6_" + func + "_" + std::to_string(var.id);
+    std::string s = "a_" + func + "_" + std::to_string(var.id);
     mir.global_values.insert({s, val});
     return s;
   }
@@ -120,6 +120,7 @@ void Func_Array_Global::optimize_func(mir::inst::MirFunction& func,
     }
     init_blk.inst.clear();
     for (auto var : ref_results) {
+      var_replace::Var_Replace vp(func);
       auto def_point = vp.defpoint.at(var);
       auto& inst =
           func.basic_blks.at(def_point.first).inst.at(def_point.second);

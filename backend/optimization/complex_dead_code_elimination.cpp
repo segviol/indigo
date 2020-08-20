@@ -1,6 +1,7 @@
 #include "complex_dead_code_elimination.hpp"
 
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -63,6 +64,7 @@ class ComplexDceRunner {
   void scan_dependant_vars();
   // void scan_bb_dependance_vars();
   void calc_remained_vars();
+  void move_phi();
   void delete_excess_vars();
   void remove_excess_bb();
 
@@ -83,6 +85,7 @@ class ComplexDceRunner {
       }
       LOG(TRACE) << "fn: " << f.name << std::endl;
       // scan_bb_dependance_vars();
+      move_phi();
       scan_dependant_vars();
       display_dependance_maps();
       calc_remained_vars();
@@ -192,6 +195,10 @@ void ComplexDceRunner::scan_dependant_vars() {
       if (auto x = dynamic_cast<mir::inst::OpInst*>(&i)) {
         add_dependance(x->dest, x->lhs);
         add_dependance(x->dest, x->rhs);
+      } else if (auto x = dynamic_cast<mir::inst::OpAccInst*>(&i)) {
+        add_dependance(x->dest, x->lhs);
+        add_dependance(x->dest, x->rhs);
+        add_dependance(x->dest, x->acc);
       } else if (auto x = dynamic_cast<mir::inst::CallInst*>(&i)) {
         for (auto v : x->params) add_dependance(x->dest, v);
         do_not_delete.insert(x->dest);
@@ -289,6 +296,27 @@ void ComplexDceRunner::calc_remained_vars() {
       if (backup_ref_vars.find(v) != backup_ref_vars.end()) {
         changed |= ref_vars.insert(v).second;
       }
+    }
+  }
+}
+
+void ComplexDceRunner::move_phi() {
+  for (auto& bb : f.basic_blks) {
+    if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br) continue;
+    if (bb.second.inst.empty()) continue;
+    bool is_all_phi = true;
+    for (auto& inst : bb.second.inst) {
+      if (!dynamic_cast<PhiInst*>(&*inst)) {
+        is_all_phi = false;
+        break;
+      }
+    }
+    if (is_all_phi) {
+      auto& next_bb = f.basic_blks.at(bb.second.jump.bb_true);
+      auto move_iter = std::make_move_iterator(bb.second.inst.begin());
+      auto move_end = std::make_move_iterator(bb.second.inst.end());
+      next_bb.inst.insert(next_bb.inst.begin(), move_iter, move_end);
+      bb.second.inst.clear();
     }
   }
 }

@@ -40,10 +40,17 @@ inline std::string format_fn_end_label(std::string_view function_name) {
   return s.str();
 }
 
+struct LastJump {
+  arm::ConditionCode cond;
+  mir::types::LabelId bb_true;
+  mir::types::LabelId bb_false;
+};
+
 class Codegen final {
  public:
   Codegen(mir::inst::MirFunction& func, mir::inst::MirPackage& package,
-          std::map<std::string, std::any>& extra_data)
+          std::map<std::string, std::any>& extra_data,
+          bool enable_cond_exec = true)
       : func(func),
         package(package),
         extra_data(extra_data),
@@ -51,7 +58,8 @@ class Codegen final {
         reg_map(),
         fixed_vars(),
         var_collapse(),
-        bb_ordering() {
+        bb_ordering(),
+        enable_cond_exec(enable_cond_exec) {
     {
       // Calculate ordering
       auto any_ordering =
@@ -81,6 +89,19 @@ class Codegen final {
         }
       }
     }
+    auto inline_hint = extra_data.find(optimization::inline_blks);
+    if (inline_hint != extra_data.end()) {
+      LOG(TRACE) << "Found inline hint in extra data" << std::endl;
+
+      this->inline_hint =
+          std::any_cast<optimization::InlineBlksType&>(inline_hint->second)
+              .at(func.name);
+
+      LOG(TRACE) << "Inline hint has " << this->inline_hint.size()
+                 << " items: ";
+      for (auto i : this->inline_hint) LOG(TRACE) << i.first << " ";
+      LOG(TRACE) << std::endl;
+    }
     param_size = func.type->params.size();
   }
 
@@ -105,11 +126,17 @@ class Codegen final {
   std::map<mir::inst::VarId, int32_t> stack_space_allocation;
 
   std::vector<uint32_t> bb_ordering;
+  std::map<uint32_t, arm::ConditionCode> inline_hint;
+
+  std::optional<arm::ConditionCode> second_last_condition_code;
+  std::optional<LastJump> last_jump;
+  std::optional<LastJump> this_jump;
 
   uint32_t vreg_gp_counter = 0;
   uint32_t vreg_vd_counter = 0;
   uint32_t vreg_vq_counter = 0;
   uint32_t const_counter = 0;
+  bool enable_cond_exec;
 
   int param_size;
   uint32_t stack_size = 0;
@@ -156,6 +183,7 @@ class Codegen final {
   void translate_inst(mir::inst::RefInst& i);
   void translate_inst(mir::inst::PtrOffsetInst& i);
   void translate_inst(mir::inst::OpInst& i);
+  void translate_inst(mir::inst::OpAccInst& i);
 
   void emit_phi_move(std::unordered_set<mir::inst::VarId>& i);
   void emit_compare(mir::inst::VarId& dest, mir::inst::Value& lhs,

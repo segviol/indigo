@@ -152,14 +152,14 @@ class irGenerator {
   const LabelId _ReturnVarId = 0;
 
   const string _GlobalInitFuncName = "main";
-  const string _VoidVarName = "$$_Compiler_Void_Var_Name_$$";
-  const string _ReturnVarName = "$$__Compiler_Retuen_Var_Name__$$";
-  const string _StringNamePrefix = "$$0";
-  const string _TmpNamePrefix = "$$1";
-  const string _ConstNamePrefix = "$$2";
-  const string _VarNamePrefix = "$$3";
-  const string _GenSaveParamVarNamePrefix = "$$4";
-  const string _FunctionNamePrefix = "$$5";
+  const string _VoidVarName = "v_Compiler_Void_Var_Name_$$";
+  const string _ReturnVarName = "r__Compiler_Retuen_Var_Name__$$";
+  const string _StringNamePrefix = "s_";
+  const string _TmpNamePrefix = "t_";
+  const string _ConstNamePrefix = "c_";
+  const string _VarNamePrefix = "v_";
+  const string _GenSaveParamVarNamePrefix = "sp_";
+  const string _FunctionNamePrefix = "f_";
 
   LabelId _nowLabelId;
   uint32_t _nowStringId;
