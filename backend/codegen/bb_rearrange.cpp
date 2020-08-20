@@ -120,7 +120,8 @@ std::map<uint32_t, arm::ConditionCode> gen_func_inline_hints(
     if (bb.second.inst.size() > 5) continue;
     if (bb.second.preceding.size() != 1) continue;
     if (bb.second.jump.kind != mir::inst::JumpInstructionKind::Br &&
-        bb.second.jump.kind != mir::inst::JumpInstructionKind::BrCond)
+        bb.second.jump.kind != mir::inst::JumpInstructionKind::BrCond &&
+        bb.second.jump.kind != mir::inst::JumpInstructionKind::Return)
       continue;
     auto prec = *bb.second.preceding.begin();
     auto& bb_prec = f.basic_blks.at(prec);
