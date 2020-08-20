@@ -69,6 +69,17 @@ void display_op(std::ostream& o, Op val) {
   }
 }
 
+void display_op(std::ostream& o, OpAcc val) {
+  switch (val) {
+    case OpAcc::MulAdd:
+      o << "MulAdd";
+      break;
+    case OpAcc::MulShAdd:
+      o << "MulShAdd";
+      break;
+  }
+}
+
 void Variable::display(std::ostream& o) const {
   o << *ty;
   if (is_memory_var) {
@@ -104,6 +115,12 @@ void OpInst::display(std::ostream& o) const {
   o << dest << " = " << lhs << " ";
   display_op(o, op);
   o << " " << rhs;
+}
+
+void OpAccInst::display(std::ostream& o) const {
+  o << dest << " = ";
+  display_op(o, op);
+  o << lhs << ", " << rhs << ", " << acc;
 }
 
 void CallInst::display(std::ostream& o) const {

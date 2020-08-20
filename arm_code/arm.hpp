@@ -256,6 +256,10 @@ enum class OpCode {
   Mul,
   // Signed Most Significant Word Multiply
   SMMul,
+  // Multiply and add
+  Mla,
+  // Signed Most Significant Word Multiply and add
+  SMMla,
   // Signed Divide
   SDiv,
   // And
@@ -348,6 +352,23 @@ struct PureInst final : public Inst {
 
   virtual void display(std::ostream& o) const;
   virtual ~PureInst() {}
+};
+
+/// 4-operand arithmetic instruction
+///
+/// Valid opcode: Mla, SMMla
+struct Arith4Inst final : public Inst {
+  Arith4Inst(OpCode op, Reg rd, Reg r1, Reg r2, Reg r3,
+             ConditionCode cond = ConditionCode::Always)
+      : Inst(op, cond), rd(rd), r1(r1), r2(r2) {}
+
+  Reg rd;
+  Reg r1;
+  Reg r2;
+  Reg r3;
+
+  virtual void display(std::ostream& o) const;
+  virtual ~Arith4Inst() {}
 };
 
 /// 3-operand arithmetic instruction
