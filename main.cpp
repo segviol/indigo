@@ -375,8 +375,7 @@ Options parse_options(int argc, const char** argv) {
 }
 
 std::string file_header =
-    "	.text\
-	.syntax unified\
+    ".syntax unified\
 	.eabi_attribute	67, \"2.09\"	@ Tag_conformance\
 	.cpu	cortex-a7\
 	.eabi_attribute	6, 10	@ Tag_CPU_arch\
