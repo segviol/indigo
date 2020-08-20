@@ -189,6 +189,12 @@ void display_op(OpCode op, std::ostream &o) {
     case OpCode::SMMul:
       o << "smmul";
       break;
+    case OpCode::Mla:
+      o << "mla";
+      break;
+    case OpCode::SMMla:
+      o << "smmla";
+      break;
     case OpCode::SDiv:
       o << "sdiv";
       break;
@@ -511,6 +517,19 @@ void Arith3Inst::display(std::ostream &o) const {
   o << ", ";
   display_reg_name(o, r1);
   o << ", " << r2;
+}
+
+void Arith4Inst::display(std::ostream &o) const {
+  display_op(op, o);
+  display_cond(cond, o);
+  o << " ";
+  display_reg_name(o, rd);
+  o << ", ";
+  display_reg_name(o, r1);
+  o << ", ";
+  display_reg_name(o, r2);
+  o << ", ";
+  display_reg_name(o, r3);
 }
 
 void BrInst::display(std::ostream &o) const {
