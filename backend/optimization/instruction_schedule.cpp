@@ -234,6 +234,43 @@ void InstructionScheduler::scheduleBaseBlock(
   }
 };
 
+void InstructionScheduler::computeEarlietExeTime() 
+{
+  std::map<uint32_t, uint32_t> node2InDegreee;
+  std::list<uint32_t> chooseNodes;
+
+  node2InDegreee.insert(inDegrees.begin(), inDegrees.end());
+
+  for (auto& [node, inDegree] : node2InDegreee)
+  {
+    if (inDegree == 0)
+    {
+      chooseNodes.push_back(node);
+      node2EarliestExeTime[node] = nodes[node]->latency;
+    }
+  }
+
+  for (size_t num = 0; num < nodes.size(); num++)
+  {
+    uint32_t father = chooseNodes.front();
+    for (auto successor = nodes[father]->successors.begin(); successor != nodes[father]->successors.end(); successor++)
+    {
+      uint32_t successorIndex = (*successor)->originIndex;
+      uint32_t nowExeTime = node2EarliestExeTime[father] + (*successor)->latency;
+      if (node2EarliestExeTime.count(successorIndex) == 0 || nowExeTime < node2EarliestExeTime[successorIndex])
+      {
+        node2EarliestExeTime[successorIndex] = nowExeTime; 
+      }
+      if (node2InDegreee[successorIndex] == 1)
+      {
+        chooseNodes.push_back(successorIndex);
+      }
+      node2InDegreee[successorIndex]--;
+    }
+    chooseNodes.erase(chooseNodes.begin());
+  }
+};
+
 bool InstructionScheduler::exePipeConflict(
     const std::shared_ptr<DependencyDAGNode>& cand, ExePipeCode exePipeCode) {
   return (exePipeLatency[exePipeCode] > 0 &&

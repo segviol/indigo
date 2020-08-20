@@ -2,6 +2,7 @@
 
 #include "../backend.hpp"
 #include "algorithm"
+#include "list"
 
 namespace backend::instruction_schedule {
 extern const std::string WrongInstExceptionMsg;
@@ -29,7 +30,13 @@ class DependencyDAGNode {
 
   bool operator<(const DependencyDAGNode& other) const {
     bool r;
-    r = (originIndex < other.originIndex);
+    if (latency > other.latency) {
+      r = true;
+    } else if (latency < other.latency) {
+      r = false;
+    } else {
+      r = (originIndex < other.originIndex);
+    }
     return r;
   }
 
@@ -69,10 +76,13 @@ class InstructionScheduler {
   uint32_t lastCall;
 
   std::map<uint32_t, uint32_t> inDegrees;
+  std::map<uint32_t, uint32_t> node2EarliestExeTime;
   std::map<ExePipeCode, uint32_t> exePipeLatency;
   std::map<ExePipeCode, uint32_t> exePipeNode;
 
   void buildDependencyDAG(std::vector<arm::Inst*>& blockInsts);
+
+  void computeEarlietExeTime();
 
   bool emptyExePipeSchedule(
       std::vector<std::unique_ptr<arm::Inst>>& newInsts,
@@ -80,7 +90,7 @@ class InstructionScheduler {
 
   void updateCands(uint32_t index,
                    std::set<std::shared_ptr<DependencyDAGNode>>& cands);
-  
+
   void setCmpReadNode(uint32_t successor);
   void setCmpWriteNode(uint32_t successor);
 
@@ -99,7 +109,8 @@ class InstructionScheduler {
   void addRegReadDependency(uint32_t successor, arm::MemoryOperand& mem);
   void addRegWriteDependency(uint32_t successor, arm::Reg reg);
 
-  bool exePipeConflict(const std::shared_ptr<DependencyDAGNode>& cand, ExePipeCode exePipeCode);
+  bool exePipeConflict(const std::shared_ptr<DependencyDAGNode>& cand,
+                       ExePipeCode exePipeCode);
 };
 };  // namespace backend::instruction_schedule
 
