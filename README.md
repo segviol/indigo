@@ -26,7 +26,8 @@ cmake .. && make -j8
 Environment:
 
 - Building environment
-- Both GCC *and* Clang (if you need to compare compiler speeds)
+- GCC
+- Clang (if you need to compare compiler speeds)
 - Python >= 3.7
   - Packages: `colorlog`, `tqdm`
 
