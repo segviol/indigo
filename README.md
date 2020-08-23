@@ -1,19 +1,68 @@
-<h1 align="center">段地址不队编译器</h1>
+# Indigo
+
+Indigo is a compiler for a C-like toy language (named "SysY") into ARMv7a assembly, written in C++ 17.
+
+## Building
+
+Environment:
+
+- CMake and Make
+- GCC >= 9.2.0 or Clang > 8.0
+
+Steps:
+
+```sh
+mkdir build && cd build
+cmake .. && make -j8
+./compiler -h    # for help information
+```
+
+## Architecture
 
 
 
-## 一、提交须知
+## Testing
 
--   前端代码提交至frontend文件夹中
--   后端代码提交至backend文件夹中
--   开发功能时先checkout到一个新的分支(姓名_功能,e.g.  zb_init,zb_fix_bugs)，然后推送到远程，在远程使用合并请求的方式合并入develop分支，合并后删除源分支
--   遇到冲突在本地解决
+Environment:
 
+- Building environment
+- Both GCC *and* Clang (if you need to compare compiler speeds)
+- Python >= 3.7
+  - Packages: `colorlog`, `tqdm`
 
+Steps:
 
-## 二、优化方向概述
+```sh
+mkdir -p output
 
-|          | 任务                                   |
-| -------- | -------------------------------------- |
-| 中间代码 | 循环优化、函数内联、SIMD               |
-| 目标代码 | 运算强度削减、指令选择、寄存器池 |
+# Test against official functional tests
+python3 scripts/test.py build/compiler \
+    test_codes/sysyruntimelibrary/libsysy.a test_codes/functional_test -r
+    
+# Test against custom tests
+python3 scripts/test.py build/compiler \
+    test_codes/sysyruntimelibrary/libsysy.a test_codes/upload -r -t 90
+    
+# Test against performance tests
+python3 scripts/test.py build/compiler \
+    test_codes/sysyruntimelibrary/libsysy.a test_codes/performance_test -r -t 120 -z
+    
+# Compare performance with GCC and Clang, assuming all tests are passed
+python3 scripts/speed_compare.py build/compiler \
+    test_codes/sysyruntimelibrary/libsysy.a \
+    test_codes/sysyruntimelibrary/stdlib.c \
+    test_codes/performance_test -r -t 120
+```
+
+## License
+
+Copyright (c) 2020 SEGVIOL Team (Bo Zhao, Qi Teng, Ruichen He, Ziye Li).
+
+This program is licensed under the [GPLv3 license][gplv3].
+
+[gplv3]: https://www.gnu.org/licenses/gpl-3.0.en.html
+
+All files in the `test_codes` folder, except those in `test_codes/upload`, are official test cases written by the NSCSCC 2020 Committee. These files follow the license specified in the [official test code repository][test_code].
+
+[test_code]: https://gitlab.eduxiji.net/windcome/sysyruntimelibrary
+
